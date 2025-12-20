@@ -139,7 +139,9 @@ export async function joinBranchAsMember({ branchCode, fullName, phone, gender, 
 
   const churchId = branchData.church_id;
   const branchId = branchData.id;
-  const church = branchData.churches as { slug: string };
+  const church = branchData.churches as { slug: string } | null;
+
+  if (!church) throw new Error("Church data not found for this branch.");
 
   // 2. Generate member code and QR token
   const memberCode = generateMemberCode(church.slug);
