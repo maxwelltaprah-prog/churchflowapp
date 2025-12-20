@@ -64,6 +64,45 @@ export default function MemberPortal() {
     fetchMemberData();
   }, []);
 
+  // Real-time subscription for attendance updates
+  useEffect(() => {
+    if (!member?.id) return;
+
+    const channel = supabase
+      .channel('member-attendance')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance',
+          filter: `member_id=eq.${member.id}`
+        },
+        async (payload) => {
+          console.log('New attendance detected:', payload);
+          // Fetch the full attendance record with service details
+          const { data: newRecord } = await supabase
+            .from("attendance")
+            .select("id, checked_in_at, services(name, service_date, start_time, branches(name))")
+            .eq("id", payload.new.id)
+            .single();
+
+          if (newRecord) {
+            setAttendanceHistory(prev => [newRecord as AttendanceRecord, ...prev]);
+            // Recalculate stats with the new record
+            const updatedHistory = [newRecord as AttendanceRecord, ...attendanceHistory];
+            const newStats = calculateStreakStats(updatedHistory);
+            setStats(newStats);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [member?.id, attendanceHistory]);
+
   const fetchMemberData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
