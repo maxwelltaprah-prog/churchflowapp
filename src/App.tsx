@@ -11,6 +11,9 @@ import ChurchSignup from "./pages/ChurchSignup";
 import SetupChurch from "./pages/SetupChurch";
 import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
+import MemberLogin from "./pages/MemberLogin";
+import MemberSignup from "./pages/MemberSignup";
+import MemberPortal from "./pages/MemberPortal";
 
 // Dashboard imports
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
@@ -39,6 +42,13 @@ const App = () => (
             <Route path="/signup/church" element={<ChurchSignup />} />
             <Route path="/join" element={<JoinBranch />} />
             <Route path="/setup-church" element={<SetupChurch />} />
+            
+            {/* Member Routes */}
+            <Route path="/member/login" element={<MemberLogin />} />
+            <Route path="/member/signup" element={<MemberSignup />} />
+            <Route path="/member" element={<MemberPortal />} />
+
+            {/* Admin Dashboard Routes */}
             <Route path="/app" element={
               <ProtectedRoute>
                 <DashboardLayout />
