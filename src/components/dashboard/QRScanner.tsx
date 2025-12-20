@@ -12,15 +12,26 @@ interface QRScannerProps {
 export function QRScanner({ onScan, isActive, onStop }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep callbacks stable to avoid stop/start loops on each re-render
+  const onScanRef = useRef(onScan);
+  const onStopRef = useRef(onStop);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+  useEffect(() => {
+    onStopRef.current = onStop;
+  }, [onStop]);
+
   const lastScannedRef = useRef<string>("");
   const lastScanTimeRef = useRef<number>(0);
   const isStartingRef = useRef(false);
 
   const startScanner = useCallback(async () => {
     if (isStartingRef.current || scannerRef.current) return;
-    
+
     isStartingRef.current = true;
-    
+
     try {
       setError(null);
       const html5QrCode = new Html5Qrcode("qr-reader");
@@ -29,57 +40,59 @@ export function QRScanner({ onScan, isActive, onStop }: QRScannerProps) {
       await html5QrCode.start(
         { facingMode: "environment" },
         {
-          fps: 15,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1,
+          fps: 12,
+          qrbox: { width: 260, height: 260 },
         },
         (decodedText) => {
           const now = Date.now();
-          // Debounce: prevent scanning same code within 3 seconds
+          // Debounce duplicates (same QR being read repeatedly)
           if (
             decodedText === lastScannedRef.current &&
-            now - lastScanTimeRef.current < 3000
+            now - lastScanTimeRef.current < 2500
           ) {
             return;
           }
-          
           lastScannedRef.current = decodedText;
           lastScanTimeRef.current = now;
-          onScan(decodedText);
+          onScanRef.current(decodedText);
         },
-        () => {} // Ignore scan errors
+        () => {}
       );
     } catch (err: any) {
-      setError(err.message || "Failed to start camera");
-      onStop();
+      setError(err?.message || "Failed to start camera");
+      onStopRef.current();
     } finally {
       isStartingRef.current = false;
     }
-  }, [onScan, onStop]);
+  }, []);
 
   const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        const state = scannerRef.current.getState();
-        if (state === 2) { // SCANNING state
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (err) {
-        // Ignore cleanup errors
-      }
-      scannerRef.current = null;
+    if (!scannerRef.current) return;
+
+    try {
+      await scannerRef.current.stop();
+    } catch {
+      // ignore
     }
+
+    try {
+      scannerRef.current.clear();
+    } catch {
+      // ignore
+    }
+
+    scannerRef.current = null;
     lastScannedRef.current = "";
     lastScanTimeRef.current = 0;
   }, []);
 
   useEffect(() => {
-    if (isActive) {
-      startScanner();
-    } else {
+    if (!isActive) {
       stopScanner();
+      return;
     }
+
+    startScanner();
 
     return () => {
       stopScanner();
@@ -100,15 +113,15 @@ export function QRScanner({ onScan, isActive, onStop }: QRScannerProps) {
 
   return (
     <div className="space-y-4">
-      <div 
-        id="qr-reader" 
+      <div
+        id="qr-reader"
         className="w-full max-w-md mx-auto rounded-lg overflow-hidden bg-black"
-        style={{ minHeight: "300px" }}
+        style={{ minHeight: "320px" }}
       />
       {isActive && (
         <div className="text-center">
           <p className="text-sm text-muted-foreground mb-2">
-            Point camera at member QR codes • Scanning continuously
+            Scanning continuously — keep scanning more QR codes
           </p>
           <Button variant="outline" onClick={onStop}>
             Stop Scanning

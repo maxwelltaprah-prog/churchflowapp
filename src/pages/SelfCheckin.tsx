@@ -40,19 +40,23 @@ export default function SelfCheckin() {
     }
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("services")
-        .select("*, churches(name), branches(name)")
-        .eq("id", serviceId)
-        .eq("is_active", true)
-        .single();
+      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", {
+        body: { action: "get_service", serviceId },
+      });
 
-      if (fetchError || !data) {
+      if (fnError) {
+        console.error("get_service error", fnError);
         setError("Service not found or no longer active");
         return;
       }
 
-      setService(data);
+      const serviceData = (data as any)?.service as ServiceData | undefined;
+      if (!serviceData) {
+        setError("Service not found or no longer active");
+        return;
+      }
+
+      setService(serviceData);
     } catch (err) {
       setError("Failed to load service");
     } finally {
@@ -61,87 +65,43 @@ export default function SelfCheckin() {
   };
 
   const handleCheckin = async () => {
-    if (!memberCode.trim() || !service) return;
+    if (!memberCode.trim() || !serviceId) return;
 
     setChecking(true);
     setResult(null);
 
     try {
-      // Find member by code or QR token
-      const code = memberCode.trim();
-      
-      // Try to find by member_code first
-      let { data: member } = await supabase
-        .from("members")
-        .select("id, full_name, branch_id, approval_status, is_active")
-        .eq("church_id", service.church_id)
-        .eq("member_code", code.toUpperCase())
-        .single();
+      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", {
+        body: {
+          action: "checkin",
+          serviceId,
+          memberCode: memberCode.trim(),
+        },
+      });
 
-      // If not found, try qr_code_token
-      if (!member) {
-        const { data: memberByToken } = await supabase
-          .from("members")
-          .select("id, full_name, branch_id, approval_status, is_active")
-          .eq("church_id", service.church_id)
-          .eq("qr_code_token", code.toLowerCase())
-          .single();
-        member = memberByToken;
-      }
-
-      if (!member) {
-        setResult({ success: false, message: "Member not found. Please check your code." });
+      if (fnError) {
+        console.error("checkin error", fnError);
+        setResult({ success: false, message: "Failed to check in. Please try again." });
         return;
       }
 
-      if (!member.is_active) {
-        setResult({ success: false, message: "Your membership is inactive. Please contact church staff." });
+      const status = (data as any)?.status as string | undefined;
+      const name = (data as any)?.name as string | undefined;
+
+      if (status === "checked_in") {
+        setResult({ success: true, message: "Check-in successful!", name });
+        setMemberCode("");
+        toast.success("Checked in successfully!");
         return;
       }
 
-      if (member.approval_status !== "approved") {
-        setResult({ success: false, message: "Your membership is pending approval. Please contact church staff." });
+      if (status === "already_checked_in") {
+        setResult({ success: true, message: "You're already checked in!", name });
         return;
       }
 
-      // Check if already checked in
-      const { data: existing } = await supabase
-        .from("attendance")
-        .select("id")
-        .eq("service_id", service.id)
-        .eq("member_id", member.id)
-        .single();
-
-      if (existing) {
-        setResult({ success: true, message: "You're already checked in!", name: member.full_name });
-        return;
-      }
-
-      // Record attendance
-      const isCrossBranch = member.branch_id !== service.branch_id;
-      
-      const { error: insertError } = await supabase
-        .from("attendance")
-        .insert({
-          church_id: service.church_id,
-          branch_id: service.branch_id,
-          service_id: service.id,
-          member_id: member.id,
-          checkin_method: "self_scan",
-          is_cross_branch: isCrossBranch,
-          member_home_branch_id: isCrossBranch ? member.branch_id : null,
-        });
-
-      if (insertError) {
-        console.error("Check-in error:", insertError);
-        setResult({ success: false, message: "Failed to check in. Please try again or contact staff." });
-        return;
-      }
-
-      setResult({ success: true, message: "Check-in successful!", name: member.full_name });
-      setMemberCode("");
-      toast.success("Checked in successfully!");
-
+      const errMsg = (data as any)?.error as string | undefined;
+      setResult({ success: false, message: errMsg || "Unable to check in." });
     } catch (err) {
       console.error("Check-in error:", err);
       setResult({ success: false, message: "An error occurred. Please try again." });
