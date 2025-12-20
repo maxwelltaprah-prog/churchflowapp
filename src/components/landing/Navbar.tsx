@@ -30,9 +30,14 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/login">
+            <Link to="/member/login">
               <Button variant="ghost" size="default">
-                Log In
+                Member Login
+              </Button>
+            </Link>
+            <Link to="/login">
+              <Button variant="outline" size="default">
+                Admin Login
               </Button>
             </Link>
             <Link to="/signup/church">
@@ -70,9 +75,14 @@ export function Navbar() {
                 Features
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
+                <Link to="/member/login" onClick={() => setIsOpen(false)}>
+                  <Button variant="ghost" className="w-full">
+                    Member Login
+                  </Button>
+                </Link>
                 <Link to="/login" onClick={() => setIsOpen(false)}>
                   <Button variant="outline" className="w-full">
-                    Log In
+                    Admin Login
                   </Button>
                 </Link>
                 <Link to="/signup/church" onClick={() => setIsOpen(false)}>

@@ -144,11 +144,21 @@ export default function JoinBranch() {
                 </p>
               </div>
 
-              <Link to="/">
-                <Button variant="hero" size="lg" className="w-full">
-                  Back to Home
-                </Button>
-              </Link>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Once approved, create an account to access your member portal
+                </p>
+                <Link to="/member/signup">
+                  <Button variant="hero" size="lg" className="w-full">
+                    Create Account
+                  </Button>
+                </Link>
+                <Link to="/">
+                  <Button variant="ghost" size="lg" className="w-full">
+                    Back to Home
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
