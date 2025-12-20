@@ -13,7 +13,8 @@ import {
   UserCheck,
   Clock,
   CheckCircle2,
-  XCircle
+  XCircle,
+  KeyRound
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ import { useDeactivateMember, useApproveMember, useRejectMember } from "@/hooks/
 import { AddMemberDialog } from "@/components/dashboard/AddMemberDialog";
 import { MemberQRDialog } from "@/components/dashboard/MemberQRDialog";
 import { EditMemberDialog } from "@/components/dashboard/EditMemberDialog";
+import { ResetPinDialog } from "@/components/dashboard/ResetPinDialog";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
@@ -89,6 +91,7 @@ type MemberType = {
   member_code: string;
   qr_code_token: string;
   branches?: { name: string } | null;
+  user_id?: string | null;
 };
 
 export default function MembersPage() {
@@ -100,6 +103,7 @@ export default function MembersPage() {
   const [qrMember, setQrMember] = useState<MemberType | null>(null);
   const [editMember, setEditMember] = useState<MemberType | null>(null);
   const [deactivateMember, setDeactivateMember] = useState<MemberType | null>(null);
+  const [resetPinMember, setResetPinMember] = useState<MemberType | null>(null);
 
   const { data: branches } = useBranches();
   const { data: members, isLoading } = useMembers(
@@ -361,6 +365,12 @@ export default function MembersPage() {
                             <Edit className="w-4 h-4 mr-2" />
                             Edit Member
                           </DropdownMenuItem>
+                          {member.approval_status === "approved" && (
+                            <DropdownMenuItem onClick={() => setResetPinMember(member as MemberType)}>
+                              <KeyRound className="w-4 h-4 mr-2" />
+                              Reset PIN
+                            </DropdownMenuItem>
+                          )}
                           {member.approval_status === "pending" && (
                             <>
                               <DropdownMenuItem onClick={() => handleApprove(member as MemberType)}>
@@ -421,6 +431,7 @@ export default function MembersPage() {
       <AddMemberDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
       <MemberQRDialog open={!!qrMember} onOpenChange={(open) => !open && setQrMember(null)} member={qrMember} />
       <EditMemberDialog open={!!editMember} onOpenChange={(open) => !open && setEditMember(null)} member={editMember} />
+      <ResetPinDialog open={!!resetPinMember} onOpenChange={(open) => !open && setResetPinMember(null)} member={resetPinMember} />
       
       {/* Deactivate Confirmation */}
       <AlertDialog open={!!deactivateMember} onOpenChange={(open) => !open && setDeactivateMember(null)}>

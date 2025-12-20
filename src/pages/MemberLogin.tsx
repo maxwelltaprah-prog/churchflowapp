@@ -191,8 +191,12 @@ export default function MemberLogin() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-muted-foreground">
+            <div className="mt-6 pt-6 border-t border-border space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Forgot your PIN?{" "}
+                <span className="text-foreground">Contact your church administrator to reset it.</span>
+              </p>
+              <p className="text-muted-foreground text-center">
                 Don't have an account?{" "}
                 <Link to="/join" className="text-primary font-medium hover:underline">
                   Join a Branch
