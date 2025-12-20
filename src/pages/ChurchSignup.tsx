@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Church, Mail, Lock, User, Building2, ArrowLeft, Eye, EyeOff, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createChurchWithAdmin } from "@/lib/church-service";
 
 export default function ChurchSignup() {
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     churchName: "",
     adminName: "",
@@ -18,6 +18,7 @@ export default function ChurchSignup() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -35,15 +36,42 @@ export default function ChurchSignup() {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     
-    setTimeout(() => {
-      toast({
-        title: "Coming Soon",
-        description: "Church registration will be available once the backend is connected.",
+    try {
+      await createChurchWithAdmin({
+        churchName: formData.churchName,
+        adminName: formData.adminName,
+        email: formData.email,
+        password: formData.password
       });
+
+      toast({
+        title: "Church created successfully!",
+        description: "Welcome to ChurchFlow. Redirecting to your dashboard...",
+      });
+
+      // Navigate to dashboard
+      setTimeout(() => navigate("/app"), 1500);
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      toast({
+        title: "Registration failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const features = [
@@ -198,7 +226,7 @@ export default function ChurchSignup() {
                       onChange={handleChange}
                       className="pl-10 pr-10 h-12"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                     <button
                       type="button"
@@ -223,7 +251,7 @@ export default function ChurchSignup() {
                       onChange={handleChange}
                       className="pl-10 h-12"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                   </div>
                 </div>

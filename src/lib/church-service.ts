@@ -1,0 +1,204 @@
+import { supabase } from "@/integrations/supabase/client";
+
+// Generate a URL-friendly slug from a name
+export function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// Generate a random code for branch join codes
+export function generateJoinCode(churchSlug: string, branchName: string): string {
+  const branchPrefix = branchName
+    .replace(/[^a-zA-Z]/g, "")
+    .substring(0, 3)
+    .toUpperCase();
+  const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `${churchSlug.toUpperCase().substring(0, 3)}-${branchPrefix}-${randomNum}`;
+}
+
+// Generate a member code
+export function generateMemberCode(churchSlug: string): string {
+  const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, "0");
+  return `${churchSlug.toUpperCase().substring(0, 3)}-${randomNum}`;
+}
+
+// Generate a QR token (UUID-like)
+export function generateQRToken(): string {
+  return crypto.randomUUID();
+}
+
+interface CreateChurchParams {
+  churchName: string;
+  adminName: string;
+  email: string;
+  password: string;
+}
+
+export async function createChurchWithAdmin({ churchName, adminName, email, password }: CreateChurchParams) {
+  const slug = generateSlug(churchName);
+  
+  // 1. Sign up the user
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/app`,
+      data: { full_name: adminName }
+    }
+  });
+
+  if (signUpError) throw signUpError;
+  if (!authData.user) throw new Error("Failed to create user");
+
+  const userId = authData.user.id;
+
+  // 2. Create the church
+  const { data: churchData, error: churchError } = await supabase
+    .from("churches")
+    .insert({
+      name: churchName,
+      slug: slug
+    })
+    .select()
+    .single();
+
+  if (churchError) throw churchError;
+
+  const churchId = churchData.id;
+
+  // 3. Create the main branch
+  const joinCode = generateJoinCode(slug, "Main");
+  const { data: branchData, error: branchError } = await supabase
+    .from("branches")
+    .insert({
+      church_id: churchId,
+      name: "Main Branch",
+      is_main_branch: true,
+      join_code: joinCode
+    })
+    .select()
+    .single();
+
+  if (branchError) throw branchError;
+
+  // 4. Update the user's profile with church info
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      church_id: churchId,
+      branch_id: branchData.id,
+      full_name: adminName
+    })
+    .eq("id", userId);
+
+  if (profileError) throw profileError;
+
+  // 5. Assign church_admin role
+  const { error: roleError } = await supabase
+    .from("user_roles")
+    .insert({
+      user_id: userId,
+      church_id: churchId,
+      role: "church_admin"
+    });
+
+  if (roleError) throw roleError;
+
+  return { church: churchData, branch: branchData, user: authData.user };
+}
+
+interface JoinBranchParams {
+  branchCode: string;
+  fullName: string;
+  phone: string;
+  gender?: "male" | "female";
+  membershipStatus?: "member" | "visitor" | "new_convert";
+}
+
+export async function joinBranchAsMember({ branchCode, fullName, phone, gender, membershipStatus }: JoinBranchParams) {
+  // 1. Find the branch by join code
+  const { data: branchData, error: branchError } = await supabase
+    .from("branches")
+    .select("*, churches(*)")
+    .eq("join_code", branchCode.toUpperCase())
+    .maybeSingle();
+
+  if (branchError) throw branchError;
+  if (!branchData) throw new Error("Branch not found. Please check the code and try again.");
+
+  const churchId = branchData.church_id;
+  const branchId = branchData.id;
+  const church = branchData.churches as { slug: string };
+
+  // 2. Generate member code and QR token
+  const memberCode = generateMemberCode(church.slug);
+  const qrToken = generateQRToken();
+
+  // 3. Create the member record
+  const { data: memberData, error: memberError } = await supabase
+    .from("members")
+    .insert({
+      church_id: churchId,
+      branch_id: branchId,
+      full_name: fullName,
+      phone: phone,
+      gender: gender,
+      membership_status: membershipStatus || "visitor",
+      member_code: memberCode,
+      qr_code_token: qrToken
+    })
+    .select()
+    .single();
+
+  if (memberError) throw memberError;
+
+  return { member: memberData, branch: branchData };
+}
+
+interface RecordAttendanceParams {
+  serviceId: string;
+  memberId: string;
+  churchId: string;
+  branchId: string;
+  checkedInBy?: string;
+  checkinMethod?: "staff_scan" | "self_scan";
+  memberHomeBranchId?: string;
+}
+
+export async function recordAttendance({ 
+  serviceId, 
+  memberId, 
+  churchId, 
+  branchId, 
+  checkedInBy,
+  checkinMethod = "staff_scan",
+  memberHomeBranchId
+}: RecordAttendanceParams) {
+  const isCrossBranch = memberHomeBranchId && memberHomeBranchId !== branchId;
+
+  const { data, error } = await supabase
+    .from("attendance")
+    .insert({
+      church_id: churchId,
+      branch_id: branchId,
+      service_id: serviceId,
+      member_id: memberId,
+      checked_in_by: checkedInBy,
+      checkin_method: checkinMethod,
+      is_cross_branch: isCrossBranch,
+      member_home_branch_id: isCrossBranch ? memberHomeBranchId : null
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("Member already checked in for this service");
+    }
+    throw error;
+  }
+
+  return data;
+}
