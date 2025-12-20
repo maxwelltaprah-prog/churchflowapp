@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useChurch } from "@/hooks/useChurchData";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard },
@@ -54,6 +56,8 @@ export function DashboardSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile, signOut, isChurchAdmin } = useAuth();
+  const { data: church } = useChurch();
 
   const isActive = (path: string) => {
     if (path === "/app") {
@@ -62,14 +66,23 @@ export function DashboardSidebar() {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    // TODO: Implement logout
+  const handleLogout = async () => {
+    await signOut();
     navigate("/login");
+  };
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return "U";
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const getRoleLabel = () => {
+    if (isChurchAdmin()) return "Church Admin";
+    return "Staff";
   };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      {/* Header */}
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-primary flex items-center justify-center shadow-soft flex-shrink-0">
@@ -78,13 +91,14 @@ export function DashboardSidebar() {
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-sidebar-foreground truncate">ChurchFlow</span>
-              <span className="text-xs text-sidebar-foreground/60 truncate">Grace Community</span>
+              <span className="text-xs text-sidebar-foreground/60 truncate">
+                {church?.name || "Loading..."}
+              </span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      {/* Main Navigation */}
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
@@ -94,11 +108,7 @@ export function DashboardSidebar() {
             <SidebarMenu>
               {mainNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       end={item.url === "/app"}
@@ -127,11 +137,7 @@ export function DashboardSidebar() {
             <SidebarMenu>
               {settingsNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={cn(
@@ -152,21 +158,22 @@ export function DashboardSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer with user menu */}
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors">
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-accent text-accent-foreground text-sm font-medium">
-                  JD
+                  {getInitials(profile?.full_name)}
                 </AvatarFallback>
               </Avatar>
               {!collapsed && (
                 <>
                   <div className="flex-1 text-left min-w-0">
-                    <div className="text-sm font-medium text-sidebar-foreground truncate">John Doe</div>
-                    <div className="text-xs text-sidebar-foreground/60 truncate">Church Admin</div>
+                    <div className="text-sm font-medium text-sidebar-foreground truncate">
+                      {profile?.full_name || "User"}
+                    </div>
+                    <div className="text-xs text-sidebar-foreground/60 truncate">{getRoleLabel()}</div>
                   </div>
                   <ChevronDown className="w-4 h-4 text-sidebar-foreground/50" />
                 </>

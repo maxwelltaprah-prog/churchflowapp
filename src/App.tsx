@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ChurchSignup from "./pages/ChurchSignup";
@@ -22,34 +24,40 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup/church" element={<ChurchSignup />} />
-          <Route path="/join" element={<JoinBranch />} />
+    <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup/church" element={<ChurchSignup />} />
+            <Route path="/join" element={<JoinBranch />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/app" element={<DashboardLayout />}>
-            <Route index element={<DashboardOverview />} />
-            <Route path="members" element={<MembersPage />} />
-            <Route path="branches" element={<BranchesPage />} />
-            <Route path="services" element={<ServicesPage />} />
-            <Route path="checkin" element={<CheckinPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="broadcasts" element={<BroadcastsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
+            {/* Dashboard Routes (Protected) */}
+            <Route path="/app" element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<DashboardOverview />} />
+              <Route path="members" element={<MembersPage />} />
+              <Route path="branches" element={<BranchesPage />} />
+              <Route path="services" element={<ServicesPage />} />
+              <Route path="checkin" element={<CheckinPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="broadcasts" element={<BroadcastsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

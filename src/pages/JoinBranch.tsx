@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,9 @@ import {
   QrCode, 
   User, 
   Phone, 
-  Users,
   ChevronRight,
-  Building2
+  Building2,
+  CheckCircle2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,10 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { joinBranchAsMember } from "@/lib/church-service";
 
 export default function JoinBranch() {
-  const [step, setStep] = useState<"code" | "form">("code");
-  const [branchCode, setBranchCode] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialCode = searchParams.get("code") || "";
+  
+  const [step, setStep] = useState<"code" | "form" | "success">(initialCode ? "form" : "code");
+  const [branchCode, setBranchCode] = useState(initialCode);
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -32,6 +36,7 @@ export default function JoinBranch() {
     membershipStatus: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [memberResult, setMemberResult] = useState<{ memberCode: string; branchName: string } | null>(null);
   const { toast } = useToast();
 
   const handleCodeSubmit = (e: React.FormEvent) => {
@@ -51,18 +56,92 @@ export default function JoinBranch() {
     e.preventDefault();
     setIsLoading(true);
     
-    setTimeout(() => {
-      toast({
-        title: "Coming Soon",
-        description: "Member registration will be available once the backend is connected.",
+    try {
+      const result = await joinBranchAsMember({
+        branchCode,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        gender: formData.gender as "male" | "female" | undefined,
+        membershipStatus: formData.membershipStatus as "member" | "visitor" | "new_convert" | undefined
       });
+
+      setMemberResult({
+        memberCode: result.member.member_code,
+        branchName: result.branch.name
+      });
+      setStep("success");
+
+      toast({
+        title: "Registration successful!",
+        description: "Your member profile has been created.",
+      });
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast({
+        title: "Registration failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  if (step === "success" && memberResult) {
+    return (
+      <div className="min-h-screen bg-gradient-hero flex flex-col">
+        <div className="container pt-6">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to home</span>
+          </Link>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md text-center">
+            <div className="bg-card rounded-2xl shadow-elevated border border-border p-8">
+              <div className="w-20 h-20 mx-auto mb-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-green-600" />
+              </div>
+              
+              <h1 className="text-2xl font-bold text-foreground mb-2">Welcome to ChurchFlow!</h1>
+              <p className="text-muted-foreground mb-6">
+                You've successfully joined {memberResult.branchName}
+              </p>
+
+              <div className="bg-secondary/50 rounded-xl p-6 mb-6">
+                <p className="text-sm text-muted-foreground mb-2">Your Member Code</p>
+                <p className="text-2xl font-mono font-bold text-primary">{memberResult.memberCode}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Save this code - you'll need it for check-in
+                </p>
+              </div>
+
+              <div className="bg-primary/5 rounded-xl p-6 mb-6">
+                <QrCode className="w-24 h-24 mx-auto text-primary/30 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  Your personal QR code will be available after admin approval
+                </p>
+              </div>
+
+              <Link to="/login">
+                <Button variant="hero" size="lg" className="w-full">
+                  Continue to Login
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col">
@@ -118,7 +197,7 @@ export default function JoinBranch() {
                   <Input
                     id="branchCode"
                     type="text"
-                    placeholder="e.g., GCC-TAK-001"
+                    placeholder="e.g., GCC-MAI-001"
                     value={branchCode}
                     onChange={(e) => setBranchCode(e.target.value.toUpperCase())}
                     className="h-14 text-center text-lg font-mono tracking-wider"
@@ -150,8 +229,8 @@ export default function JoinBranch() {
                 <div className="bg-secondary/50 rounded-lg p-3 mb-4">
                   <div className="flex items-center gap-2 text-sm">
                     <Building2 className="w-4 h-4 text-primary" />
-                    <span className="font-medium">Joining:</span>
-                    <span className="text-muted-foreground">Grace Community - Takoradi Branch</span>
+                    <span className="font-medium">Branch Code:</span>
+                    <span className="text-muted-foreground font-mono">{branchCode}</span>
                   </div>
                 </div>
 
@@ -255,18 +334,6 @@ export default function JoinBranch() {
               </p>
             </div>
           </div>
-
-          {/* QR Code preview after registration (future) */}
-          {step === "form" && (
-            <div className="mt-8 text-center">
-              <div className="bg-card rounded-xl border border-border p-6 inline-block">
-                <QrCode className="w-24 h-24 mx-auto text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground mt-3">
-                  Your personal QR code will appear here after registration
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
