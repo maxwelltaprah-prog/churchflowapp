@@ -85,12 +85,13 @@ export default function MemberPortal() {
             .eq("id", payload.new.id)
             .single();
 
-          if (newRecord) {
-            setAttendanceHistory(prev => [newRecord as AttendanceRecord, ...prev]);
-            // Recalculate stats with the new record
-            const updatedHistory = [newRecord as AttendanceRecord, ...attendanceHistory];
-            const newStats = calculateStreakStats(updatedHistory);
-            setStats(newStats);
+          if (newRecord && newRecord.services) {
+            setAttendanceHistory(prev => {
+              const updated = [newRecord as AttendanceRecord, ...prev];
+              const newStats = calculateStreakStats(updated);
+              setStats(newStats);
+              return updated;
+            });
           }
         }
       )
@@ -124,12 +125,24 @@ export default function MemberPortal() {
 
       setMember(memberData as MemberData);
 
-      // Fetch attendance stats and history
-      const { data: attendanceData } = await supabase
+      // Fetch attendance stats and history with service details
+      const { data: attendanceData, error: attendanceError } = await supabase
         .from("attendance")
-        .select("id, checked_in_at, services(name, service_date, start_time, branches(name))")
+        .select(`
+          id, 
+          checked_in_at, 
+          service_id,
+          services!inner(
+            name, 
+            service_date, 
+            start_time, 
+            branches(name)
+          )
+        `)
         .eq("member_id", memberData.id)
         .order("checked_in_at", { ascending: false });
+      
+      console.log("Attendance data:", attendanceData, "Error:", attendanceError);
 
       if (attendanceData) {
         const stats = calculateStreakStats(attendanceData);
