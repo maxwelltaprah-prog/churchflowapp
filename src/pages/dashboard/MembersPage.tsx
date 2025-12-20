@@ -7,7 +7,9 @@ import {
   Phone,
   QrCode,
   Download,
-  Loader2
+  Loader2,
+  Edit,
+  UserX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -36,7 +48,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMembers, useBranches } from "@/hooks/useChurchData";
+import { useDeactivateMember } from "@/hooks/useChurchMutations";
 import { AddMemberDialog } from "@/components/dashboard/AddMemberDialog";
+import { MemberQRDialog } from "@/components/dashboard/MemberQRDialog";
+import { EditMemberDialog } from "@/components/dashboard/EditMemberDialog";
+import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   member: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
@@ -50,21 +66,75 @@ const statusLabels: Record<string, string> = {
   new_convert: "New Convert",
 };
 
+type MemberType = {
+  id: string;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  gender?: "male" | "female" | null;
+  membership_status?: "member" | "visitor" | "new_convert" | null;
+  branch_id: string;
+  member_code: string;
+  qr_code_token: string;
+  branches?: { name: string } | null;
+};
+
 export default function MembersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [qrMember, setQrMember] = useState<MemberType | null>(null);
+  const [editMember, setEditMember] = useState<MemberType | null>(null);
+  const [deactivateMember, setDeactivateMember] = useState<MemberType | null>(null);
 
   const { data: branches } = useBranches();
   const { data: members, isLoading } = useMembers(branchFilter !== "all" ? branchFilter : undefined);
+  const deactivateMutation = useDeactivateMember();
 
   const filteredMembers = (members || []).filter((member) => {
     const matchesSearch = member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (member.email?.toLowerCase().includes(searchQuery.toLowerCase()));
+                         (member.email?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (member.member_code?.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === "all" || member.membership_status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const exportToCSV = () => {
+    if (!filteredMembers.length) {
+      toast.error("No members to export");
+      return;
+    }
+
+    const headers = ["Name", "Email", "Phone", "Gender", "Status", "Branch", "Member Code"];
+    const rows = filteredMembers.map((m) => [
+      m.full_name,
+      m.email || "",
+      m.phone || "",
+      m.gender || "",
+      statusLabels[m.membership_status || "visitor"],
+      (m.branches as any)?.name || "",
+      m.member_code,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `members-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    toast.success("Members exported successfully");
+  };
+
+  const handleDeactivate = async () => {
+    if (!deactivateMember) return;
+    await deactivateMutation.mutateAsync(deactivateMember.id);
+    setDeactivateMember(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -77,7 +147,7 @@ export default function MembersPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -93,7 +163,7 @@ export default function MembersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search members..."
+            placeholder="Search members by name, email, or code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -168,7 +238,7 @@ export default function MembersPage() {
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <span className="text-sm">{(member.branches as { name: string } | null)?.name || "—"}</span>
+                    <span className="text-sm">{(member.branches as any)?.name || "—"}</span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <Badge variant="secondary" className={statusColors[member.membership_status || "visitor"]}>
@@ -189,21 +259,32 @@ export default function MembersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setQrMember(member as MemberType)}>
                           <QrCode className="w-4 h-4 mr-2" />
                           View QR Code
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Send Message
+                        <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Member
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Phone className="w-4 h-4 mr-2" />
-                          Call
-                        </DropdownMenuItem>
+                        {member.email && (
+                          <DropdownMenuItem onClick={() => window.location.href = `mailto:${member.email}`}>
+                            <Mail className="w-4 h-4 mr-2" />
+                            Send Email
+                          </DropdownMenuItem>
+                        )}
+                        {member.phone && (
+                          <DropdownMenuItem onClick={() => window.location.href = `tel:${member.phone}`}>
+                            <Phone className="w-4 h-4 mr-2" />
+                            Call
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>Edit Member</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => setDeactivateMember(member as MemberType)}
+                        >
+                          <UserX className="w-4 h-4 mr-2" />
                           Deactivate
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -216,14 +297,39 @@ export default function MembersPage() {
         )}
       </div>
 
-      {/* Pagination placeholder */}
+      {/* Pagination info */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredMembers.length} members
+          Showing {filteredMembers.length} of {members?.length || 0} members
         </p>
       </div>
 
+      {/* Dialogs */}
       <AddMemberDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <MemberQRDialog open={!!qrMember} onOpenChange={(open) => !open && setQrMember(null)} member={qrMember} />
+      <EditMemberDialog open={!!editMember} onOpenChange={(open) => !open && setEditMember(null)} member={editMember} />
+      
+      {/* Deactivate Confirmation */}
+      <AlertDialog open={!!deactivateMember} onOpenChange={(open) => !open && setDeactivateMember(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate {deactivateMember?.full_name}? 
+              They will no longer appear in member lists or be able to check in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeactivate}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -315,3 +315,25 @@ export function useMemberByQRToken(qrToken: string | null) {
     enabled: !!qrToken && !!profile?.church_id
   });
 }
+
+// Fetch broadcasts
+export function useBroadcasts() {
+  const { profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ["broadcasts", profile?.church_id],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+      
+      const { data, error } = await supabase
+        .from("broadcasts")
+        .select("*, branches(name)")
+        .eq("church_id", profile.church_id)
+        .order("sent_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.church_id
+  });
+}

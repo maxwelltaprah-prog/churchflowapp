@@ -239,3 +239,167 @@ export function useFindMember() {
     },
   });
 }
+
+// Update a member
+export function useUpdateMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      full_name?: string;
+      phone?: string;
+      email?: string;
+      gender?: "male" | "female";
+      membership_status?: "member" | "visitor" | "new_convert";
+      branch_id?: string;
+    }) => {
+      const { id, ...updateData } = data;
+      const { data: member, error } = await supabase
+        .from("members")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return member;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Member updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Deactivate a member
+export function useDeactivateMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from("members")
+        .update({ is_active: false })
+        .eq("id", memberId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Member deactivated");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Create a broadcast
+export function useCreateBroadcast() {
+  const queryClient = useQueryClient();
+  const { profile, user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      message: string;
+      branch_id?: string;
+      target_scope?: string;
+    }) => {
+      if (!profile?.church_id || !user?.id) throw new Error("No church context");
+
+      const { data: broadcast, error } = await supabase
+        .from("broadcasts")
+        .insert({
+          church_id: profile.church_id,
+          sent_by: user.id,
+          title: data.title,
+          message: data.message,
+          branch_id: data.branch_id,
+          target_scope: data.target_scope || "all",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return broadcast;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
+      toast.success("Broadcast sent successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Update church settings
+export function useUpdateChurchSettings() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name?: string;
+      settings?: {
+        allow_self_registration?: boolean;
+        require_approval?: boolean;
+        allow_cross_branch_checkin?: boolean;
+      };
+    }) => {
+      if (!profile?.church_id) throw new Error("No church context");
+
+      const { data: church, error } = await supabase
+        .from("churches")
+        .update(data)
+        .eq("id", profile.church_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return church;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["church"] });
+      toast.success("Settings saved successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Update user profile
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { full_name?: string }) => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error("Not authenticated");
+
+      const { data: profileData, error } = await supabase
+        .from("profiles")
+        .update(data)
+        .eq("id", user.user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return profileData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Profile updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
