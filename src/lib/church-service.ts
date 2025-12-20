@@ -38,75 +38,84 @@ interface CreateChurchParams {
 
 export async function createChurchWithAdmin({ churchName, adminName, email, password }: CreateChurchParams) {
   const slug = generateSlug(churchName);
-  
+
   // 1. Sign up the user
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       emailRedirectTo: `${window.location.origin}/app`,
-      data: { full_name: adminName }
-    }
+      data: { full_name: adminName },
+    },
   });
 
   if (signUpError) throw signUpError;
   if (!authData.user) throw new Error("Failed to create user");
 
-  const userId = authData.user.id;
+  // If email confirmation is enabled, the session may be null. We must be authenticated
+  // to create the church due to RLS.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error(
+      "Account created. Please check your email to confirm, then sign in to finish setup."
+    );
+  }
 
-  // 2. Create the church
-  const { data: churchData, error: churchError } = await supabase
-    .from("churches")
-    .insert({
-      name: churchName,
-      slug: slug
-    })
-    .select()
-    .single();
+  const userId = authData.user.id;
+  const churchId = crypto.randomUUID();
+  const branchId = crypto.randomUUID();
+
+  // 2. Create the church (avoid RETURNING to prevent RLS SELECT checks before profile is linked)
+  const { error: churchError } = await supabase.from("churches").insert({
+    id: churchId,
+    name: churchName,
+    slug,
+  });
 
   if (churchError) throw churchError;
 
-  const churchId = churchData.id;
-
-  // 3. Create the main branch
+  // 3. Create the main branch (avoid RETURNING for the same reason)
   const joinCode = generateJoinCode(slug, "Main");
-  const { data: branchData, error: branchError } = await supabase
-    .from("branches")
-    .insert({
-      church_id: churchId,
-      name: "Main Branch",
-      is_main_branch: true,
-      join_code: joinCode
-    })
-    .select()
-    .single();
+  const { error: branchError } = await supabase.from("branches").insert({
+    id: branchId,
+    church_id: churchId,
+    name: "Main Branch",
+    is_main_branch: true,
+    join_code: joinCode,
+  });
 
   if (branchError) throw branchError;
 
-  // 4. Update the user's profile with church info
+  // 4. Upsert the user's profile with church info (profile row may not exist yet)
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({
-      church_id: churchId,
-      branch_id: branchData.id,
-      full_name: adminName
-    })
-    .eq("id", userId);
+    .upsert(
+      {
+        id: userId,
+        email,
+        full_name: adminName,
+        church_id: churchId,
+        branch_id: branchId,
+      },
+      { onConflict: "id" }
+    );
 
   if (profileError) throw profileError;
 
   // 5. Assign church_admin role
-  const { error: roleError } = await supabase
-    .from("user_roles")
-    .insert({
-      user_id: userId,
-      church_id: churchId,
-      role: "church_admin"
-    });
+  const { error: roleError } = await supabase.from("user_roles").insert({
+    user_id: userId,
+    church_id: churchId,
+    role: "church_admin",
+  });
 
   if (roleError) throw roleError;
 
-  return { church: churchData, branch: branchData, user: authData.user };
+  return {
+    church: { id: churchId, name: churchName, slug },
+    branch: { id: branchId, name: "Main Branch", join_code: joinCode },
+    user: authData.user,
+  };
 }
 
 interface JoinBranchParams {
