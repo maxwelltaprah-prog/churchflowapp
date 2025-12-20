@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { QrCode, Camera, CheckCircle2, XCircle, Search, Users, Loader2 } from "lucide-react";
+import { QrCode, Camera, CheckCircle2, XCircle, Search, Users, Loader2, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { useServices, useAttendance, useBranches } from "@/hooks/useChurchData";
 import { useRecordAttendance, useFindMember } from "@/hooks/useChurchMutations";
 import { QRScanner } from "@/components/dashboard/QRScanner";
+import { ServiceQRDialog } from "@/components/dashboard/ServiceQRDialog";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -28,6 +29,7 @@ export default function CheckinPage() {
   const [selectedService, setSelectedService] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [showServiceQR, setShowServiceQR] = useState(false);
   const [lastCheckin, setLastCheckin] = useState<{ name: string; status: "success" | "error"; message?: string } | null>(null);
 
   const { data: branches } = useBranches();
@@ -95,7 +97,16 @@ export default function CheckinPage() {
             Scan member QR codes or enter codes manually
           </p>
         </div>
-        <Select value={selectedService} onValueChange={setSelectedService}>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowServiceQR(true)}
+            disabled={!selectedService}
+          >
+            <Monitor className="w-4 h-4 mr-2" />
+            Self Check-in QR
+          </Button>
+          <Select value={selectedService} onValueChange={setSelectedService}>
           <SelectTrigger className="w-full sm:w-[280px]">
             <SelectValue placeholder="Select a service" />
           </SelectTrigger>
@@ -127,7 +138,18 @@ export default function CheckinPage() {
             )}
           </SelectContent>
         </Select>
+        </div>
       </div>
+
+      {/* Service QR Dialog */}
+      <ServiceQRDialog
+        open={showServiceQR}
+        onOpenChange={setShowServiceQR}
+        service={selectedServiceData ? {
+          ...selectedServiceData,
+          branches: selectedServiceData.branches as { name: string } | null
+        } : null}
+      />
 
       {/* Check-in feedback */}
       {lastCheckin && (
