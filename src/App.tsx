@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ChurchSignup from "./pages/ChurchSignup";
+import SetupChurch from "./pages/SetupChurch";
 import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
 
@@ -36,8 +37,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup/church" element={<ChurchSignup />} />
             <Route path="/join" element={<JoinBranch />} />
-
-            {/* Dashboard Routes (Protected) */}
+            <Route path="/setup-church" element={<SetupChurch />} />
             <Route path="/app" element={
               <ProtectedRoute>
                 <DashboardLayout />
