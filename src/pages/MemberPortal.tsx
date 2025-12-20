@@ -6,21 +6,19 @@ import {
   Church, 
   LogOut, 
   QrCode, 
-  Flame, 
-  Calendar, 
-  TrendingUp,
-  Award,
   Copy,
   Check,
   User,
   Clock,
   MapPin,
-  History
+  History,
+  Calendar
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { StreakDashboard } from "@/components/member/StreakDashboard";
 
 interface MemberData {
   id: string;
@@ -290,141 +288,11 @@ export default function MemberPortal() {
           <p className="text-muted-foreground">{member.churches?.name} • {member.branches?.name}</p>
         </div>
 
-        {/* Streak Card - Main Feature */}
-        <Card className="bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-lg">
-                  <Flame className="w-10 h-10 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Current Streak</p>
-                  <p className="text-5xl font-bold text-primary">{stats?.currentStreak || 0}</p>
-                  <p className="text-sm text-muted-foreground">weeks</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-6 text-center">
-                <div>
-                  <div className="w-12 h-12 mx-auto rounded-xl bg-secondary flex items-center justify-center mb-2">
-                    <Award className="w-6 h-6 text-accent" />
-                  </div>
-                  <p className="text-2xl font-bold">{stats?.longestStreak || 0}</p>
-                  <p className="text-xs text-muted-foreground">Best Streak</p>
-                </div>
-                <div>
-                  <div className="w-12 h-12 mx-auto rounded-xl bg-secondary flex items-center justify-center mb-2">
-                    <Calendar className="w-6 h-6 text-primary" />
-                  </div>
-                  <p className="text-2xl font-bold">{stats?.thisMonthCount || 0}</p>
-                  <p className="text-xs text-muted-foreground">This Month</p>
-                </div>
-                <div>
-                  <div className="w-12 h-12 mx-auto rounded-xl bg-secondary flex items-center justify-center mb-2">
-                    <TrendingUp className="w-6 h-6 text-green-500" />
-                  </div>
-                  <p className="text-2xl font-bold">{stats?.totalAttendance || 0}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                </div>
-              </div>
-            </div>
-            
-            {stats?.lastAttendance && (
-              <p className="text-center text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50">
-                Last attended: {new Date(stats.lastAttendance).toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* QR Code and Member Code */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <QrCode className="w-5 h-5" />
-                Your QR Code
-              </CardTitle>
-              <CardDescription>
-                Show this at check-in for quick registration
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="p-4 bg-white rounded-xl shadow-sm border">
-                <QRCodeSVG
-                  value={member.qr_code_token}
-                  size={200}
-                  level="H"
-                  includeMargin
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle>Member Code</CardTitle>
-              <CardDescription>
-                Use this code for manual check-in
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center h-full">
-              <div className="bg-secondary/50 rounded-2xl p-8 text-center w-full max-w-xs">
-                <p className="text-4xl font-mono font-bold text-primary tracking-wider mb-4">
-                  {member.member_code}
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleCopyCode}
-                  className="gap-2"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      Copy Code
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Encouragement based on streak */}
-        {stats && (
-          <Card className="bg-secondary/30 border-none">
-            <CardContent className="py-6 text-center">
-              {stats.currentStreak === 0 ? (
-                <p className="text-muted-foreground">
-                  🙏 We haven't seen you in a while. Join us this week to start your streak!
-                </p>
-              ) : stats.currentStreak >= 4 ? (
-                <p className="text-muted-foreground">
-                  🔥 Amazing! You're on a {stats.currentStreak}-week streak. Keep the momentum going!
-                </p>
-              ) : stats.currentStreak >= 2 ? (
-                <p className="text-muted-foreground">
-                  ⭐ Great job! {stats.currentStreak} weeks in a row. You're building a great habit!
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  👋 Welcome back! Keep attending to build your streak.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Gamified Streak Dashboard */}
+        <StreakDashboard 
+          stats={stats} 
+          attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]} 
+        />
 
         {/* Attendance History */}
         <Card>
