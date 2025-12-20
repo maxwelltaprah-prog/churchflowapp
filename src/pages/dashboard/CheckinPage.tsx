@@ -41,7 +41,7 @@ export default function CheckinPage() {
 
   const selectedServiceData = services?.find(s => s.id === selectedService);
 
-  const handleCheckin = async (codeOrToken: string) => {
+  const handleCheckin = async (codeOrToken: string, fromScanner = false) => {
     if (!selectedService || !selectedServiceData) {
       toast.error("Please select a service first");
       return;
@@ -57,7 +57,7 @@ export default function CheckinPage() {
         member_id: member.id,
         branch_id: selectedServiceData.branch_id,
         member_home_branch_id: member.branch_id,
-        checkin_method: isScanning ? "staff_scan" : "staff_scan",
+        checkin_method: fromScanner ? "staff_scan" : "staff_scan",
       });
 
       setLastCheckin({ name: member.full_name, status: "success" });
@@ -68,10 +68,15 @@ export default function CheckinPage() {
         status: "error", 
         message: error.message 
       });
+      if (!fromScanner) {
+        toast.error(error.message || "Check-in failed");
+      }
     }
 
-    setManualCode("");
-    setTimeout(() => setLastCheckin(null), 4000);
+    if (!fromScanner) {
+      setManualCode("");
+    }
+    setTimeout(() => setLastCheckin(null), 2500);
   };
 
   const handleManualCheckin = () => {
@@ -81,8 +86,8 @@ export default function CheckinPage() {
   };
 
   const handleQRScan = (code: string) => {
-    handleCheckin(code);
-    setIsScanning(false);
+    handleCheckin(code, true);
+    // Don't stop scanning - camera stays active
   };
 
   const checkedInCount = attendance?.length || 0;
