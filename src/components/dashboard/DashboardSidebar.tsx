@@ -1,0 +1,191 @@
+import { 
+  LayoutDashboard, 
+  Users, 
+  Building2, 
+  Calendar, 
+  QrCode, 
+  BarChart3, 
+  Bell, 
+  Settings,
+  LogOut,
+  ChevronDown,
+  Church
+} from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+
+const mainNavItems = [
+  { title: "Dashboard", url: "/app", icon: LayoutDashboard },
+  { title: "Members", url: "/app/members", icon: Users },
+  { title: "Branches", url: "/app/branches", icon: Building2 },
+  { title: "Services", url: "/app/services", icon: Calendar },
+  { title: "Check-in", url: "/app/checkin", icon: QrCode },
+  { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
+  { title: "Broadcasts", url: "/app/broadcasts", icon: Bell },
+];
+
+const settingsNavItems = [
+  { title: "Settings", url: "/app/settings", icon: Settings },
+];
+
+export function DashboardSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isActive = (path: string) => {
+    if (path === "/app") {
+      return location.pathname === "/app";
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = () => {
+    // TODO: Implement logout
+    navigate("/login");
+  };
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      {/* Header */}
+      <SidebarHeader className="border-b border-sidebar-border p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-primary flex items-center justify-center shadow-soft flex-shrink-0">
+            <Church className="w-5 h-5 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <div className="flex flex-col min-w-0">
+              <span className="font-semibold text-sidebar-foreground truncate">ChurchFlow</span>
+              <span className="text-xs text-sidebar-foreground/60 truncate">Grace Community</span>
+            </div>
+          )}
+        </div>
+      </SidebarHeader>
+
+      {/* Main Navigation */}
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+            {collapsed ? "" : "Main Menu"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink
+                      to={item.url}
+                      end={item.url === "/app"}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                        isActive(item.url)
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+            {collapsed ? "" : "System"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink
+                      to={item.url}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                        isActive(item.url)
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* Footer with user menu */}
+      <SidebarFooter className="border-t border-sidebar-border p-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors">
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className="bg-accent text-accent-foreground text-sm font-medium">
+                  JD
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <>
+                  <div className="flex-1 text-left min-w-0">
+                    <div className="text-sm font-medium text-sidebar-foreground truncate">John Doe</div>
+                    <div className="text-xs text-sidebar-foreground/60 truncate">Church Admin</div>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-sidebar-foreground/50" />
+                </>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => navigate("/app/settings")}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+              <LogOut className="w-4 h-4 mr-2" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
