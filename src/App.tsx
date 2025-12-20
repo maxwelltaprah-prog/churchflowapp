@@ -20,7 +20,8 @@ import BranchesPage from "./pages/dashboard/BranchesPage";
 import CheckinPage from "./pages/dashboard/CheckinPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import ServicesPage from "./pages/dashboard/ServicesPage";
-import { AnalyticsPage, BroadcastsPage } from "./pages/dashboard/PlaceholderPages";
+import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
+import { BroadcastsPage } from "./pages/dashboard/PlaceholderPages";
 
 const queryClient = new QueryClient();
 
