@@ -128,10 +128,12 @@ interface JoinBranchParams {
 
 export async function joinBranchAsMember({ branchCode, fullName, phone, gender, membershipStatus }: JoinBranchParams) {
   // 1. Find the branch by join code
+  const normalizedCode = branchCode.trim().toUpperCase();
+
   const { data: branchData, error: branchError } = await supabase
     .from("branches")
-    .select("*, churches(*)")
-    .eq("join_code", branchCode.toUpperCase())
+    .select("id, church_id, name, join_code")
+    .eq("join_code", normalizedCode)
     .maybeSingle();
 
   if (branchError) throw branchError;
@@ -139,33 +141,38 @@ export async function joinBranchAsMember({ branchCode, fullName, phone, gender, 
 
   const churchId = branchData.church_id;
   const branchId = branchData.id;
-  const church = branchData.churches as { slug: string } | null;
-
-  if (!church) throw new Error("Church data not found for this branch.");
 
   // 2. Generate member code and QR token
-  const memberCode = generateMemberCode(church.slug);
+  // Use the join code prefix (first 3 chars) so we don't need to read church data in the public join flow.
+  const memberCode = generateMemberCode(branchData.join_code);
   const qrToken = generateQRToken();
 
-  // 3. Create the member record
-  const { data: memberData, error: memberError } = await supabase
+  const normalizedGender = gender === "male" || gender === "female" ? gender : undefined;
+  const normalizedStatus =
+    membershipStatus === "member" || membershipStatus === "visitor" || membershipStatus === "new_convert"
+      ? membershipStatus
+      : undefined;
+
+  // 3. Create the member record (no RETURNING; SELECT is restricted for privacy)
+  const { error: memberError } = await supabase
     .from("members")
     .insert({
       church_id: churchId,
       branch_id: branchId,
-      full_name: fullName,
-      phone: phone,
-      gender: gender,
-      membership_status: membershipStatus || "visitor",
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      gender: normalizedGender,
+      membership_status: normalizedStatus || "visitor",
       member_code: memberCode,
-      qr_code_token: qrToken
-    })
-    .select()
-    .single();
+      qr_code_token: qrToken,
+    });
 
   if (memberError) throw memberError;
 
-  return { member: memberData, branch: branchData };
+  return {
+    member: { member_code: memberCode, qr_code_token: qrToken },
+    branch: branchData,
+  };
 }
 
 interface RecordAttendanceParams {
