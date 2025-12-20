@@ -299,6 +299,61 @@ export function useDeactivateMember() {
   });
 }
 
+// Approve a member
+export function useApproveMember() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from("members")
+        .update({ 
+          approval_status: "approved",
+          approved_at: new Date().toISOString(),
+          approved_by: user?.id
+        })
+        .eq("id", memberId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-members"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Member approved");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Reject a member
+export function useRejectMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from("members")
+        .update({ approval_status: "rejected" })
+        .eq("id", memberId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-members"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Member rejected");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // Create a broadcast
 export function useCreateBroadcast() {
   const queryClient = useQueryClient();

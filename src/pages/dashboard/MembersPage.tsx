@@ -9,7 +9,11 @@ import {
   Download,
   Loader2,
   Edit,
-  UserX
+  UserX,
+  UserCheck,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,8 +51,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMembers, useBranches } from "@/hooks/useChurchData";
-import { useDeactivateMember } from "@/hooks/useChurchMutations";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMembers, useBranches, usePendingMembersCount } from "@/hooks/useChurchData";
+import { useDeactivateMember, useApproveMember, useRejectMember } from "@/hooks/useChurchMutations";
 import { AddMemberDialog } from "@/components/dashboard/AddMemberDialog";
 import { MemberQRDialog } from "@/components/dashboard/MemberQRDialog";
 import { EditMemberDialog } from "@/components/dashboard/EditMemberDialog";
@@ -66,6 +71,12 @@ const statusLabels: Record<string, string> = {
   new_convert: "New Convert",
 };
 
+const approvalColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  approved: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  rejected: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
+
 type MemberType = {
   id: string;
   full_name: string;
@@ -73,6 +84,7 @@ type MemberType = {
   phone?: string | null;
   gender?: "male" | "female" | null;
   membership_status?: "member" | "visitor" | "new_convert" | null;
+  approval_status?: "pending" | "approved" | "rejected" | null;
   branch_id: string;
   member_code: string;
   qr_code_token: string;
@@ -83,14 +95,21 @@ export default function MembersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [approvalTab, setApprovalTab] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [qrMember, setQrMember] = useState<MemberType | null>(null);
   const [editMember, setEditMember] = useState<MemberType | null>(null);
   const [deactivateMember, setDeactivateMember] = useState<MemberType | null>(null);
 
   const { data: branches } = useBranches();
-  const { data: members, isLoading } = useMembers(branchFilter !== "all" ? branchFilter : undefined);
+  const { data: members, isLoading } = useMembers(
+    branchFilter !== "all" ? branchFilter : undefined,
+    approvalTab
+  );
+  const { data: pendingCount } = usePendingMembersCount();
   const deactivateMutation = useDeactivateMember();
+  const approveMutation = useApproveMember();
+  const rejectMutation = useRejectMember();
 
   const filteredMembers = (members || []).filter((member) => {
     const matchesSearch = member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -106,7 +125,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ["Name", "Email", "Phone", "Gender", "Status", "Branch", "Member Code"];
+    const headers = ["Name", "Email", "Phone", "Gender", "Status", "Branch", "Member Code", "Approval"];
     const rows = filteredMembers.map((m) => [
       m.full_name,
       m.email || "",
@@ -115,6 +134,7 @@ export default function MembersPage() {
       statusLabels[m.membership_status || "visitor"],
       (m.branches as any)?.name || "",
       m.member_code,
+      m.approval_status || "pending",
     ]);
 
     const csvContent = [
@@ -134,6 +154,14 @@ export default function MembersPage() {
     if (!deactivateMember) return;
     await deactivateMutation.mutateAsync(deactivateMember.id);
     setDeactivateMember(null);
+  };
+
+  const handleApprove = async (member: MemberType) => {
+    await approveMutation.mutateAsync(member.id);
+  };
+
+  const handleReject = async (member: MemberType) => {
+    await rejectMutation.mutateAsync(member.id);
   };
 
   return (
@@ -157,6 +185,33 @@ export default function MembersPage() {
           </Button>
         </div>
       </div>
+
+      {/* Approval Tabs */}
+      <Tabs value={approvalTab} onValueChange={(v) => setApprovalTab(v as typeof approvalTab)}>
+        <TabsList>
+          <TabsTrigger value="all" className="gap-2">
+            <UserCheck className="w-4 h-4" />
+            All Members
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="gap-2">
+            <Clock className="w-4 h-4" />
+            Pending
+            {pendingCount && pendingCount > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {pendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            Approved
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="gap-2">
+            <XCircle className="w-4 h-4" />
+            Rejected
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -203,11 +258,15 @@ export default function MembersPage() {
           </div>
         ) : filteredMembers.length === 0 ? (
           <div className="text-center p-12">
-            <p className="text-muted-foreground">No members found</p>
-            <Button className="mt-4" onClick={() => setShowAddDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add your first member
-            </Button>
+            <p className="text-muted-foreground">
+              {approvalTab === "pending" ? "No pending approvals" : "No members found"}
+            </p>
+            {approvalTab === "all" && (
+              <Button className="mt-4" onClick={() => setShowAddDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add your first member
+              </Button>
+            )}
           </div>
         ) : (
           <Table>
@@ -216,6 +275,9 @@ export default function MembersPage() {
                 <TableHead>Member</TableHead>
                 <TableHead className="hidden md:table-cell">Branch</TableHead>
                 <TableHead className="hidden sm:table-cell">Status</TableHead>
+                {approvalTab === "all" && (
+                  <TableHead className="hidden lg:table-cell">Approval</TableHead>
+                )}
                 <TableHead className="hidden lg:table-cell">Code</TableHead>
                 <TableHead className="hidden xl:table-cell">Phone</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -245,6 +307,13 @@ export default function MembersPage() {
                       {statusLabels[member.membership_status || "visitor"]}
                     </Badge>
                   </TableCell>
+                  {approvalTab === "all" && (
+                    <TableCell className="hidden lg:table-cell">
+                      <Badge variant="secondary" className={approvalColors[member.approval_status || "pending"]}>
+                        {member.approval_status || "pending"}
+                      </Badge>
+                    </TableCell>
+                  )}
                   <TableCell className="hidden lg:table-cell">
                     <span className="font-mono text-sm">{member.member_code}</span>
                   </TableCell>
@@ -252,43 +321,87 @@ export default function MembersPage() {
                     <span className="text-sm text-muted-foreground">{member.phone || "—"}</span>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setQrMember(member as MemberType)}>
-                          <QrCode className="w-4 h-4 mr-2" />
-                          View QR Code
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Member
-                        </DropdownMenuItem>
-                        {member.email && (
-                          <DropdownMenuItem onClick={() => window.location.href = `mailto:${member.email}`}>
-                            <Mail className="w-4 h-4 mr-2" />
-                            Send Email
+                    <div className="flex items-center gap-1">
+                      {member.approval_status === "pending" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
+                            onClick={() => handleApprove(member as MemberType)}
+                            disabled={approveMutation.isPending}
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
+                            onClick={() => handleReject(member as MemberType)}
+                            disabled={rejectMutation.isPending}
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {member.approval_status === "approved" && (
+                            <DropdownMenuItem onClick={() => setQrMember(member as MemberType)}>
+                              <QrCode className="w-4 h-4 mr-2" />
+                              View QR Code
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Member
                           </DropdownMenuItem>
-                        )}
-                        {member.phone && (
-                          <DropdownMenuItem onClick={() => window.location.href = `tel:${member.phone}`}>
-                            <Phone className="w-4 h-4 mr-2" />
-                            Call
+                          {member.approval_status === "pending" && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleApprove(member as MemberType)}>
+                                <CheckCircle2 className="w-4 h-4 mr-2" />
+                                Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleReject(member as MemberType)}>
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Reject
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {member.approval_status === "rejected" && (
+                            <DropdownMenuItem onClick={() => handleApprove(member as MemberType)}>
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Approve
+                            </DropdownMenuItem>
+                          )}
+                          {member.email && (
+                            <DropdownMenuItem onClick={() => window.location.href = `mailto:${member.email}`}>
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Email
+                            </DropdownMenuItem>
+                          )}
+                          {member.phone && (
+                            <DropdownMenuItem onClick={() => window.location.href = `tel:${member.phone}`}>
+                              <Phone className="w-4 h-4 mr-2" />
+                              Call
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => setDeactivateMember(member as MemberType)}
+                          >
+                            <UserX className="w-4 h-4 mr-2" />
+                            Deactivate
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => setDeactivateMember(member as MemberType)}
-                        >
-                          <UserX className="w-4 h-4 mr-2" />
-                          Deactivate
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

@@ -11,7 +11,8 @@ import {
   Phone, 
   ChevronRight,
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -111,16 +112,28 @@ export default function JoinBranch() {
                 <CheckCircle2 className="w-10 h-10 text-green-600" />
               </div>
               
-              <h1 className="text-2xl font-bold text-foreground mb-2">Welcome to ChurchFlow!</h1>
+              <h1 className="text-2xl font-bold text-foreground mb-2">Registration Submitted!</h1>
               <p className="text-muted-foreground mb-6">
-                You've successfully joined {memberResult.branchName}
+                You've registered to join {memberResult.branchName}
               </p>
+
+              {/* Pending Approval Notice */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 mb-2">
+                  <Clock className="w-5 h-5" />
+                  <span className="font-semibold">Pending Approval</span>
+                </div>
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  Your registration is awaiting approval from the church administrator. 
+                  You'll be able to check in once approved.
+                </p>
+              </div>
 
               <div className="bg-secondary/50 rounded-xl p-6 mb-6">
                 <p className="text-sm text-muted-foreground mb-2">Your Member Code</p>
                 <p className="text-2xl font-mono font-bold text-primary">{memberResult.memberCode}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Save this code - you'll need it for check-in
+                  Save this code - you'll need it for check-in after approval
                 </p>
               </div>
 
@@ -131,9 +144,9 @@ export default function JoinBranch() {
                 </p>
               </div>
 
-              <Link to="/login">
+              <Link to="/">
                 <Button variant="hero" size="lg" className="w-full">
-                  Continue to Login
+                  Back to Home
                 </Button>
               </Link>
             </div>

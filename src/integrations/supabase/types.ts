@@ -222,6 +222,9 @@ export type Database = {
       }
       members: {
         Row: {
+          approval_status: Database["public"]["Enums"]["approval_status"]
+          approved_at: string | null
+          approved_by: string | null
           area_zone: string | null
           branch_id: string
           church_id: string
@@ -245,6 +248,9 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          approval_status?: Database["public"]["Enums"]["approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           area_zone?: string | null
           branch_id: string
           church_id: string
@@ -268,6 +274,9 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          approval_status?: Database["public"]["Enums"]["approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           area_zone?: string | null
           branch_id?: string
           church_id?: string
@@ -491,6 +500,7 @@ export type Database = {
     }
     Enums: {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
+      approval_status: "pending" | "approved" | "rejected"
       checkin_method: "staff_scan" | "self_scan"
       gender_type: "male" | "female"
       membership_status: "member" | "visitor" | "new_convert"
@@ -622,6 +632,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["church_admin", "branch_admin", "usher", "member"],
+      approval_status: ["pending", "approved", "rejected"],
       checkin_method: ["staff_scan", "self_scan"],
       gender_type: ["male", "female"],
       membership_status: ["member", "visitor", "new_convert"],
