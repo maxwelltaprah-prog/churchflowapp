@@ -9,6 +9,15 @@ import ChurchSignup from "./pages/ChurchSignup";
 import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
 
+// Dashboard imports
+import { DashboardLayout } from "./components/dashboard/DashboardLayout";
+import DashboardOverview from "./pages/dashboard/DashboardOverview";
+import MembersPage from "./pages/dashboard/MembersPage";
+import BranchesPage from "./pages/dashboard/BranchesPage";
+import CheckinPage from "./pages/dashboard/CheckinPage";
+import SettingsPage from "./pages/dashboard/SettingsPage";
+import { ServicesPage, AnalyticsPage, BroadcastsPage } from "./pages/dashboard/PlaceholderPages";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -18,11 +27,25 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup/church" element={<ChurchSignup />} />
           <Route path="/join" element={<JoinBranch />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* Dashboard Routes */}
+          <Route path="/app" element={<DashboardLayout />}>
+            <Route index element={<DashboardOverview />} />
+            <Route path="members" element={<MembersPage />} />
+            <Route path="branches" element={<BranchesPage />} />
+            <Route path="services" element={<ServicesPage />} />
+            <Route path="checkin" element={<CheckinPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="broadcasts" element={<BroadcastsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
