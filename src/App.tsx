@@ -13,6 +13,7 @@ import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
 import MemberLogin from "./pages/MemberLogin";
 import MemberPortal from "./pages/MemberPortal";
+import SelfCheckin from "./pages/SelfCheckin";
 
 // Dashboard imports
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
@@ -45,6 +46,9 @@ const App = () => (
             {/* Member Routes */}
             <Route path="/member/login" element={<MemberLogin />} />
             <Route path="/member" element={<MemberPortal />} />
+            
+            {/* Self Check-in (Public) */}
+            <Route path="/self-checkin/:serviceId" element={<SelfCheckin />} />
 
             {/* Admin Dashboard Routes */}
             <Route path="/app" element={
