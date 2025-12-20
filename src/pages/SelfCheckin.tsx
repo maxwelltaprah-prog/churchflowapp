@@ -13,8 +13,7 @@ interface ServiceData {
   name: string;
   service_date: string;
   start_time: string | null;
-  church_id: string;
-  branch_id: string;
+  is_active?: boolean;
   churches?: { name: string } | null;
   branches?: { name: string } | null;
 }
