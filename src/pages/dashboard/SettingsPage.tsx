@@ -1,4 +1,5 @@
-import { Settings, User, Building2, Bell, Shield, Palette } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, User, Building2, Bell, Shield, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,8 +18,120 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { useChurch } from "@/hooks/useChurchData";
+import { useUpdateChurchSettings, useUpdateProfile } from "@/hooks/useChurchMutations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
+  const { data: church, isLoading: churchLoading } = useChurch();
+  const { profile } = useAuth();
+  const updateChurchSettings = useUpdateChurchSettings();
+  const updateProfile = useUpdateProfile();
+
+  // Church settings state
+  const [churchName, setChurchName] = useState("");
+  const [churchSlug, setChurchSlug] = useState("");
+
+  // Profile state
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  // Registration settings state
+  const [allowSelfRegistration, setAllowSelfRegistration] = useState(true);
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [allowCrossBranchCheckin, setAllowCrossBranchCheckin] = useState(true);
+
+  // Notification settings state
+  const [notifyNewMembers, setNotifyNewMembers] = useState(true);
+  const [dailySummary, setDailySummary] = useState(true);
+  const [weeklyReport, setWeeklyReport] = useState(false);
+
+  // Initialize form values when data loads
+  useEffect(() => {
+    if (church) {
+      setChurchName(church.name || "");
+      setChurchSlug(church.slug || "");
+      
+      const settings = church.settings as {
+        allow_self_registration?: boolean;
+        require_approval?: boolean;
+        allow_cross_branch_checkin?: boolean;
+      } | null;
+      
+      if (settings) {
+        setAllowSelfRegistration(settings.allow_self_registration ?? true);
+        setRequireApproval(settings.require_approval ?? false);
+        setAllowCrossBranchCheckin(settings.allow_cross_branch_checkin ?? true);
+      }
+    }
+  }, [church]);
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || "");
+      setEmail(profile.email || "");
+    }
+  }, [profile]);
+
+  const handleSaveChurchInfo = async () => {
+    await updateChurchSettings.mutateAsync({
+      name: churchName,
+    });
+  };
+
+  const handleSaveProfile = async () => {
+    await updateProfile.mutateAsync({
+      full_name: fullName,
+    });
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password updated successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+    }
+  };
+
+  const handleSaveRegistrationSettings = async () => {
+    await updateChurchSettings.mutateAsync({
+      settings: {
+        allow_self_registration: allowSelfRegistration,
+        require_approval: requireApproval,
+        allow_cross_branch_checkin: allowCrossBranchCheckin,
+      },
+    });
+  };
+
+  const handleSaveNotifications = () => {
+    // For now, just show a success message
+    // In a real app, these would be stored in user preferences
+    toast.success("Notification preferences saved");
+  };
+
+  if (churchLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -52,23 +165,37 @@ export default function SettingsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="churchName">Church Name</Label>
-                  <Input id="churchName" defaultValue="Grace Community Church" />
+                  <Input 
+                    id="churchName" 
+                    value={churchName}
+                    onChange={(e) => setChurchName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="churchSlug">Church URL Slug</Label>
-                  <Input id="churchSlug" defaultValue="grace-community" />
+                  <Input 
+                    id="churchSlug" 
+                    value={churchSlug}
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">URL slug cannot be changed</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input id="website" placeholder="https://yourchurch.com" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact Email</Label>
-                <Input id="contactEmail" type="email" defaultValue="info@gracechurch.com" />
-              </div>
               <div className="pt-4">
-                <Button>Save Changes</Button>
+                <Button 
+                  onClick={handleSaveChurchInfo}
+                  disabled={updateChurchSettings.isPending}
+                >
+                  {updateChurchSettings.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -87,23 +214,65 @@ export default function SettingsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" defaultValue="John Doe" />
+                  <Input 
+                    id="fullName" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="john@gracechurch.com" />
-                </div>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <Label>Change Password</Label>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input type="password" placeholder="Current password" />
-                  <Input type="password" placeholder="New password" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={email}
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                 </div>
               </div>
               <div className="pt-4">
-                <Button>Update Profile</Button>
+                <Button 
+                  onClick={handleSaveProfile}
+                  disabled={updateProfile.isPending}
+                >
+                  {updateProfile.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Update Profile"
+                  )}
+                </Button>
+              </div>
+              
+              <Separator className="my-6" />
+              
+              <div className="space-y-4">
+                <Label>Change Password</Label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input 
+                    type="password" 
+                    placeholder="Current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                  <Input 
+                    type="password" 
+                    placeholder="New password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleChangePassword}
+                  disabled={!newPassword}
+                >
+                  Change Password
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -129,7 +298,10 @@ export default function SettingsPage() {
                     Members can register themselves via branch join links
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={allowSelfRegistration}
+                  onCheckedChange={setAllowSelfRegistration}
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -139,7 +311,10 @@ export default function SettingsPage() {
                     New registrations require admin approval before activation
                   </p>
                 </div>
-                <Switch />
+                <Switch 
+                  checked={requireApproval}
+                  onCheckedChange={setRequireApproval}
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -149,10 +324,25 @@ export default function SettingsPage() {
                     Members can check in at branches other than their home branch
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={allowCrossBranchCheckin}
+                  onCheckedChange={setAllowCrossBranchCheckin}
+                />
               </div>
               <div className="pt-4">
-                <Button>Save Settings</Button>
+                <Button 
+                  onClick={handleSaveRegistrationSettings}
+                  disabled={updateChurchSettings.isPending}
+                >
+                  {updateChurchSettings.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Settings"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -178,7 +368,10 @@ export default function SettingsPage() {
                     Get notified when new members register
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={notifyNewMembers}
+                  onCheckedChange={setNotifyNewMembers}
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -188,7 +381,10 @@ export default function SettingsPage() {
                     Receive a daily summary of attendance across branches
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={dailySummary}
+                  onCheckedChange={setDailySummary}
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -198,10 +394,15 @@ export default function SettingsPage() {
                     Get a weekly report with detailed analytics
                   </p>
                 </div>
-                <Switch />
+                <Switch 
+                  checked={weeklyReport}
+                  onCheckedChange={setWeeklyReport}
+                />
               </div>
               <div className="pt-4">
-                <Button>Save Preferences</Button>
+                <Button onClick={handleSaveNotifications}>
+                  Save Preferences
+                </Button>
               </div>
             </CardContent>
           </Card>
