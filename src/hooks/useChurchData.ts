@@ -48,11 +48,11 @@ export function useBranches() {
 }
 
 // Fetch members for the current church
-export function useMembers(branchId?: string) {
+export function useMembers(branchId?: string, approvalFilter?: "all" | "pending" | "approved" | "rejected") {
   const { profile } = useAuth();
   
   return useQuery({
-    queryKey: ["members", profile?.church_id, branchId],
+    queryKey: ["members", profile?.church_id, branchId, approvalFilter],
     queryFn: async () => {
       if (!profile?.church_id) return [];
       
@@ -67,9 +67,36 @@ export function useMembers(branchId?: string) {
         query = query.eq("branch_id", branchId);
       }
 
+      if (approvalFilter && approvalFilter !== "all") {
+        query = query.eq("approval_status", approvalFilter);
+      }
+
       const { data, error } = await query;
       if (error) throw error;
       return data;
+    },
+    enabled: !!profile?.church_id
+  });
+}
+
+// Fetch pending members count
+export function usePendingMembersCount() {
+  const { profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ["pending-members-count", profile?.church_id],
+    queryFn: async () => {
+      if (!profile?.church_id) return 0;
+      
+      const { count, error } = await supabase
+        .from("members")
+        .select("*", { count: "exact", head: true })
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .eq("approval_status", "pending");
+
+      if (error) throw error;
+      return count || 0;
     },
     enabled: !!profile?.church_id
   });
