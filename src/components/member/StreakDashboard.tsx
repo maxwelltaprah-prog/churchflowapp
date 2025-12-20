@@ -4,7 +4,8 @@ import { StreakRing } from "./StreakRing";
 import { StreakFlame } from "./StreakFlame";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WeeklyHeatmap } from "./WeeklyHeatmap";
-import { Calendar, TrendingUp, Target, Sparkles } from "lucide-react";
+import { MilestoneConfetti, usePreviousStreak } from "./MilestoneConfetti";
+import { Calendar, TrendingUp, Target, Sparkles, Activity } from "lucide-react";
 
 interface AttendanceStats {
   totalAttendance: number;
@@ -32,6 +33,7 @@ const motivationalMessages = [
 
 export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps) {
   const streak = stats?.currentStreak || 0;
+  const previousStreak = usePreviousStreak(streak);
   const nextMilestone = streak < 4 ? 4 : streak < 8 ? 8 : streak < 12 ? 12 : streak < 26 ? 26 : streak < 52 ? 52 : 100;
   const progress = (streak / nextMilestone) * 100;
   
@@ -39,6 +41,8 @@ export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps
 
   return (
     <div className="space-y-6">
+      {/* Confetti celebration for milestones */}
+      <MilestoneConfetti streak={streak} previousStreak={previousStreak} />
       {/* Main Streak Hero Card */}
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative">
         {/* Animated background glow */}
@@ -167,26 +171,30 @@ export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps
       </Card>
 
       {/* Activity Heatmap */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            Activity Overview
-          </CardTitle>
+      <Card className="border-border/50 bg-gradient-to-br from-card to-card/80">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Activity className="w-5 h-5 text-primary" />
+              </div>
+              Activity Overview
+            </CardTitle>
+            {stats?.lastAttendance && (
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Last attended</p>
+                <p className="text-sm font-medium">
+                  {new Date(stats.lastAttendance).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          <WeeklyHeatmap attendanceDates={attendanceDates} weeks={12} />
-          
-          {stats?.lastAttendance && (
-            <p className="text-center text-sm text-muted-foreground mt-4 pt-4 border-t">
-              Last attended: {new Date(stats.lastAttendance).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
-          )}
+        <CardContent className="pt-0">
+          <WeeklyHeatmap attendanceDates={attendanceDates} weeks={16} />
         </CardContent>
       </Card>
     </div>

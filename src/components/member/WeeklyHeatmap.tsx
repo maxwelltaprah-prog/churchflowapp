@@ -1,16 +1,17 @@
 import { motion } from "framer-motion";
-import { format, subWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
+import { format, subWeeks, startOfWeek, addDays, isSameDay, getMonth } from "date-fns";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WeeklyHeatmapProps {
   attendanceDates: string[];
   weeks?: number;
 }
 
-export function WeeklyHeatmap({ attendanceDates, weeks = 12 }: WeeklyHeatmapProps) {
+export function WeeklyHeatmap({ attendanceDates, weeks = 16 }: WeeklyHeatmapProps) {
   const today = new Date();
   const startDate = startOfWeek(subWeeks(today, weeks - 1));
   
-  // Create a grid of weeks
+  // Create a grid of weeks (columns) x days (rows)
   const grid: { date: Date; attended: boolean }[][] = [];
   
   for (let w = 0; w < weeks; w++) {
@@ -23,62 +24,129 @@ export function WeeklyHeatmap({ attendanceDates, weeks = 12 }: WeeklyHeatmapProp
     grid.push(week);
   }
 
-  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Get month labels for header
+  const monthLabels: { label: string; colSpan: number; startCol: number }[] = [];
+  let currentMonth = -1;
+  let currentStartCol = 0;
+  let currentColSpan = 0;
+
+  grid.forEach((week, weekIndex) => {
+    const month = getMonth(week[0].date);
+    if (month !== currentMonth) {
+      if (currentMonth !== -1) {
+        monthLabels.push({
+          label: format(grid[currentStartCol][0].date, 'MMM'),
+          colSpan: currentColSpan,
+          startCol: currentStartCol
+        });
+      }
+      currentMonth = month;
+      currentStartCol = weekIndex;
+      currentColSpan = 1;
+    } else {
+      currentColSpan++;
+    }
+  });
+  // Push the last month
+  monthLabels.push({
+    label: format(grid[currentStartCol][0].date, 'MMM'),
+    colSpan: currentColSpan,
+    startCol: currentStartCol
+  });
+
+  const totalAttended = attendanceDates.length;
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-1">
-        <div className="w-4" />
-        {grid.map((_, weekIndex) => (
-          <div key={weekIndex} className="w-4 text-center">
-            {weekIndex === 0 || weekIndex === Math.floor(weeks / 2) || weekIndex === weeks - 1 ? (
-              <span className="text-[9px] text-muted-foreground">
-                {format(addDays(startDate, weekIndex * 7), 'MMM').slice(0, 1)}
-              </span>
-            ) : null}
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Stats summary */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {totalAttended} services in the last {weeks} weeks
+          </span>
+        </div>
+
+        {/* Heatmap grid */}
+        <div className="overflow-x-auto pb-2">
+          <div className="inline-block min-w-full">
+            {/* Month headers */}
+            <div className="flex mb-2 ml-12">
+              {monthLabels.map((month, idx) => (
+                <div 
+                  key={idx} 
+                  className="text-xs text-muted-foreground font-medium"
+                  style={{ width: `${month.colSpan * 20}px` }}
+                >
+                  {month.label}
+                </div>
+              ))}
+            </div>
+
+            {/* Day rows */}
+            <div className="space-y-1">
+              {dayLabels.map((day, dayIndex) => (
+                <div key={dayIndex} className="flex items-center gap-2">
+                  <span className="w-10 text-xs text-muted-foreground text-right pr-1">
+                    {dayIndex % 2 === 0 ? day : ''}
+                  </span>
+                  <div className="flex gap-1">
+                    {grid.map((week, weekIndex) => {
+                      const cell = week[dayIndex];
+                      const isFuture = cell.date > today;
+                      const isToday = isSameDay(cell.date, today);
+                      
+                      return (
+                        <Tooltip key={`${weekIndex}-${dayIndex}`}>
+                          <TooltipTrigger asChild>
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ delay: (weekIndex * 7 + dayIndex) * 0.003 }}
+                              className={`
+                                w-4 h-4 rounded-[3px] cursor-pointer transition-all hover:scale-125
+                                ${isFuture 
+                                  ? 'bg-muted/10 cursor-default' 
+                                  : cell.attended 
+                                    ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_8px_rgba(52,211,153,0.5)]' 
+                                    : 'bg-muted/30 hover:bg-muted/50'
+                                }
+                                ${isToday ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''}
+                              `}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            <p className="font-medium">{format(cell.date, 'EEEE, MMM d, yyyy')}</p>
+                            <p className={cell.attended ? 'text-emerald-400' : 'text-muted-foreground'}>
+                              {isFuture ? 'Upcoming' : cell.attended ? '✓ Attended' : 'No attendance'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
-      {dayLabels.map((day, dayIndex) => (
-        <div key={dayIndex} className="flex gap-1 items-center">
-          <span className="w-4 text-[9px] text-muted-foreground text-center">{day}</span>
-          {grid.map((week, weekIndex) => {
-            const cell = week[dayIndex];
-            const isFuture = cell.date > today;
-            const isToday = isSameDay(cell.date, today);
-            
-            return (
-              <motion.div
-                key={`${weekIndex}-${dayIndex}`}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: (weekIndex + dayIndex) * 0.01 }}
-                className={`
-                  w-4 h-4 rounded-sm transition-all
-                  ${isFuture 
-                    ? 'bg-muted/20' 
-                    : cell.attended 
-                      ? 'bg-gradient-to-br from-primary to-orange-500 shadow-[0_0_6px_rgba(251,146,60,0.4)]' 
-                      : 'bg-muted/40 hover:bg-muted/60'
-                  }
-                  ${isToday ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''}
-                `}
-                title={format(cell.date, 'MMM d, yyyy')}
-              />
-            );
-          })}
         </div>
-      ))}
-      <div className="flex items-center justify-end gap-2 mt-3 text-xs text-muted-foreground">
-        <span>Less</span>
-        <div className="flex gap-1">
-          <div className="w-3 h-3 rounded-sm bg-muted/40" />
-          <div className="w-3 h-3 rounded-sm bg-primary/40" />
-          <div className="w-3 h-3 rounded-sm bg-primary/70" />
-          <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-primary to-orange-500" />
+
+        {/* Legend */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+          <span className="text-xs text-muted-foreground">Activity level</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Less</span>
+            <div className="flex gap-1">
+              <div className="w-3 h-3 rounded-[2px] bg-muted/30" />
+              <div className="w-3 h-3 rounded-[2px] bg-emerald-400/30" />
+              <div className="w-3 h-3 rounded-[2px] bg-emerald-400/60" />
+              <div className="w-3 h-3 rounded-[2px] bg-gradient-to-br from-emerald-400 to-emerald-600" />
+            </div>
+            <span className="text-xs text-muted-foreground">More</span>
+          </div>
         </div>
-        <span>More</span>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
