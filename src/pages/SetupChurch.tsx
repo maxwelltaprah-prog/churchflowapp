@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,12 +11,11 @@ import { generateSlug, generateJoinCode } from "@/lib/church-service";
 export default function SetupChurch() {
   const [churchName, setChurchName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       toast.error("You must be logged in");
       return;
@@ -29,72 +27,68 @@ export default function SetupChurch() {
     }
 
     setIsLoading(true);
-    
+
     try {
       const slug = generateSlug(churchName);
+      const churchId = crypto.randomUUID();
+      const branchId = crypto.randomUUID();
 
-      // 1. Create the church
-      const { data: churchData, error: churchError } = await supabase
-        .from("churches")
-        .insert({
-          name: churchName,
-          slug: slug
-        })
-        .select()
-        .single();
+      // 1. Create the church (avoid RETURNING to prevent RLS SELECT checks before profile is linked)
+      const { error: churchError } = await supabase.from("churches").insert({
+        id: churchId,
+        name: churchName,
+        slug,
+      });
 
       if (churchError) throw churchError;
 
-      const churchId = churchData.id;
-
-      // 2. Create the main branch
+      // 2. Create the main branch (avoid RETURNING for the same reason)
       const joinCode = generateJoinCode(slug, "Main");
-      const { data: branchData, error: branchError } = await supabase
-        .from("branches")
-        .insert({
-          church_id: churchId,
-          name: "Main Branch",
-          is_main_branch: true,
-          join_code: joinCode
-        })
-        .select()
-        .single();
+      const { error: branchError } = await supabase.from("branches").insert({
+        id: branchId,
+        church_id: churchId,
+        name: "Main Branch",
+        is_main_branch: true,
+        join_code: joinCode,
+      });
 
       if (branchError) throw branchError;
 
-      // 3. Update the user's profile with church info
+      // 3. Upsert profile (row may not exist yet)
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          church_id: churchId,
-          branch_id: branchData.id
-        })
-        .eq("id", user.id);
+        .upsert(
+          {
+            id: user.id,
+            email: user.email,
+            church_id: churchId,
+            branch_id: branchId,
+          },
+          { onConflict: "id" }
+        );
 
       if (profileError) throw profileError;
 
       // 4. Assign church_admin role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: user.id,
-          church_id: churchId,
-          role: "church_admin"
-        });
+      const { error: roleError } = await supabase.from("user_roles").insert({
+        user_id: user.id,
+        church_id: churchId,
+        role: "church_admin",
+      });
 
       if (roleError) throw roleError;
 
       toast.success("Church created successfully!");
-      
-      // Force page reload to refresh auth context
+
+      // Force reload to refresh auth context + cached queries
       window.location.href = "/app";
     } catch (error: any) {
-      console.error("Setup error:", error);
-      toast.error(error.message || "Failed to create church");
+      toast.error(error?.message || "Failed to create church");
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
