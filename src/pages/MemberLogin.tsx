@@ -20,12 +20,13 @@ export default function MemberLogin() {
     setIsLoading(true);
 
     try {
-      // First check if member exists and is approved
+      // First check if member exists and is approved (only members with auth accounts)
       const { data: member, error: memberError } = await supabase
         .from("members")
         .select("id, full_name, approval_status, user_id")
         .eq("phone", phone.trim())
         .eq("is_active", true)
+        .not("user_id", "is", null)
         .maybeSingle();
 
       if (memberError) throw memberError;
