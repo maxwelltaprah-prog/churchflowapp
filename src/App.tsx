@@ -21,7 +21,7 @@ import CheckinPage from "./pages/dashboard/CheckinPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import ServicesPage from "./pages/dashboard/ServicesPage";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
-import { BroadcastsPage } from "./pages/dashboard/PlaceholderPages";
+import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 
 const queryClient = new QueryClient();
 
