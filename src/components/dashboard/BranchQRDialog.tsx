@@ -25,16 +25,16 @@ interface BranchQRDialogProps {
 export function BranchQRDialog({ open, onOpenChange, branch }: BranchQRDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
-  if (!branch) return null;
-
-  const joinUrl = `${window.location.origin}/join?code=${branch.join_code}`;
+  const joinUrl = branch ? `${window.location.origin}/join?code=${branch.join_code}` : '';
 
   const handleCopyLink = () => {
+    if (!branch) return;
     navigator.clipboard.writeText(joinUrl);
     toast.success("Join link copied to clipboard");
   };
 
   const handleDownload = () => {
+    if (!branch) return;
     const svg = document.getElementById(`branch-qr-${branch.id}`);
     if (!svg) return;
 
@@ -59,6 +59,7 @@ export function BranchQRDialog({ open, onOpenChange, branch }: BranchQRDialogPro
   };
 
   const handlePrint = () => {
+    if (!branch) return;
     const content = printRef.current;
     if (!content) return;
 
@@ -113,57 +114,61 @@ export function BranchQRDialog({ open, onOpenChange, branch }: BranchQRDialogPro
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Branch Join QR Code</DialogTitle>
-          <DialogDescription>
-            Members can scan this code to join {branch.name}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div ref={printRef} className="flex flex-col items-center p-6 space-y-4">
-          <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-            <MapPin className="w-7 h-7 text-primary" />
-          </div>
-          
-          <div className="text-center">
-            <h3 className="font-semibold text-lg">{branch.name}</h3>
-            {branch.location && (
-              <p className="text-sm text-muted-foreground">{branch.location}</p>
-            )}
-            <p className="text-sm font-mono mt-2 px-3 py-1.5 bg-secondary rounded-md">
-              {branch.join_code}
-            </p>
-          </div>
-          
-          <div className="p-4 bg-white rounded-xl shadow-sm border">
-            <QRCodeSVG
-              id={`branch-qr-${branch.id}`}
-              value={joinUrl}
-              size={180}
-              level="H"
-              includeMargin
-            />
-          </div>
+        {branch && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Branch Join QR Code</DialogTitle>
+              <DialogDescription>
+                Members can scan this code to join {branch.name}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div ref={printRef} className="flex flex-col items-center p-6 space-y-4">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                <MapPin className="w-7 h-7 text-primary" />
+              </div>
+              
+              <div className="text-center">
+                <h3 className="font-semibold text-lg">{branch.name}</h3>
+                {branch.location && (
+                  <p className="text-sm text-muted-foreground">{branch.location}</p>
+                )}
+                <p className="text-sm font-mono mt-2 px-3 py-1.5 bg-secondary rounded-md">
+                  {branch.join_code}
+                </p>
+              </div>
+              
+              <div className="p-4 bg-white rounded-xl shadow-sm border">
+                <QRCodeSVG
+                  id={`branch-qr-${branch.id}`}
+                  value={joinUrl}
+                  size={180}
+                  level="H"
+                  includeMargin
+                />
+              </div>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Scan to join this branch
-          </p>
-        </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Scan to join this branch
+              </p>
+            </div>
 
-        <div className="flex gap-2 justify-center pb-4 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleCopyLink}>
-            <LinkIcon className="w-4 h-4 mr-2" />
-            Copy Link
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="w-4 h-4 mr-2" />
-            Download
-          </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
-        </div>
+            <div className="flex gap-2 justify-center pb-4 flex-wrap">
+              <Button variant="outline" size="sm" onClick={handleCopyLink}>
+                <LinkIcon className="w-4 h-4 mr-2" />
+                Copy Link
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint}>
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
