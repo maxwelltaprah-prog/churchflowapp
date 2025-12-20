@@ -12,7 +12,6 @@ import SetupChurch from "./pages/SetupChurch";
 import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
 import MemberLogin from "./pages/MemberLogin";
-import MemberSignup from "./pages/MemberSignup";
 import MemberPortal from "./pages/MemberPortal";
 
 // Dashboard imports
@@ -45,7 +44,6 @@ const App = () => (
             
             {/* Member Routes */}
             <Route path="/member/login" element={<MemberLogin />} />
-            <Route path="/member/signup" element={<MemberSignup />} />
             <Route path="/member" element={<MemberPortal />} />
 
             {/* Admin Dashboard Routes */}
