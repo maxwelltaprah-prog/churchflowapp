@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2 } from "lucide-react";
+import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,10 +18,23 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useBranchStats, useDashboardStats } from "@/hooks/useChurchData";
 import { AddBranchDialog } from "@/components/dashboard/AddBranchDialog";
+import { BranchQRDialog } from "@/components/dashboard/BranchQRDialog";
 import { toast } from "sonner";
+
+type BranchType = {
+  id: string;
+  name: string;
+  location?: string | null;
+  join_code: string;
+  is_main_branch?: boolean | null;
+  is_active?: boolean | null;
+  memberCount: number;
+  todayAttendance: number;
+};
 
 export default function BranchesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [qrBranch, setQrBranch] = useState<BranchType | null>(null);
   const { data: branches, isLoading } = useBranchStats();
   const { data: stats } = useDashboardStats();
 
@@ -123,6 +136,10 @@ export default function BranchesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setQrBranch(branch as BranchType)}>
+                        <QrCode className="w-4 h-4 mr-2" />
+                        View QR Code
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => copyJoinLink(branch.join_code)}>
                         <LinkIcon className="w-4 h-4 mr-2" />
                         Copy Join Link
@@ -148,13 +165,22 @@ export default function BranchesPage() {
                       <p className="text-xs text-muted-foreground">Join Code</p>
                       <p className="font-mono font-medium">{branch.join_code}</p>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => copyJoinLink(branch.join_code)}
-                    >
-                      <LinkIcon className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setQrBranch(branch as BranchType)}
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyJoinLink(branch.join_code)}
+                      >
+                        <LinkIcon className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Stats */}
@@ -190,6 +216,7 @@ export default function BranchesPage() {
       )}
 
       <AddBranchDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <BranchQRDialog open={!!qrBranch} onOpenChange={(open) => !open && setQrBranch(null)} branch={qrBranch} />
     </div>
   );
 }
