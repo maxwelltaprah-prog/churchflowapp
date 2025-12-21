@@ -188,6 +188,30 @@ export function useUpdateService() {
   });
 }
 
+// Deactivate/Cancel a service
+export function useDeactivateService() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (serviceId: string) => {
+      const { error } = await supabase
+        .from("services")
+        .update({ is_active: false })
+        .eq("id", serviceId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Service cancelled");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // Record attendance
 export function useRecordAttendance() {
   const queryClient = useQueryClient();
