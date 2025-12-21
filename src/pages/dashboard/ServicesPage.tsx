@@ -23,8 +23,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useServices, useBranches } from "@/hooks/useChurchData";
+import { useDeactivateService } from "@/hooks/useChurchMutations";
 import { AddServiceDialog } from "@/components/dashboard/AddServiceDialog";
 import { EditServiceDialog } from "@/components/dashboard/EditServiceDialog";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
@@ -33,9 +44,11 @@ import type { Tables } from "@/integrations/supabase/types";
 export default function ServicesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedService, setSelectedService] = useState<Tables<"services"> | null>(null);
   const { data: services, isLoading } = useServices();
   const { data: branches } = useBranches();
+  const deactivateService = useDeactivateService();
 
   const getDateLabel = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -208,7 +221,10 @@ export default function ServicesPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               className="text-destructive cursor-pointer"
-                              onClick={() => console.log('Cancel service:', service.id)}
+                              onClick={() => {
+                                setSelectedService(service);
+                                setShowCancelDialog(true);
+                              }}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Cancel Service
@@ -231,6 +247,30 @@ export default function ServicesPage() {
         onOpenChange={setShowEditDialog} 
         service={selectedService} 
       />
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Service</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel "{selectedService?.name}"? This will mark the service as inactive and it won't appear in upcoming services.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Service</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (selectedService) {
+                  deactivateService.mutate(selectedService.id);
+                }
+              }}
+            >
+              Cancel Service
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
