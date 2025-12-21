@@ -190,13 +190,19 @@ export default function ServicesPage() {
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                          <DropdownMenuContent align="end" className="bg-popover">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => console.log('Edit service:', service.id)}
+                            >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Service
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem 
+                              className="text-destructive cursor-pointer"
+                              onClick={() => console.log('Cancel service:', service.id)}
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
                               Cancel Service
                             </DropdownMenuItem>
