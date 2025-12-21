@@ -108,6 +108,63 @@ export function useCreateBranch() {
   });
 }
 
+// Update an existing branch
+export function useUpdateBranch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name?: string;
+      location?: string;
+    }) => {
+      const { id, ...updateData } = data;
+      const { data: branch, error } = await supabase
+        .from("branches")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return branch;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["branch-stats"] });
+      toast.success("Branch updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Deactivate a branch
+export function useDeactivateBranch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (branchId: string) => {
+      const { error } = await supabase
+        .from("branches")
+        .update({ is_active: false })
+        .eq("id", branchId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["branch-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Branch deactivated");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // Create a new service
 export function useCreateService() {
   const queryClient = useQueryClient();

@@ -15,9 +15,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useBranchStats, useDashboardStats } from "@/hooks/useChurchData";
+import { useDeactivateBranch } from "@/hooks/useChurchMutations";
 import { AddBranchDialog } from "@/components/dashboard/AddBranchDialog";
+import { EditBranchDialog } from "@/components/dashboard/EditBranchDialog";
 import { BranchQRDialog } from "@/components/dashboard/BranchQRDialog";
 import { toast } from "sonner";
 
@@ -34,9 +46,13 @@ type BranchType = {
 
 export default function BranchesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<BranchType | null>(null);
   const [qrBranch, setQrBranch] = useState<BranchType | null>(null);
   const { data: branches, isLoading } = useBranchStats();
   const { data: stats } = useDashboardStats();
+  const deactivateBranch = useDeactivateBranch();
 
   const copyJoinLink = (code: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/join?code=${code}`);
@@ -135,21 +151,39 @@ export default function BranchesPage() {
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setQrBranch(branch as BranchType)}>
+                    <DropdownMenuContent align="end" className="bg-popover">
+                      <DropdownMenuItem 
+                        className="cursor-pointer"
+                        onClick={() => setQrBranch(branch as BranchType)}
+                      >
                         <QrCode className="w-4 h-4 mr-2" />
                         View QR Code
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => copyJoinLink(branch.join_code)}>
+                      <DropdownMenuItem 
+                        className="cursor-pointer"
+                        onClick={() => copyJoinLink(branch.join_code)}
+                      >
                         <LinkIcon className="w-4 h-4 mr-2" />
                         Copy Join Link
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setSelectedBranch(branch as BranchType);
+                          setShowEditDialog(true);
+                        }}
+                      >
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Branch
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem 
+                        className="text-destructive cursor-pointer"
+                        onClick={() => {
+                          setSelectedBranch(branch as BranchType);
+                          setShowDeactivateDialog(true);
+                        }}
+                      >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Deactivate
                       </DropdownMenuItem>
@@ -216,7 +250,36 @@ export default function BranchesPage() {
       )}
 
       <AddBranchDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <EditBranchDialog 
+        open={showEditDialog} 
+        onOpenChange={setShowEditDialog} 
+        branch={selectedBranch} 
+      />
       <BranchQRDialog open={!!qrBranch} onOpenChange={(open) => !open && setQrBranch(null)} branch={qrBranch} />
+      
+      <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate Branch</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate "{selectedBranch?.name}"? This will hide the branch from active lists but won't delete any data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (selectedBranch) {
+                  deactivateBranch.mutate(selectedBranch.id);
+                }
+              }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
