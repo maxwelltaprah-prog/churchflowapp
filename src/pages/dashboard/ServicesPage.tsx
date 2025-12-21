@@ -26,10 +26,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useServices, useBranches } from "@/hooks/useChurchData";
 import { AddServiceDialog } from "@/components/dashboard/AddServiceDialog";
+import { EditServiceDialog } from "@/components/dashboard/EditServiceDialog";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
+import type { Tables } from "@/integrations/supabase/types";
 
 export default function ServicesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedService, setSelectedService] = useState<Tables<"services"> | null>(null);
   const { data: services, isLoading } = useServices();
   const { data: branches } = useBranches();
 
@@ -193,7 +197,10 @@ export default function ServicesPage() {
                           <DropdownMenuContent align="end" className="bg-popover">
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => console.log('Edit service:', service.id)}
+                              onClick={() => {
+                                setSelectedService(service);
+                                setShowEditDialog(true);
+                              }}
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Service
@@ -219,6 +226,11 @@ export default function ServicesPage() {
       </Card>
 
       <AddServiceDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <EditServiceDialog 
+        open={showEditDialog} 
+        onOpenChange={setShowEditDialog} 
+        service={selectedService} 
+      />
     </div>
   );
 }

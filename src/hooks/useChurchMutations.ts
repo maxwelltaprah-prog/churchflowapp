@@ -153,6 +153,41 @@ export function useCreateService() {
   });
 }
 
+// Update an existing service
+export function useUpdateService() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name?: string;
+      description?: string;
+      service_date?: string;
+      start_time?: string;
+      end_time?: string;
+      branch_id?: string;
+    }) => {
+      const { id, ...updateData } = data;
+      const { data: service, error } = await supabase
+        .from("services")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return service;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      toast.success("Service updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // Record attendance
 export function useRecordAttendance() {
   const queryClient = useQueryClient();
