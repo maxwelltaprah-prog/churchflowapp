@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,7 +10,11 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Church
+  ChevronRight,
+  Church,
+  Camera,
+  FileText,
+  UserCheck
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -21,6 +26,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
   SidebarFooter,
   useSidebar,
@@ -32,19 +40,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChurch } from "@/hooks/useChurchData";
 
+// Navigation items without submenu
 const mainNavItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard },
   { title: "Members", url: "/app/members", icon: Users },
   { title: "Branches", url: "/app/branches", icon: Building2 },
   { title: "Services", url: "/app/services", icon: Calendar },
-  { title: "Check-in", url: "/app/checkin", icon: QrCode },
   { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
   { title: "Broadcasts", url: "/app/broadcasts", icon: Bell },
+];
+
+// Check-in submenu items
+const checkinSubItems = [
+  { title: "Staff Check-in", url: "/app/checkin", icon: Camera },
+  { title: "Bulk Check-in", url: "/app/checkin/bulk", icon: UserCheck },
+  { title: "Attendance Reports", url: "/app/checkin/reports", icon: FileText },
 ];
 
 const settingsNavItems = [
@@ -58,6 +78,10 @@ export function DashboardSidebar() {
   const navigate = useNavigate();
   const { profile, signOut, isChurchAdmin } = useAuth();
   const { data: church } = useChurch();
+  
+  // Check-in submenu open state
+  const isCheckinActive = location.pathname.startsWith("/app/checkin");
+  const [checkinOpen, setCheckinOpen] = useState(isCheckinActive);
 
   const isActive = (path: string) => {
     if (path === "/app") {
@@ -65,6 +89,8 @@ export function DashboardSidebar() {
     }
     return location.pathname.startsWith(path);
   };
+  
+  const isExactActive = (path: string) => location.pathname === path;
 
   const handleLogout = async () => {
     await signOut();
@@ -125,6 +151,63 @@ export function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* Check-in Menu with Submenu */}
+              <Collapsible 
+                open={checkinOpen} 
+                onOpenChange={setCheckinOpen}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isCheckinActive}
+                      tooltip="Check-in"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full",
+                        isCheckinActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <QrCode className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-left">Check-in</span>
+                          <ChevronRight className={cn(
+                            "w-4 h-4 transition-transform duration-200",
+                            checkinOpen && "rotate-90"
+                          )} />
+                        </>
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {checkinSubItems.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.url}>
+                            <SidebarMenuSubButton asChild isActive={isExactActive(subItem.url)}>
+                              <NavLink
+                                to={subItem.url}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm",
+                                  isExactActive(subItem.url)
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                )}
+                              >
+                                <subItem.icon className="w-4 h-4" />
+                                <span>{subItem.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
