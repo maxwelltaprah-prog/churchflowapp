@@ -11,11 +11,19 @@ export function useCreateMember() {
   return useMutation({
     mutationFn: async (data: {
       full_name: string;
-      phone?: string;
+      phone: string;
       email?: string;
-      gender?: "male" | "female";
-      membership_status?: "member" | "visitor" | "new_convert";
+      gender: "male" | "female" | "prefer_not_to_say";
+      date_of_birth: string;
+      membership_status: "member" | "visitor" | "new_convert" | "first_timer";
       branch_id: string;
+      member_type?: "regular" | "occasional" | "worker";
+      how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
+      residential_area?: string;
+      marital_status?: "single" | "married" | "divorced" | "widowed";
+      occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other";
+      admin_notes?: string;
+      date_joined?: string;
     }) => {
       if (!profile?.church_id) throw new Error("No church context");
 
@@ -29,19 +37,29 @@ export function useCreateMember() {
       const memberCode = `${church?.slug?.toUpperCase().substring(0, 3) || "CHU"}-${Math.floor(Math.random() * 100000).toString().padStart(5, "0")}`;
       const qrToken = crypto.randomUUID();
 
+      const insertData: Record<string, unknown> = {
+        church_id: profile.church_id,
+        branch_id: data.branch_id,
+        full_name: data.full_name,
+        phone: data.phone,
+        email: data.email,
+        gender: data.gender,
+        date_of_birth: data.date_of_birth,
+        membership_status: data.membership_status,
+        member_type: data.member_type,
+        how_heard: data.how_heard,
+        residential_area: data.residential_area,
+        marital_status: data.marital_status,
+        occupation: data.occupation,
+        admin_notes: data.admin_notes,
+        date_joined: data.date_joined || new Date().toISOString().split("T")[0],
+        member_code: memberCode,
+        qr_code_token: qrToken,
+      };
+
       const { data: member, error } = await supabase
         .from("members")
-        .insert({
-          church_id: profile.church_id,
-          branch_id: data.branch_id,
-          full_name: data.full_name,
-          phone: data.phone,
-          email: data.email,
-          gender: data.gender,
-          membership_status: data.membership_status || "visitor",
-          member_code: memberCode,
-          qr_code_token: qrToken,
-        })
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -366,14 +384,22 @@ export function useUpdateMember() {
       full_name?: string;
       phone?: string;
       email?: string;
-      gender?: "male" | "female";
-      membership_status?: "member" | "visitor" | "new_convert";
+      gender?: "male" | "female" | "prefer_not_to_say";
+      date_of_birth?: string;
+      membership_status?: "member" | "visitor" | "new_convert" | "first_timer";
       branch_id?: string;
+      member_type?: "regular" | "occasional" | "worker";
+      how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
+      residential_area?: string;
+      marital_status?: "single" | "married" | "divorced" | "widowed";
+      occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other";
+      admin_notes?: string;
+      date_joined?: string;
     }) => {
       const { id, ...updateData } = data;
       const { data: member, error } = await supabase
         .from("members")
-        .update(updateData)
+        .update(updateData as any)
         .eq("id", id)
         .select()
         .single();

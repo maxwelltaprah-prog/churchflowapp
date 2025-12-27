@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { 
   Church, 
   ArrowLeft, 
@@ -16,8 +17,9 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Calendar,
-  Mail
+  ChevronDown,
+  ChevronUp,
+  Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,8 +29,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { generateMemberCode, generateQRToken } from "@/lib/church-service";
+import { selfRegisterSchema, type SelfRegisterFormData } from "@/lib/member-form-schema";
+
+// Fetch groups for a branch
+async function fetchBranchGroups(branchId: string) {
+  const { data } = await supabase
+    .from("groups")
+    .select("id, name")
+    .eq("is_active", true)
+    .or(`branch_id.eq.${branchId},branch_id.is.null`)
+    .order("sort_order");
+  return data || [];
+}
 
 export default function JoinBranch() {
   const [searchParams] = useSearchParams();
@@ -39,21 +63,38 @@ export default function JoinBranch() {
   const [branchCode, setBranchCode] = useState(initialCode);
   const [branchInfo, setBranchInfo] = useState<{ id: string; church_id: string; name: string } | null>(null);
   const [showPin, setShowPin] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: "",
-    phone: "",
-    email: "",
-    pin: "",
-    confirmPin: "",
-    gender: "",
-    dateOfBirth: "",
-    membershipStatus: "",
-    ministryGroup: "",
-    areaZone: "",
-  });
+  const [optionalOpen, setOptionalOpen] = useState(false);
+  const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [memberResult, setMemberResult] = useState<{ memberCode: string; branchName: string } | null>(null);
   const { toast } = useToast();
+
+  const form = useForm<SelfRegisterFormData>({
+    resolver: zodResolver(selfRegisterSchema),
+    defaultValues: {
+      full_name: "",
+      phone: "",
+      gender: undefined,
+      date_of_birth: "",
+      membership_status: "first_timer",
+      group_ids: [],
+      member_type: null,
+      how_heard: null,
+      residential_area: "",
+      marital_status: null,
+      occupation: null,
+      email: "",
+      pin: "",
+      confirmPin: "",
+    },
+  });
+
+  // Fetch groups when branch is set
+  useEffect(() => {
+    if (branchInfo?.id) {
+      fetchBranchGroups(branchInfo.id).then(setAvailableGroups);
+    }
+  }, [branchInfo?.id]);
 
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +109,6 @@ export default function JoinBranch() {
 
     setIsLoading(true);
     try {
-      // Verify branch exists
       const normalizedCode = branchCode.trim().toUpperCase();
       const { data: branchData, error } = await supabase
         .from("branches")
@@ -99,28 +139,7 @@ export default function JoinBranch() {
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate PIN
-    if (formData.pin.length < 4) {
-      toast({
-        title: "Invalid PIN",
-        description: "PIN must be at least 4 digits.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.pin !== formData.confirmPin) {
-      toast({
-        title: "PINs don't match",
-        description: "Please make sure your PINs match.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const onSubmit = async (data: SelfRegisterFormData) => {
     if (!branchInfo) {
       toast({
         title: "Error",
@@ -133,11 +152,12 @@ export default function JoinBranch() {
     setIsLoading(true);
     
     try {
-      // Check if phone already exists
+      // Check if phone already exists in this church
       const { data: existingMember } = await supabase
         .from("members")
         .select("id")
-        .eq("phone", formData.phone.trim())
+        .eq("phone", data.phone.trim())
+        .eq("church_id", branchInfo.church_id)
         .maybeSingle();
 
       if (existingMember) {
@@ -150,15 +170,15 @@ export default function JoinBranch() {
         return;
       }
 
-      // 1. Create auth account using phone as email (phone@churchflow.local) with PIN as password
-      const authEmail = `${formData.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
+      // Create auth account
+      const authEmail = `${data.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: authEmail,
-        password: formData.pin,
+        password: data.pin,
         options: {
           emailRedirectTo: `${window.location.origin}/member`,
           data: { 
-            full_name: formData.fullName,
+            full_name: data.full_name,
             is_member: true
           }
         }
@@ -167,37 +187,53 @@ export default function JoinBranch() {
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error("Failed to create account");
 
-      // 2. Generate member code and QR token
+      // Generate member code and QR token
       const memberCode = generateMemberCode(branchCode);
       const qrToken = generateQRToken();
 
-      // 3. Create member record linked to auth user
-      const { error: memberError } = await supabase
+      // Create member record
+      const memberInsertData: Record<string, unknown> = {
+        church_id: branchInfo.church_id,
+        branch_id: branchInfo.id,
+        user_id: authData.user.id,
+        full_name: data.full_name.trim(),
+        phone: data.phone.trim(),
+        email: data.email?.trim() || null,
+        gender: data.gender,
+        date_of_birth: data.date_of_birth,
+        membership_status: data.membership_status,
+        member_type: data.member_type || null,
+        how_heard: data.how_heard || null,
+        residential_area: data.residential_area?.trim() || null,
+        marital_status: data.marital_status || null,
+        occupation: data.occupation || null,
+        member_code: memberCode,
+        qr_code_token: qrToken,
+        approval_status: "pending",
+        date_joined: new Date().toISOString().split("T")[0],
+      };
+
+      const { data: newMember, error: memberError } = await supabase
         .from("members")
-        .insert({
-          church_id: branchInfo.church_id,
-          branch_id: branchInfo.id,
-          user_id: authData.user.id,
-          full_name: formData.fullName.trim(),
-          phone: formData.phone.trim(),
-          email: formData.email.trim() || null,
-          gender: formData.gender as "male" | "female" || null,
-          date_of_birth: formData.dateOfBirth || null,
-          membership_status: (formData.membershipStatus as "member" | "visitor" | "new_convert") || "visitor",
-          ministry_group: formData.ministryGroup.trim() || null,
-          area_zone: formData.areaZone.trim() || null,
-          member_code: memberCode,
-          qr_code_token: qrToken,
-          approval_status: "pending"
-        });
+        .insert(memberInsertData as any)
+        .select("id")
+        .single();
 
       if (memberError) {
-        // Cleanup: delete the auth user if member creation fails
-        console.error("Member creation failed, auth user may need cleanup:", memberError);
+        console.error("Member creation failed:", memberError);
         throw memberError;
       }
 
-      // Sign out immediately - they need approval first
+      // Add member to groups if selected
+      if (data.group_ids && data.group_ids.length > 0 && newMember) {
+        const groupInserts = data.group_ids.map((groupId) => ({
+          member_id: newMember.id,
+          group_id: groupId,
+        }));
+        await supabase.from("member_groups").insert(groupInserts);
+      }
+
+      // Sign out - they need approval first
       await supabase.auth.signOut();
 
       setMemberResult({
@@ -220,10 +256,6 @@ export default function JoinBranch() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   if (step === "success" && memberResult) {
@@ -251,7 +283,6 @@ export default function JoinBranch() {
                 You've registered to join {memberResult.branchName}
               </p>
 
-              {/* Pending Approval Notice */}
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 mb-6">
                 <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 mb-2">
                   <Clock className="w-5 h-5" />
@@ -337,7 +368,7 @@ export default function JoinBranch() {
             <div className={`w-3 h-3 rounded-full ${step === "form" ? "bg-primary" : "bg-primary/30"}`} />
           </div>
 
-          <div className="bg-card rounded-2xl shadow-elevated border border-border p-8">
+          <div className="bg-card rounded-2xl shadow-elevated border border-border p-6 sm:p-8">
             {step === "code" ? (
               <form onSubmit={handleCodeSubmit} className="space-y-6">
                 <div className="text-center mb-6">
@@ -350,7 +381,7 @@ export default function JoinBranch() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branchCode">Branch Code</Label>
+                  <label htmlFor="branchCode" className="text-sm font-medium">Branch Code</label>
                   <Input
                     id="branchCode"
                     type="text"
@@ -382,232 +413,428 @@ export default function JoinBranch() {
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleFormSubmit} className="space-y-4">
-                {branchInfo && (
-                  <div className="bg-secondary/50 rounded-lg p-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Building2 className="w-4 h-4 text-primary" />
-                      <span className="font-medium">Joining:</span>
-                      <span className="text-muted-foreground">{branchInfo.name}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Personal Information Section */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Personal Information</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name *</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="fullName"
-                        name="fullName"
-                        type="text"
-                        placeholder="John Doe"
-                        value={formData.fullName}
-                        onChange={handleChange}
-                        className="pl-10 h-12"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        placeholder="+233 XX XXX XXXX"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="pl-10 h-12"
-                        required
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">This will be used for login</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email (Optional)</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="pl-10 h-12"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Gender</Label>
-                      <Select
-                        value={formData.gender}
-                        onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                      >
-                        <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-                        <Input
-                          id="dateOfBirth"
-                          name="dateOfBirth"
-                          type="date"
-                          value={formData.dateOfBirth}
-                          onChange={handleChange}
-                          className="pl-10 h-12"
-                        />
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                  {branchInfo && (
+                    <div className="bg-secondary/50 rounded-lg p-3 mb-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="w-4 h-4 text-primary" />
+                        <span className="font-medium">Joining:</span>
+                        <span className="text-muted-foreground">{branchInfo.name}</span>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Church Information Section */}
-                <div className="space-y-4 pt-4 border-t border-border">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Church Information</h3>
-                  
-                  <div className="space-y-2">
-                    <Label>Membership Status *</Label>
-                    <Select
-                      value={formData.membershipStatus}
-                      onValueChange={(value) => setFormData({ ...formData, membershipStatus: value })}
-                      required
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select your status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="member">Member</SelectItem>
-                        <SelectItem value="visitor">Visitor</SelectItem>
-                        <SelectItem value="new_convert">New Convert</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* Time estimate */}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg p-3">
+                    <Clock className="w-4 h-4" />
+                    <span>Takes about 1 minute</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ministryGroup">Ministry/Group</Label>
-                      <Input
-                        id="ministryGroup"
-                        name="ministryGroup"
-                        type="text"
-                        placeholder="e.g., Youth"
-                        value={formData.ministryGroup}
-                        onChange={handleChange}
-                        className="h-12"
+                  {/* SECTION A: Basic Info (Required) */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Basic Information
+                    </h3>
+
+                    <FormField
+                      control={form.control}
+                      name="full_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter your full name" className="h-12" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="tel" 
+                              placeholder="+233 XX XXX XXXX" 
+                              className="h-12" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">This will be used for login</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <FormControl>
+                                <SelectTrigger className="h-12">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="male">Male</SelectItem>
+                                <SelectItem value="female">Female</SelectItem>
+                                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="date_of_birth"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date of Birth *</FormLabel>
+                            <FormControl>
+                              <Input type="date" className="h-12" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="areaZone">Area/Zone</Label>
-                      <Input
-                        id="areaZone"
-                        name="areaZone"
-                        type="text"
-                        placeholder="e.g., Zone 1"
-                        value={formData.areaZone}
-                        onChange={handleChange}
-                        className="h-12"
-                      />
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="membership_status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Membership Status *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger className="h-12">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="first_timer">First Timer / New</SelectItem>
+                              <SelectItem value="visitor">Visitor</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="new_convert">New Convert</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
 
-                {/* Account Security Section */}
-                <div className="space-y-4 pt-4 border-t border-border">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Account Security</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="pin">Create PIN *</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="pin"
-                        name="pin"
-                        type={showPin ? "text" : "password"}
-                        placeholder="••••"
-                        value={formData.pin}
-                        onChange={handleChange}
-                        className="pl-10 pr-10 h-12"
-                        minLength={4}
-                        maxLength={6}
-                        pattern="[0-9]*"
-                        inputMode="numeric"
-                        required
-                      />
-                      <button
+                  {/* Account Security Section */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Account Security
+                    </h3>
+
+                    <FormField
+                      control={form.control}
+                      name="pin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Create PIN *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showPin ? "text" : "password"}
+                                placeholder="••••"
+                                className="h-12 pr-10"
+                                maxLength={6}
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                {...field}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPin(!showPin)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              >
+                                {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                              </button>
+                            </div>
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">4-6 digits for quick login</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="confirmPin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm PIN *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type={showPin ? "text" : "password"}
+                              placeholder="••••"
+                              className="h-12"
+                              maxLength={6}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* OPTIONAL SECTIONS (Collapsed) */}
+                  <Collapsible open={optionalOpen} onOpenChange={setOptionalOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button
                         type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        variant="ghost"
+                        className="w-full justify-between h-12 border border-dashed border-border hover:border-primary/50"
                       >
-                        {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">4-6 digits for quick login</p>
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Users className="w-4 h-4" />
+                          Add more details (optional)
+                        </span>
+                        {optionalOpen ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+
+                    <CollapsibleContent className="space-y-4 pt-4">
+                      {/* Church Connection */}
+                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
+                        <h4 className="text-sm font-medium text-foreground">Church Connection</h4>
+
+                        {availableGroups.length > 0 && (
+                          <FormField
+                            control={form.control}
+                            name="group_ids"
+                            render={() => (
+                              <FormItem>
+                                <FormLabel>Ministry / Group</FormLabel>
+                                <div className="border rounded-md p-3 space-y-2 max-h-[120px] overflow-y-auto bg-background">
+                                  {availableGroups.map((group) => (
+                                    <FormField
+                                      key={group.id}
+                                      control={form.control}
+                                      name="group_ids"
+                                      render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-2 space-y-0">
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={field.value?.includes(group.id)}
+                                              onCheckedChange={(checked) => {
+                                                const currentValue = field.value || [];
+                                                if (checked) {
+                                                  field.onChange([...currentValue, group.id]);
+                                                } else {
+                                                  field.onChange(
+                                                    currentValue.filter((id) => id !== group.id)
+                                                  );
+                                                }
+                                              }}
+                                            />
+                                          </FormControl>
+                                          <FormLabel className="text-sm font-normal cursor-pointer">
+                                            {group.name}
+                                          </FormLabel>
+                                        </FormItem>
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        <FormField
+                          control={form.control}
+                          name="member_type"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Member Type</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <FormControl>
+                                  <SelectTrigger className="h-12">
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="regular">Regular Attender</SelectItem>
+                                  <SelectItem value="occasional">Occasional Attender</SelectItem>
+                                  <SelectItem value="worker">Worker / Volunteer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="how_heard"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>How did you hear about us?</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <FormControl>
+                                  <SelectTrigger className="h-12">
+                                    <SelectValue placeholder="Select option" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="friend_family">Friend / Family</SelectItem>
+                                  <SelectItem value="social_media">Social Media</SelectItem>
+                                  <SelectItem value="walk_in">Walk-in</SelectItem>
+                                  <SelectItem value="outreach">Outreach</SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Location & Life Stage */}
+                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
+                        <h4 className="text-sm font-medium text-foreground">Location & Life Stage</h4>
+
+                        <FormField
+                          control={form.control}
+                          name="residential_area"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Residential Area</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="e.g., East Legon, Accra" 
+                                  className="h-12" 
+                                  {...field}
+                                  value={field.value || ""}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="marital_status"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Marital Status</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-12">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="single">Single</SelectItem>
+                                    <SelectItem value="married">Married</SelectItem>
+                                    <SelectItem value="divorced">Divorced</SelectItem>
+                                    <SelectItem value="widowed">Widowed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="occupation"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Occupation</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-12">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="student">Student</SelectItem>
+                                    <SelectItem value="public_sector">Public Sector</SelectItem>
+                                    <SelectItem value="private_sector">Private Sector</SelectItem>
+                                    <SelectItem value="self_employed">Self-Employed</SelectItem>
+                                    <SelectItem value="unemployed">Unemployed</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="email" 
+                                  placeholder="email@example.com" 
+                                  className="h-12" 
+                                  {...field}
+                                  value={field.value || ""}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <div className="pt-4">
+                    <Button
+                      type="submit"
+                      variant="hero"
+                      size="lg"
+                      className="w-full"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Creating Account..." : "Complete Registration"}
+                    </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPin">Confirm PIN *</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="confirmPin"
-                        name="confirmPin"
-                        type={showPin ? "text" : "password"}
-                        placeholder="••••"
-                        value={formData.confirmPin}
-                        onChange={handleChange}
-                        className="pl-10 h-12"
-                        minLength={4}
-                        maxLength={6}
-                        pattern="[0-9]*"
-                        inputMode="numeric"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <Button
-                    type="submit"
-                    variant="hero"
-                    size="lg"
-                    className="w-full"
-                    disabled={isLoading}
+                  <button
+                    type="button"
+                    onClick={() => setStep("code")}
+                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
                   >
-                    {isLoading ? "Creating Account..." : "Complete Registration"}
-                  </Button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setStep("code")}
-                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
-                >
-                  ← Back to branch code
-                </button>
-              </form>
+                    ← Back to branch code
+                  </button>
+                </form>
+              </Form>
             )}
 
             <div className="mt-6 pt-6 border-t border-border text-center">
