@@ -1,7 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -9,40 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useUpdateMember } from "@/hooks/useChurchMutations";
 import { useBranches } from "@/hooks/useChurchData";
 import { useActiveGroups, useMemberGroups } from "@/hooks/useGroupsData";
 import { useSetMemberGroups } from "@/hooks/useGroupMutations";
-
-const memberSchema = z.object({
-  full_name: z.string().min(2, "Name must be at least 2 characters"),
-  phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  gender: z.enum(["male", "female"]).optional(),
-  membership_status: z.enum(["member", "visitor", "new_convert"]).optional(),
-  branch_id: z.string().min(1, "Please select a branch"),
-  group_ids: z.array(z.string()).optional(),
-});
-
-type MemberFormData = z.infer<typeof memberSchema>;
+import { MemberForm } from "@/components/member/MemberForm";
+import { memberFormSchema, type MemberFormData } from "@/lib/member-form-schema";
 
 interface EditMemberDialogProps {
   open: boolean;
@@ -52,9 +25,17 @@ interface EditMemberDialogProps {
     full_name: string;
     phone?: string | null;
     email?: string | null;
-    gender?: "male" | "female" | null;
-    membership_status?: "member" | "visitor" | "new_convert" | null;
+    gender?: "male" | "female" | "prefer_not_to_say" | null;
+    date_of_birth?: string | null;
+    membership_status?: "member" | "visitor" | "new_convert" | "first_timer" | null;
     branch_id: string;
+    member_type?: "regular" | "occasional" | "worker" | null;
+    how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other" | null;
+    residential_area?: string | null;
+    marital_status?: "single" | "married" | "divorced" | "widowed" | null;
+    occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other" | null;
+    admin_notes?: string | null;
+    date_joined?: string | null;
   } | null;
 }
 
@@ -63,22 +44,35 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
   const setMemberGroups = useSetMemberGroups();
   const { data: branches } = useBranches();
   const { data: memberGroups } = useMemberGroups(member?.id || null);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   
   const form = useForm<MemberFormData>({
-    resolver: zodResolver(memberSchema),
+    resolver: zodResolver(memberFormSchema),
     defaultValues: {
       full_name: "",
       phone: "",
-      email: "",
       gender: undefined,
+      date_of_birth: "",
       membership_status: "visitor",
       branch_id: "",
       group_ids: [],
+      member_type: null,
+      how_heard: null,
+      residential_area: "",
+      marital_status: null,
+      occupation: null,
+      email: "",
+      admin_notes: "",
+      date_joined: "",
     },
   });
 
   const watchedBranchId = form.watch("branch_id");
   const { data: availableGroups } = useActiveGroups(watchedBranchId);
+
+  useEffect(() => {
+    setSelectedBranchId(watchedBranchId || "");
+  }, [watchedBranchId]);
 
   useEffect(() => {
     if (member) {
@@ -88,9 +82,17 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         phone: member.phone || "",
         email: member.email || "",
         gender: member.gender || undefined,
+        date_of_birth: member.date_of_birth || "",
         membership_status: member.membership_status || "visitor",
         branch_id: member.branch_id,
         group_ids: currentGroupIds,
+        member_type: member.member_type || null,
+        how_heard: member.how_heard || null,
+        residential_area: member.residential_area || "",
+        marital_status: member.marital_status || null,
+        occupation: member.occupation || null,
+        admin_notes: member.admin_notes || "",
+        date_joined: member.date_joined || "",
       });
     }
   }, [member, memberGroups, form]);
@@ -101,11 +103,19 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     await updateMember.mutateAsync({
       id: member.id,
       full_name: data.full_name,
-      phone: data.phone || undefined,
+      phone: data.phone,
       email: data.email || undefined,
       gender: data.gender,
+      date_of_birth: data.date_of_birth,
       membership_status: data.membership_status,
       branch_id: data.branch_id,
+      member_type: data.member_type || undefined,
+      how_heard: data.how_heard || undefined,
+      residential_area: data.residential_area || undefined,
+      marital_status: data.marital_status || undefined,
+      occupation: data.occupation || undefined,
+      admin_notes: data.admin_notes || undefined,
+      date_joined: data.date_joined || undefined,
     });
     
     // Update member groups
@@ -128,166 +138,15 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+1234567890" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="john@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="gender"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="membership_status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="visitor">Visitor</SelectItem>
-                        <SelectItem value="new_convert">New Convert</SelectItem>
-                        <SelectItem value="member">Member</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="branch_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Branch</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {branches?.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <MemberForm
+              form={form}
+              branches={branches}
+              availableGroups={availableGroups}
+              mode="edit"
+              showAdminFields={true}
             />
 
-            {/* Groups Multi-Select */}
-            {availableGroups && availableGroups.length > 0 && (
-              <FormField
-                control={form.control}
-                name="group_ids"
-                render={() => (
-                  <FormItem>
-                    <FormLabel>Groups / Ministries</FormLabel>
-                    <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto">
-                      {availableGroups.map((group) => (
-                        <FormField
-                          key={group.id}
-                          control={form.control}
-                          name="group_ids"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(group.id)}
-                                  onCheckedChange={(checked) => {
-                                    const currentValue = field.value || [];
-                                    if (checked) {
-                                      field.onChange([...currentValue, group.id]);
-                                    } else {
-                                      field.onChange(
-                                        currentValue.filter((id) => id !== group.id)
-                                      );
-                                    }
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal cursor-pointer">
-                                {group.name}
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
