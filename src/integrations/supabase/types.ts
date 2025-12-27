@@ -309,6 +309,7 @@ export type Database = {
       }
       members: {
         Row: {
+          admin_notes: string | null
           approval_status: Database["public"]["Enums"]["approval_status"]
           approved_at: string | null
           approved_by: string | null
@@ -316,25 +317,32 @@ export type Database = {
           branch_id: string
           church_id: string
           created_at: string
+          date_joined: string | null
           date_of_birth: string | null
           email: string | null
           full_name: string
           gender: Database["public"]["Enums"]["gender_type"] | null
+          how_heard: Database["public"]["Enums"]["how_heard"] | null
           id: string
           is_active: boolean | null
+          marital_status: Database["public"]["Enums"]["marital_status"] | null
           member_code: string
+          member_type: Database["public"]["Enums"]["member_type"] | null
           membership_status:
             | Database["public"]["Enums"]["membership_status"]
             | null
           ministry_group: string | null
+          occupation: Database["public"]["Enums"]["occupation_type"] | null
           phone: string | null
           photo_url: string | null
           qr_code_token: string
           registered_by: string | null
+          residential_area: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          admin_notes?: string | null
           approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_at?: string | null
           approved_by?: string | null
@@ -342,25 +350,32 @@ export type Database = {
           branch_id: string
           church_id: string
           created_at?: string
+          date_joined?: string | null
           date_of_birth?: string | null
           email?: string | null
           full_name: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          how_heard?: Database["public"]["Enums"]["how_heard"] | null
           id?: string
           is_active?: boolean | null
+          marital_status?: Database["public"]["Enums"]["marital_status"] | null
           member_code: string
+          member_type?: Database["public"]["Enums"]["member_type"] | null
           membership_status?:
             | Database["public"]["Enums"]["membership_status"]
             | null
           ministry_group?: string | null
+          occupation?: Database["public"]["Enums"]["occupation_type"] | null
           phone?: string | null
           photo_url?: string | null
           qr_code_token: string
           registered_by?: string | null
+          residential_area?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          admin_notes?: string | null
           approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_at?: string | null
           approved_by?: string | null
@@ -368,21 +383,27 @@ export type Database = {
           branch_id?: string
           church_id?: string
           created_at?: string
+          date_joined?: string | null
           date_of_birth?: string | null
           email?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          how_heard?: Database["public"]["Enums"]["how_heard"] | null
           id?: string
           is_active?: boolean | null
+          marital_status?: Database["public"]["Enums"]["marital_status"] | null
           member_code?: string
+          member_type?: Database["public"]["Enums"]["member_type"] | null
           membership_status?:
             | Database["public"]["Enums"]["membership_status"]
             | null
           ministry_group?: string | null
+          occupation?: Database["public"]["Enums"]["occupation_type"] | null
           phone?: string | null
           photo_url?: string | null
           qr_code_token?: string
           registered_by?: string | null
+          residential_area?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -589,8 +610,23 @@ export type Database = {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
       approval_status: "pending" | "approved" | "rejected"
       checkin_method: "staff_scan" | "self_scan"
-      gender_type: "male" | "female"
-      membership_status: "member" | "visitor" | "new_convert"
+      gender_type: "male" | "female" | "prefer_not_to_say"
+      how_heard:
+        | "friend_family"
+        | "social_media"
+        | "walk_in"
+        | "outreach"
+        | "other"
+      marital_status: "single" | "married" | "divorced" | "widowed"
+      member_type: "regular" | "occasional" | "worker"
+      membership_status: "member" | "visitor" | "new_convert" | "first_timer"
+      occupation_type:
+        | "student"
+        | "public_sector"
+        | "private_sector"
+        | "self_employed"
+        | "unemployed"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -721,8 +757,25 @@ export const Constants = {
       app_role: ["church_admin", "branch_admin", "usher", "member"],
       approval_status: ["pending", "approved", "rejected"],
       checkin_method: ["staff_scan", "self_scan"],
-      gender_type: ["male", "female"],
-      membership_status: ["member", "visitor", "new_convert"],
+      gender_type: ["male", "female", "prefer_not_to_say"],
+      how_heard: [
+        "friend_family",
+        "social_media",
+        "walk_in",
+        "outreach",
+        "other",
+      ],
+      marital_status: ["single", "married", "divorced", "widowed"],
+      member_type: ["regular", "occasional", "worker"],
+      membership_status: ["member", "visitor", "new_convert", "first_timer"],
+      occupation_type: [
+        "student",
+        "public_sector",
+        "private_sector",
+        "self_employed",
+        "unemployed",
+        "other",
+      ],
     },
   },
 } as const
