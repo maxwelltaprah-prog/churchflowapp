@@ -1,120 +1,259 @@
-import { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { LucideIcon, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
 
-interface StatsCardProps {
+// =================== KPI Card ===================
+interface KPICardProps {
   title: string;
-  value: string | number;
-  description?: string;
+  value: number | string;
   icon: LucideIcon;
-  trend?: {
-    value: number;
-    isPositive: boolean;
+  description?: string;
+  href?: string;
+  isLoading?: boolean;
+  change?: number;
+  variant?: "default" | "accent" | "muted" | "success" | "warning";
+}
+
+export function KPICard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  href,
+  isLoading,
+  change,
+  variant = "default"
+}: KPICardProps) {
+  const variantStyles = {
+    default: "bg-card border-border",
+    accent: "bg-primary/5 border-primary/20",
+    muted: "bg-muted/50 border-border",
+    success: "bg-green-500/5 border-green-500/20",
+    warning: "bg-amber-500/5 border-amber-500/20"
   };
-  className?: string;
-}
 
-export function StatsCard({ title, value, description, icon: Icon, trend, className }: StatsCardProps) {
-  return (
+  const content = (
     <div className={cn(
-      "bg-card rounded-xl border border-border p-6 shadow-soft hover:shadow-card transition-shadow",
-      className
+      "rounded-xl border p-5 transition-all",
+      variantStyles[variant],
+      href && "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
     )}>
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold text-foreground">{value}</p>
-          {trend && (
-            <div className="flex items-center gap-1">
-              {trend.isPositive ? (
-                <TrendingUp className="w-4 h-4 text-green-500" />
-              ) : (
-                <TrendingDown className="w-4 h-4 text-red-500" />
-              )}
-              <span className={cn(
-                "text-sm font-medium",
-                trend.isPositive ? "text-green-500" : "text-red-500"
-              )}>
-                {trend.isPositive ? "+" : ""}{trend.value}%
-              </span>
-              <span className="text-sm text-muted-foreground">vs last week</span>
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Icon className="w-4 h-4 text-primary" />
             </div>
-          )}
-          {description && !trend && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Icon className="w-6 h-6 text-primary" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface BranchCardProps {
-  name: string;
-  location?: string;
-  memberCount: number;
-  attendanceToday: number;
-  isMain?: boolean;
-}
-
-export function BranchCard({ name, location, memberCount, attendanceToday, isMain }: BranchCardProps) {
-  return (
-    <div className="bg-card rounded-xl border border-border p-5 shadow-soft hover:shadow-card transition-all hover:-translate-y-0.5">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-foreground">{name}</h3>
-            {isMain && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent/20 text-accent">
-                Main
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground">{value}</span>
+            {change !== undefined && change !== 0 && (
+              <span className={cn(
+                "flex items-center text-xs font-medium",
+                change > 0 ? "text-green-600" : "text-red-500"
+              )}>
+                {change > 0 ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
+                {change > 0 ? "+" : ""}{change}%
               </span>
             )}
           </div>
-          {location && (
-            <p className="text-sm text-muted-foreground mt-0.5">{location}</p>
+          {description && (
+            <p className="text-xs text-muted-foreground mt-1">{description}</p>
           )}
-        </div>
+          {href && (
+            <div className="mt-3 flex items-center text-xs text-primary font-medium">
+              View details <ChevronRight className="w-3 h-3 ml-1" />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  if (href) {
+    return <Link to={href}>{content}</Link>;
+  }
+  return content;
+}
+
+// =================== Stat Card (Smaller) ===================
+interface StatCardProps {
+  label: string;
+  value: number | string;
+  icon?: LucideIcon;
+  description?: string;
+  change?: number;
+  isLoading?: boolean;
+}
+
+export function StatCard({ label, value, icon: Icon, description, change, isLoading }: StatCardProps) {
+  if (isLoading) {
+    return (
+      <div className="p-4 rounded-lg bg-muted/30 border border-border">
+        <Skeleton className="h-3 w-16 mb-2" />
+        <Skeleton className="h-6 w-12" />
       </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-primary">{memberCount}</p>
-          <p className="text-xs text-muted-foreground">Members</p>
-        </div>
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-accent">{attendanceToday}</p>
-          <p className="text-xs text-muted-foreground">Today</p>
-        </div>
+    );
+  }
+
+  return (
+    <div className="p-4 rounded-lg bg-muted/30 border border-border">
+      <div className="flex items-center gap-2 mb-1">
+        {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-xl font-bold text-foreground">{value}</span>
+        {change !== undefined && change !== 0 && (
+          <span className={cn(
+            "text-xs font-medium",
+            change > 0 ? "text-green-600" : "text-red-500"
+          )}>
+            {change > 0 ? "+" : ""}{change}%
+          </span>
+        )}
+      </div>
+      {description && (
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      )}
     </div>
   );
 }
 
-interface RecentActivityItemProps {
-  type: "checkin" | "member" | "service";
+// =================== Section Header ===================
+interface SectionHeaderProps {
   title: string;
-  description: string;
-  time: string;
+  description?: string;
+  action?: React.ReactNode;
+  icon?: LucideIcon;
 }
 
-export function RecentActivityItem({ type, title, description, time }: RecentActivityItemProps) {
-  const colors = {
-    checkin: "bg-green-500",
-    member: "bg-blue-500",
-    service: "bg-purple-500",
+export function SectionHeader({ title, description, action, icon: Icon }: SectionHeaderProps) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <div className="p-1.5 rounded-md bg-primary/10">
+            <Icon className="w-4 h-4 text-primary" />
+          </div>
+        )}
+        <div>
+          <h3 className="font-semibold text-foreground">{title}</h3>
+          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// =================== Empty State ===================
+interface EmptyStateProps {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}
+
+export function EmptyState({ icon: Icon, title, description }: EmptyStateProps) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="p-3 rounded-full bg-muted mb-3">
+        <Icon className="w-6 h-6 text-muted-foreground" />
+      </div>
+      <h4 className="font-medium text-foreground mb-1">{title}</h4>
+      <p className="text-sm text-muted-foreground max-w-xs">{description}</p>
+    </div>
+  );
+}
+
+// =================== Progress Bar ===================
+interface ProgressBarProps {
+  label: string;
+  value: number;
+  max: number;
+  color?: "primary" | "accent" | "success" | "warning" | "destructive";
+}
+
+export function ProgressBar({ label, value, max, color = "primary" }: ProgressBarProps) {
+  const percentage = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  
+  const colorStyles = {
+    primary: "bg-primary",
+    accent: "bg-accent",
+    success: "bg-green-500",
+    warning: "bg-amber-500",
+    destructive: "bg-destructive"
   };
 
   return (
-    <div className="flex items-start gap-3 py-3">
-      <div className={cn("w-2 h-2 rounded-full mt-2", colors[type])} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{title}</p>
-        <p className="text-xs text-muted-foreground truncate">{description}</p>
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium text-foreground">{value}</span>
       </div>
-      <span className="text-xs text-muted-foreground whitespace-nowrap">{time}</span>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div 
+          className={cn("h-full rounded-full transition-all", colorStyles[color])}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
     </div>
   );
+}
+
+// =================== List Item ===================
+interface ListItemProps {
+  name: string;
+  value?: string | number;
+  subtitle?: string;
+  badge?: string;
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline";
+  onClick?: () => void;
+  href?: string;
+  icon?: LucideIcon;
+}
+
+export function ListItem({ name, value, subtitle, badge, badgeVariant = "secondary", onClick, href, icon: Icon }: ListItemProps) {
+  const content = (
+    <div className={cn(
+      "flex items-center justify-between p-3 rounded-lg bg-muted/30 transition-colors",
+      (onClick || href) && "hover:bg-muted cursor-pointer"
+    )}>
+      <div className="flex items-center gap-3 min-w-0">
+        {Icon && <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+        <div className="min-w-0">
+          <p className="font-medium text-sm text-foreground truncate">{name}</p>
+          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {badge && (
+          <span className={cn(
+            "px-2 py-0.5 text-xs font-medium rounded-full",
+            badgeVariant === "default" && "bg-primary/10 text-primary",
+            badgeVariant === "secondary" && "bg-muted text-muted-foreground",
+            badgeVariant === "destructive" && "bg-destructive/10 text-destructive",
+            badgeVariant === "outline" && "border border-border text-muted-foreground"
+          )}>
+            {badge}
+          </span>
+        )}
+        {value !== undefined && (
+          <span className="text-sm font-semibold text-foreground">{value}</span>
+        )}
+        {(onClick || href) && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+      </div>
+    </div>
+  );
+
+  if (href) return <Link to={href}>{content}</Link>;
+  if (onClick) return <div onClick={onClick}>{content}</div>;
+  return content;
 }

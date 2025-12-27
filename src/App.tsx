@@ -17,7 +17,7 @@ import SelfCheckin from "./pages/SelfCheckin";
 
 // Dashboard imports
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
-import TodayView from "./pages/dashboard/TodayView";
+import Dashboard from "./pages/dashboard/Dashboard";
 import MembersPage from "./pages/dashboard/MembersPage";
 import GroupsPage from "./pages/dashboard/GroupsPage";
 import BranchesPage from "./pages/dashboard/BranchesPage";
@@ -57,7 +57,7 @@ const App = () => (
                 <DashboardLayout />
               </ProtectedRoute>
             }>
-              <Route index element={<TodayView />} />
+              <Route index element={<Dashboard />} />
               <Route path="members" element={<MembersPage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="branches" element={<BranchesPage />} />
