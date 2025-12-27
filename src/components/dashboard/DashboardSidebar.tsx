@@ -1,6 +1,7 @@
 import { 
   LayoutDashboard, 
-  Users, 
+  Users,
+  UsersRound,
   Building2, 
   Calendar, 
   QrCode, 
@@ -40,6 +41,7 @@ import { useChurch } from "@/hooks/useChurchData";
 const mainNavItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard },
   { title: "Members", url: "/app/members", icon: Users },
+  { title: "Groups", url: "/app/groups", icon: UsersRound },
   { title: "Branches", url: "/app/branches", icon: Building2 },
   { title: "Services", url: "/app/services", icon: Calendar },
   { title: "Check-in", url: "/app/checkin", icon: QrCode },

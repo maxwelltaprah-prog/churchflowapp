@@ -26,8 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useUpdateMember } from "@/hooks/useChurchMutations";
 import { useBranches } from "@/hooks/useChurchData";
+import { useActiveGroups, useMemberGroups } from "@/hooks/useGroupsData";
+import { useSetMemberGroups } from "@/hooks/useGroupMutations";
 
 const memberSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
@@ -36,6 +39,7 @@ const memberSchema = z.object({
   gender: z.enum(["male", "female"]).optional(),
   membership_status: z.enum(["member", "visitor", "new_convert"]).optional(),
   branch_id: z.string().min(1, "Please select a branch"),
+  group_ids: z.array(z.string()).optional(),
 });
 
 type MemberFormData = z.infer<typeof memberSchema>;
@@ -56,8 +60,10 @@ interface EditMemberDialogProps {
 
 export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialogProps) {
   const updateMember = useUpdateMember();
+  const setMemberGroups = useSetMemberGroups();
   const { data: branches } = useBranches();
-
+  const { data: memberGroups } = useMemberGroups(member?.id || null);
+  
   const form = useForm<MemberFormData>({
     resolver: zodResolver(memberSchema),
     defaultValues: {
@@ -67,11 +73,16 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       gender: undefined,
       membership_status: "visitor",
       branch_id: "",
+      group_ids: [],
     },
   });
 
+  const watchedBranchId = form.watch("branch_id");
+  const { data: availableGroups } = useActiveGroups(watchedBranchId);
+
   useEffect(() => {
     if (member) {
+      const currentGroupIds = memberGroups?.map((mg) => mg.group_id) || [];
       form.reset({
         full_name: member.full_name,
         phone: member.phone || "",
@@ -79,9 +90,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         gender: member.gender || undefined,
         membership_status: member.membership_status || "visitor",
         branch_id: member.branch_id,
+        group_ids: currentGroupIds,
       });
     }
-  }, [member, form]);
+  }, [member, memberGroups, form]);
 
   const onSubmit = async (data: MemberFormData) => {
     if (!member) return;
@@ -95,12 +107,19 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       membership_status: data.membership_status,
       branch_id: data.branch_id,
     });
+    
+    // Update member groups
+    await setMemberGroups.mutateAsync({
+      memberId: member.id,
+      groupIds: data.group_ids || [],
+    });
+    
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Member</DialogTitle>
           <DialogDescription>
@@ -223,11 +242,56 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
               )}
             />
 
+            {/* Groups Multi-Select */}
+            {availableGroups && availableGroups.length > 0 && (
+              <FormField
+                control={form.control}
+                name="group_ids"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Groups / Ministries</FormLabel>
+                    <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto">
+                      {availableGroups.map((group) => (
+                        <FormField
+                          key={group.id}
+                          control={form.control}
+                          name="group_ids"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(group.id)}
+                                  onCheckedChange={(checked) => {
+                                    const currentValue = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...currentValue, group.id]);
+                                    } else {
+                                      field.onChange(
+                                        currentValue.filter((id) => id !== group.id)
+                                      );
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal cursor-pointer">
+                                {group.name}
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMember.isPending}>
+              <Button type="submit" disabled={updateMember.isPending || setMemberGroups.isPending}>
                 {updateMember.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>

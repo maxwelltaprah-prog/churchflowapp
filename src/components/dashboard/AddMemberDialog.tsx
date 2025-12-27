@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,8 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useBranches } from "@/hooks/useChurchData";
 import { useCreateMember } from "@/hooks/useChurchMutations";
+import { useActiveGroups } from "@/hooks/useGroupsData";
+import { useSetMemberGroups } from "@/hooks/useGroupMutations";
 
 const memberSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
@@ -36,6 +39,7 @@ const memberSchema = z.object({
   gender: z.enum(["male", "female"]).optional(),
   membership_status: z.enum(["member", "visitor", "new_convert"]).optional(),
   branch_id: z.string().min(1, "Please select a branch"),
+  group_ids: z.array(z.string()).optional(),
 });
 
 type MemberFormData = z.infer<typeof memberSchema>;
@@ -48,6 +52,10 @@ interface AddMemberDialogProps {
 export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const { data: branches } = useBranches();
   const createMember = useCreateMember();
+  const setMemberGroups = useSetMemberGroups();
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  
+  const { data: availableGroups } = useActiveGroups(selectedBranchId);
 
   const form = useForm<MemberFormData>({
     resolver: zodResolver(memberSchema),
@@ -56,11 +64,18 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       phone: "",
       email: "",
       membership_status: "visitor",
+      group_ids: [],
     },
   });
 
+  // Watch branch_id to update available groups
+  const watchedBranchId = form.watch("branch_id");
+  useEffect(() => {
+    setSelectedBranchId(watchedBranchId || "");
+  }, [watchedBranchId]);
+
   const onSubmit = async (data: MemberFormData) => {
-    await createMember.mutateAsync({
+    const member = await createMember.mutateAsync({
       full_name: data.full_name,
       branch_id: data.branch_id,
       email: data.email || undefined,
@@ -68,13 +83,22 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       gender: data.gender,
       membership_status: data.membership_status,
     });
+    
+    // Set member groups if any selected
+    if (data.group_ids && data.group_ids.length > 0) {
+      await setMemberGroups.mutateAsync({
+        memberId: member.id,
+        groupIds: data.group_ids,
+      });
+    }
+    
     form.reset();
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Member</DialogTitle>
           <DialogDescription>
@@ -193,11 +217,57 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
                 </FormItem>
               )}
             />
+            
+            {/* Groups Multi-Select */}
+            {availableGroups && availableGroups.length > 0 && (
+              <FormField
+                control={form.control}
+                name="group_ids"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Groups / Ministries</FormLabel>
+                    <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto">
+                      {availableGroups.map((group) => (
+                        <FormField
+                          key={group.id}
+                          control={form.control}
+                          name="group_ids"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(group.id)}
+                                  onCheckedChange={(checked) => {
+                                    const currentValue = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...currentValue, group.id]);
+                                    } else {
+                                      field.onChange(
+                                        currentValue.filter((id) => id !== group.id)
+                                      );
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal cursor-pointer">
+                                {group.name}
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMember.isPending}>
+              <Button type="submit" disabled={createMember.isPending || setMemberGroups.isPending}>
                 {createMember.isPending ? "Adding..." : "Add Member"}
               </Button>
             </div>
