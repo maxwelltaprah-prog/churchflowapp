@@ -65,12 +65,14 @@ const statusColors: Record<string, string> = {
   member: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   visitor: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   new_convert: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  first_timer: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
 };
 
 const statusLabels: Record<string, string> = {
   member: "Member",
   visitor: "Visitor",
   new_convert: "New Convert",
+  first_timer: "First Timer",
 };
 
 const approvalColors: Record<string, string> = {
@@ -84,14 +86,22 @@ type MemberType = {
   full_name: string;
   email?: string | null;
   phone?: string | null;
-  gender?: "male" | "female" | null;
-  membership_status?: "member" | "visitor" | "new_convert" | null;
+  gender?: "male" | "female" | "prefer_not_to_say" | null;
+  date_of_birth?: string | null;
+  membership_status?: "member" | "visitor" | "new_convert" | "first_timer" | null;
   approval_status?: "pending" | "approved" | "rejected" | null;
   branch_id: string;
   member_code: string;
   qr_code_token: string;
   branches?: { name: string } | null;
   user_id?: string | null;
+  member_type?: "regular" | "occasional" | "worker" | null;
+  how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other" | null;
+  residential_area?: string | null;
+  marital_status?: "single" | "married" | "divorced" | "widowed" | null;
+  occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other" | null;
+  admin_notes?: string | null;
+  date_joined?: string | null;
 };
 
 export default function MembersPage() {
