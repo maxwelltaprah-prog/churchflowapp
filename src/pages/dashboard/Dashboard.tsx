@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useDashboardData";
 import { DashboardFilterBar } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
+import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
 
@@ -90,30 +91,35 @@ export default function Dashboard() {
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
-      {/* SECTION 2: Check-in Flow */}
-      <Card>
-        <CardHeader className="pb-2">
-          <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
-        </CardHeader>
-        <CardContent>
-          <div className="h-[220px]">
-            {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
-              <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={checkinTrend.data}>
-                  <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
-                  <YAxis className="text-xs" allowDecimals={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                  <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* SECTION 2: Check-in Flow + Live Feed */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
+          </CardHeader>
+          <CardContent>
+            <div className="h-[280px]">
+              {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
+                <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={checkinTrend.data}>
+                    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
+                    <YAxis className="text-xs" allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                    <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Live Check-in Feed */}
+        <LiveCheckinFeed branchId={branchId} maxItems={8} />
+      </div>
 
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-4">
