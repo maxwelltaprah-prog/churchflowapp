@@ -15,10 +15,12 @@ import { useLocation } from "react-router-dom";
 const routeTitles: Record<string, string> = {
   "/app": "Dashboard",
   "/app/members": "Members",
+  "/app/groups": "Groups",
   "/app/branches": "Branches",
   "/app/services": "Services",
   "/app/checkin": "Check-in",
   "/app/analytics": "Analytics",
+  "/app/analytics/attendance": "Attendance Analytics",
   "/app/broadcasts": "Broadcasts",
   "/app/admins": "Administrators & Access",
   "/app/settings": "Settings",

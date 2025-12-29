@@ -25,6 +25,7 @@ import CheckinPage from "./pages/dashboard/CheckinPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import ServicesPage from "./pages/dashboard/ServicesPage";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
+import AttendanceOverviewPage from "./pages/dashboard/analytics/AttendanceOverviewPage";
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="services" element={<ServicesPage />} />
               <Route path="checkin" element={<CheckinPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="analytics/attendance" element={<AttendanceOverviewPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
