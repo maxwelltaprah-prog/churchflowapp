@@ -208,7 +208,18 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
         });
 
         const chartData = Object.entries(buckets).map(([time, count]) => ({ time, checkins: count }));
-        return { data: chartData, hasData: (data || []).length > 0, isTimeOfDay: true };
+        
+        // Calculate peak arrival time
+        let peakTime: string | null = null;
+        let peakCount = 0;
+        Object.entries(buckets).forEach(([time, count]) => {
+          if (count > peakCount) {
+            peakCount = count;
+            peakTime = time;
+          }
+        });
+        
+        return { data: chartData, hasData: (data || []).length > 0, isTimeOfDay: true, peakTime, peakCount };
       }
 
       // For other date ranges, use service-driven timeline

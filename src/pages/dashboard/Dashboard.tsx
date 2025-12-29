@@ -97,7 +97,17 @@ export default function Dashboard() {
       {/* SECTION 3: Check-in Flow Chart */}
       <Card>
         <CardHeader className="pb-2">
-          <SectionHeader title="Check-in Flow" description="Arrival pattern by hour" icon={BarChart3} />
+          <div className="flex items-center justify-between">
+            <SectionHeader title="Check-in Flow" description="Arrival pattern by hour" icon={BarChart3} />
+            {checkinTrend?.peakTime && checkinTrend?.peakCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+                <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">
+                  Peak: {checkinTrend.peakTime} ({checkinTrend.peakCount})
+                </span>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[280px]">
