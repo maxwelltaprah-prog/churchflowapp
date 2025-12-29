@@ -188,6 +188,18 @@ export default function Dashboard() {
               </ResponsiveContainer>
             )}
           </div>
+          {checkinTrend?.hasData && (
+            <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-primary" />
+                <span className="text-xs text-muted-foreground">Regular arrivals</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-amber-500 shadow-[0_0_6px_hsl(38_92%_50%/0.6)]" />
+                <span className="text-xs text-muted-foreground">Peak arrival time</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
