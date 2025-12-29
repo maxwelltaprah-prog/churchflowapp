@@ -10,7 +10,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Church
+  Church,
+  ShieldCheck
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -47,6 +48,7 @@ const mainNavItems = [
   { title: "Check-in", url: "/app/checkin", icon: QrCode },
   { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
   { title: "Broadcasts", url: "/app/broadcasts", icon: Bell },
+  { title: "Admins", url: "/app/admins", icon: ShieldCheck, adminOnly: true },
 ];
 
 const settingsNavItems = [
@@ -108,7 +110,9 @@ export function DashboardSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {mainNavItems
+                .filter((item) => !('adminOnly' in item) || (item.adminOnly && isChurchAdmin()))
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
