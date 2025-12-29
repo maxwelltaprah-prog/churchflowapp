@@ -29,10 +29,32 @@ import {
 import { EmptyState } from "./DashboardCards";
 import { CheckinDetailDrawer } from "./CheckinDetailDrawer";
 import { useBranches } from "@/hooks/useChurchData";
+import { useTodayServices, useRecentServices } from "@/hooks/useDashboardData";
+import { format, parseISO, isToday } from "date-fns";
 
 interface LiveCheckinFeedProps {
   branchId?: string;
   maxItems?: number;
+}
+
+// Helper to format service display name with differentiation
+function formatServiceDisplay(service: any): string {
+  const parts: string[] = [service.name];
+  
+  // Add time if available
+  if (service.start_time) {
+    parts.push(`@ ${service.start_time.slice(0, 5)}`);
+  }
+  
+  // Add date if not today
+  if (service.service_date) {
+    const serviceDate = parseISO(service.service_date);
+    if (!isToday(serviceDate)) {
+      parts.push(`• ${format(serviceDate, "MMM d")}`);
+    }
+  }
+  
+  return parts.join(" ");
 }
 
 // Status color mappings for consistent branding
@@ -218,12 +240,25 @@ function FeedSkeleton({ count = 5 }: { count?: number }) {
 export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: LiveCheckinFeedProps) {
   const [mode, setMode] = useState<FeedMode>("today");
   const [branchFilter, setBranchFilter] = useState<string | undefined>(initialBranchId);
+  const [serviceFilter, setServiceFilter] = useState<string | undefined>();
   const [selectedItem, setSelectedItem] = useState<CheckinFeedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [displayCount, setDisplayCount] = useState(maxItems);
 
-  const { items, isLoading, error } = useLiveCheckinFeed(mode, branchFilter);
+  const { items: rawItems, isLoading, error } = useLiveCheckinFeed(mode, branchFilter);
   const { data: branches } = useBranches();
+  const { data: todayServices } = useTodayServices(branchFilter);
+  const { data: recentServices } = useRecentServices(branchFilter);
+
+  // Combine and dedupe services
+  const services = [...(todayServices || []), ...(recentServices || [])].filter(
+    (s, i, a) => a.findIndex(x => x.id === s.id) === i
+  );
+
+  // Filter items by selected service
+  const items = serviceFilter 
+    ? rawItems.filter(item => item.serviceId === serviceFilter)
+    : rawItems;
 
   const displayItems = items.slice(0, displayCount);
   const hasMore = items.length > displayCount;
@@ -244,6 +279,7 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
     if (mode === "today") params.set("period", "today");
     else if (mode === "last_24h") params.set("period", "last_24h");
     if (branchFilter) params.set("branch", branchFilter);
+    if (serviceFilter) params.set("service", serviceFilter);
     return `/app/analytics/attendance?${params.toString()}`;
   };
 
@@ -299,6 +335,24 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
                   <SelectItem value="all">All Branches</SelectItem>
                   {branches.map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Service filter */}
+            {services.length > 0 && (
+              <Select value={serviceFilter || "all"} onValueChange={(v) => setServiceFilter(v === "all" ? undefined : v)}>
+                <SelectTrigger className="w-[200px] h-9 text-xs">
+                  <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="All services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Services</SelectItem>
+                  {services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {formatServiceDisplay(s)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
