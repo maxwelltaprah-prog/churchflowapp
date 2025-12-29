@@ -25,14 +25,20 @@ import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } f
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
 
 // Helper to build analytics URL with proper query params
-function buildAnalyticsLink(dateRange: DateRange, branchId?: string): string {
+function buildAnalyticsLink(
+  path: string,
+  dateRange: DateRange,
+  branchId?: string,
+  segment?: string
+): string {
   const params = new URLSearchParams();
   if (dateRange === "today") params.set("period", "today");
   else if (dateRange === "this_week") params.set("period", "this_week");
   else if (dateRange === "this_month") params.set("period", "this_month");
   if (branchId) params.set("branch", branchId);
+  if (segment) params.set("segment", segment);
   const queryString = params.toString();
-  return `/app/analytics${queryString ? `?${queryString}` : ""}`;
+  return `/app/analytics/${path}${queryString ? `?${queryString}` : ""}`;
 }
 
 export default function Dashboard() {
@@ -83,10 +89,10 @@ export default function Dashboard() {
 
       {/* SECTION 1: KPI Cards - with deep links to analytics */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink(dateRange, branchId)} isLoading={kpisLoading} change={kpis?.change} />
-        <KPICard title="Visitors" value={kpis?.visitorsToday ?? 0} icon={UserPlus} href={`/app/members?status=visitor&period=${dateRange}`} isLoading={kpisLoading} variant="accent" />
-        <KPICard title="First-Timers" value={kpis?.firstTimersToday ?? 0} icon={UserCheck} href={`/app/members?status=first_timer&period=${dateRange}`} isLoading={kpisLoading} variant="accent" />
-        <KPICard title="Returning Visitors" value={kpis?.returningVisitorsToday ?? 0} icon={RefreshCw} href={buildAnalyticsLink(dateRange, branchId)} isLoading={kpisLoading} />
+        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} />
+        <KPICard title="Visitors" value={kpis?.visitorsToday ?? 0} icon={UserPlus} href={buildAnalyticsLink("drilldown", dateRange, branchId, "visitors")} isLoading={kpisLoading} variant="accent" />
+        <KPICard title="First-Timers" value={kpis?.firstTimersToday ?? 0} icon={UserCheck} href={buildAnalyticsLink("drilldown", dateRange, branchId, "first_timers")} isLoading={kpisLoading} variant="accent" />
+        <KPICard title="Returning Visitors" value={kpis?.returningVisitorsToday ?? 0} icon={RefreshCw} href={buildAnalyticsLink("drilldown", dateRange, branchId, "returning_visitors")} isLoading={kpisLoading} />
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
@@ -266,7 +272,7 @@ export default function Dashboard() {
       {/* ACTIONABLE LISTS */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to="/app/members?status=visitor"><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+          <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", "today", branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
           <CardContent>
             {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (
               <div className="space-y-2">
