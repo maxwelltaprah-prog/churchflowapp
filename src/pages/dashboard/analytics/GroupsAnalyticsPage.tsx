@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -27,6 +28,9 @@ import {
   Layers,
   BarChart3,
   PieChart as PieChartIcon,
+  UserMinus,
+  Eye,
+  UserCheck,
 } from "lucide-react";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
@@ -45,7 +49,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   AreaChart,
   Area,
 } from "recharts";
@@ -63,18 +66,28 @@ const CHART_COLORS = [
   "hsl(170 70% 40%)",
 ];
 
-// =================== Groups Analytics Hook ===================
+interface GroupAnalytics {
+  id: string;
+  name: string;
+  totalMembers: number;
+  attendedCount: number;
+  absentCount: number;
+  attendancePerformance: number;
+  attendedMemberIds: string[];
+}
+
+// =================== Enhanced Groups Analytics Hook ===================
 function useGroupsAnalytics() {
   const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["groups-analytics", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryKey: ["groups-analytics-enhanced", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
-      // Fetch all groups
+      // Fetch all active groups
       const { data: groups } = await supabase
         .from("groups")
         .select("id, name, is_active")
@@ -85,7 +98,7 @@ function useGroupsAnalytics() {
       if (!groups?.length) {
         return {
           groups: [],
-          groupAttendance: [],
+          groupStats: [],
           totalAttendees: 0,
           groupedAttendees: 0,
           participationRate: 0,
@@ -93,18 +106,50 @@ function useGroupsAnalytics() {
         };
       }
 
-      // Fetch member-group assignments
+      // Fetch all member-group assignments
       const { data: memberGroups } = await supabase
         .from("member_groups")
         .select("member_id, group_id, joined_at");
 
-      // Build member to groups mapping
+      // Build group to members mapping
+      const groupToMembers: Record<string, Set<string>> = {};
       const memberToGroups: Record<string, string[]> = {};
+      groups.forEach(g => { groupToMembers[g.id] = new Set(); });
+      
       (memberGroups || []).forEach(mg => {
+        if (groupToMembers[mg.group_id]) {
+          groupToMembers[mg.group_id].add(mg.member_id);
+        }
         if (!memberToGroups[mg.member_id]) {
           memberToGroups[mg.member_id] = [];
         }
         memberToGroups[mg.member_id].push(mg.group_id);
+      });
+
+      // Get all member IDs from groups (before branch filtering)
+      const allGroupMemberIds = new Set<string>();
+      Object.values(groupToMembers).forEach(memberSet => {
+        memberSet.forEach(id => allGroupMemberIds.add(id));
+      });
+
+      // Fetch members with branch filtering to get only accessible ones
+      let membersQuery = supabase
+        .from("members")
+        .select("id, branch_id, is_active")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true);
+
+      membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: accessibleMembers } = await membersQuery;
+      const accessibleMemberIds = new Set((accessibleMembers || []).map(m => m.id));
+
+      // Filter group members to only accessible ones
+      const filteredGroupToMembers: Record<string, Set<string>> = {};
+      groups.forEach(g => { 
+        filteredGroupToMembers[g.id] = new Set(
+          [...groupToMembers[g.id]].filter(id => accessibleMemberIds.has(id))
+        );
       });
 
       // Fetch attendance in date range
@@ -118,32 +163,39 @@ function useGroupsAnalytics() {
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
       const { data: attendance } = await attendanceQuery;
-      const uniqueAttendeeIds = [...new Set((attendance || []).map(a => a.member_id))];
+      const attendedMemberIds = new Set((attendance || []).map(a => a.member_id));
+      const uniqueAttendeeIds = [...attendedMemberIds];
 
-      // Calculate attendance by group
-      const groupCounts: Record<string, { count: number; members: string[] }> = {};
-      groups.forEach(g => { groupCounts[g.id] = { count: 0, members: [] }; });
+      // Calculate stats per group
+      const groupStats: GroupAnalytics[] = groups.map(g => {
+        const groupMemberIds = filteredGroupToMembers[g.id];
+        const totalMembers = groupMemberIds.size;
+        const attendedMembers = [...groupMemberIds].filter(id => attendedMemberIds.has(id));
+        const attendedCount = attendedMembers.length;
+        const absentCount = totalMembers - attendedCount;
+        const attendancePerformance = totalMembers > 0 
+          ? Math.round((attendedCount / totalMembers) * 100) 
+          : 0;
 
+        return {
+          id: g.id,
+          name: g.name,
+          totalMembers,
+          attendedCount,
+          absentCount,
+          attendancePerformance,
+          attendedMemberIds: attendedMembers,
+        };
+      }).sort((a, b) => b.attendedCount - a.attendedCount);
+
+      // Calculate participation rate (attendees linked to at least one group)
       let groupedAttendees = 0;
       uniqueAttendeeIds.forEach(memberId => {
         const memberGroupIds = memberToGroups[memberId] || [];
         if (memberGroupIds.length > 0) {
           groupedAttendees++;
-          memberGroupIds.forEach(gid => {
-            if (groupCounts[gid]) {
-              groupCounts[gid].count++;
-              groupCounts[gid].members.push(memberId);
-            }
-          });
         }
       });
-
-      const groupAttendance = groups.map(g => ({
-        id: g.id,
-        name: g.name,
-        attendance: groupCounts[g.id]?.count || 0,
-        members: groupCounts[g.id]?.members || [],
-      })).sort((a, b) => b.attendance - a.attendance);
 
       const participationRate = uniqueAttendeeIds.length > 0
         ? Math.round((groupedAttendees / uniqueAttendeeIds.length) * 100)
@@ -181,7 +233,7 @@ function useGroupsAnalytics() {
 
       return {
         groups,
-        groupAttendance,
+        groupStats,
         totalAttendees: uniqueAttendeeIds.length,
         groupedAttendees,
         participationRate,
@@ -202,8 +254,6 @@ interface MemberListModalProps {
 }
 
 function MemberListModal({ open, onClose, title, memberIds, filterContext }: MemberListModalProps) {
-  const { profile } = useAuth();
-
   const { data: members, isLoading } = useQuery({
     queryKey: ["group-members-detail", memberIds],
     queryFn: async () => {
@@ -271,7 +321,8 @@ function MemberListModal({ open, onClose, title, memberIds, filterContext }: Mem
 
 // =================== Main Component ===================
 export default function GroupsAnalyticsPage() {
-  const { filters } = useAnalyticsFilters();
+  const navigate = useNavigate();
+  const { filters, buildAnalyticsUrl } = useAnalyticsFilters();
   const { data: analytics, isLoading } = useGroupsAnalytics();
   const periodLabel = formatDateRangeLabel(filters);
 
@@ -293,6 +344,12 @@ export default function GroupsAnalyticsPage() {
     });
   };
 
+  const handleViewAbsentees = (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = buildAnalyticsUrl("/app/analytics/groups/absentees", { group_id: groupId });
+    navigate(url);
+  };
+
   // Pie chart data for participation
   const participationData = useMemo(() => {
     if (!analytics) return [];
@@ -300,6 +357,17 @@ export default function GroupsAnalyticsPage() {
       { name: "In Groups", value: analytics.groupedAttendees, color: CHART_COLORS[0] },
       { name: "No Group", value: analytics.totalAttendees - analytics.groupedAttendees, color: CHART_COLORS[1] },
     ].filter(d => d.value > 0);
+  }, [analytics]);
+
+  // Bar chart data (top 10 groups by attendance)
+  const barChartData = useMemo(() => {
+    if (!analytics?.groupStats) return [];
+    return analytics.groupStats.slice(0, 10).map(g => ({
+      name: g.name,
+      attendance: g.attendedCount,
+      id: g.id,
+      members: g.attendedMemberIds,
+    }));
   }, [analytics]);
 
   return (
@@ -412,9 +480,9 @@ export default function GroupsAnalyticsPage() {
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-[300px] w-full" />
-            ) : analytics?.groupAttendance?.length ? (
+            ) : barChartData.length ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analytics.groupAttendance.slice(0, 10)} layout="vertical">
+                <BarChart data={barChartData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 12 }} />
                   <YAxis
@@ -488,7 +556,7 @@ export default function GroupsAnalyticsPage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex gap-6 mt-2">
-                  {participationData.map((item, idx) => (
+                  {participationData.map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                       <span className="text-sm">{item.name}: <strong>{item.value}</strong></span>
@@ -556,53 +624,104 @@ export default function GroupsAnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* Groups Table */}
+      {/* Group Summary Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">All Groups</CardTitle>
-          <CardDescription>Click a row to view members</CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Layers className="w-5 h-5 text-primary" />
+            Group Summary
+          </CardTitle>
+          <CardDescription>
+            Group size, attendance performance, and absentee drill-down
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Skeleton className="h-[200px] w-full" />
+            <Skeleton className="h-[300px] w-full" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Rank</TableHead>
-                  <TableHead>Group Name</TableHead>
-                  <TableHead className="text-right">Attendees</TableHead>
-                  <TableHead className="text-right">% of Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {analytics?.groupAttendance?.map((group, idx) => (
-                  <TableRow
-                    key={group.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleGroupClick(group.name, group.members)}
-                  >
-                    <TableCell>
-                      <Badge variant={idx < 3 ? "default" : "outline"}>#{idx + 1}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{group.name}</TableCell>
-                    <TableCell className="text-right">{group.attendance}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {analytics.totalAttendees > 0
-                        ? Math.round((group.attendance / analytics.totalAttendees) * 100)
-                        : 0}%
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {(!analytics?.groupAttendance || analytics.groupAttendance.length === 0) && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      No groups found
-                    </TableCell>
+                    <TableHead>Group Name</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Users className="w-3.5 h-3.5" />
+                        Total Members
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Activity className="w-3.5 h-3.5" />
+                        Performance
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <UserCheck className="w-3.5 h-3.5 text-green-600" />
+                        Attended
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <UserMinus className="w-3.5 h-3.5 text-red-600" />
+                        Absent
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {analytics?.groupStats?.map((group) => (
+                    <TableRow 
+                      key={group.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleGroupClick(`${group.name} — Attendees`, group.attendedMemberIds)}
+                    >
+                      <TableCell className="font-medium">{group.name}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{group.totalMembers}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant={group.attendancePerformance >= 70 ? "default" : group.attendancePerformance >= 40 ? "secondary" : "destructive"}
+                          className={group.attendancePerformance >= 70 ? "bg-green-500/10 text-green-700 hover:bg-green-500/20" : ""}
+                        >
+                          {group.attendancePerformance}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-green-600 font-medium">{group.attendedCount}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-red-600 font-medium">{group.absentCount}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleViewAbsentees(group.id, e)}
+                          disabled={group.absentCount === 0}
+                          className="gap-1.5"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View Absentees
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!analytics?.groupStats || analytics.groupStats.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                        <Layers className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                        <p>No groups found</p>
+                        <p className="text-sm">Create groups in the Groups & Ministries section</p>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

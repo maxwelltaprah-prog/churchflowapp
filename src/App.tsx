@@ -31,6 +31,7 @@ import MemberGrowthPage from "./pages/dashboard/analytics/MemberGrowthPage";
 import GroupsAnalyticsPage from "./pages/dashboard/analytics/GroupsAnalyticsPage";
 import ServiceQualityPage from "./pages/dashboard/analytics/ServiceQualityPage";
 import MemberDrilldownPage from "./pages/dashboard/analytics/MemberDrilldownPage";
+import GroupAbsenteesPage from "./pages/dashboard/analytics/GroupAbsenteesPage";
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
 
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="analytics/demographics" element={<DemographicsPage />} />
               <Route path="analytics/members" element={<MemberGrowthPage />} />
               <Route path="analytics/groups" element={<GroupsAnalyticsPage />} />
+              <Route path="analytics/groups/absentees" element={<GroupAbsenteesPage />} />
               <Route path="analytics/quality" element={<ServiceQualityPage />} />
               <Route path="analytics/drilldown" element={<MemberDrilldownPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />

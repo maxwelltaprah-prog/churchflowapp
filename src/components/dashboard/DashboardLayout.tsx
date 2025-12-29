@@ -24,6 +24,7 @@ const routeTitles: Record<string, string> = {
   "/app/analytics/demographics": "Demographics",
   "/app/analytics/members": "Member Growth",
   "/app/analytics/groups": "Groups & Ministries",
+  "/app/analytics/groups/absentees": "Group Absentees",
   "/app/analytics/quality": "Service Quality",
   "/app/analytics/drilldown": "Member Drilldown",
   "/app/broadcasts": "Broadcasts",
