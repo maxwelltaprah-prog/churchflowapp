@@ -180,28 +180,28 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-3"><SectionHeader title="Demographics" icon={PieChart} /></CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Gender</p>
-                {demographics?.gender?.length ? (
-                  <div className="h-[100px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPie><Pie data={demographics.gender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={25} outerRadius={40}>
+            {demographics?.gender?.length ? (
+              <div className="flex items-center gap-6">
+                <div className="h-[120px] w-[120px] flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPie>
+                      <Pie data={demographics.gender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={50}>
                         {demographics.gender.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie></RechartsPie>
-                    </ResponsiveContainer>
-                  </div>
-                ) : <p className="text-xs text-muted-foreground">No data</p>}
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Top Areas</p>
-                <div className="space-y-1">
-                  {demographics?.topAreas?.slice(0, 3).map((a) => (
-                    <div key={a.area} className="flex justify-between text-xs"><span className="truncate">{a.area}</span><span className="font-medium">{a.count}</span></div>
+                      </Pie>
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {demographics.gender.map((item, i) => (
+                    <div key={item.name} className="flex items-center gap-2 text-sm">
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-muted-foreground">{item.name}</span>
+                      <span className="font-medium ml-auto">{item.value}</span>
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
+            ) : <EmptyState icon={PieChart} title="No data" description="Demographics will appear here" />}
           </CardContent>
         </Card>
       </div>
