@@ -26,6 +26,7 @@ import SettingsPage from "./pages/dashboard/SettingsPage";
 import ServicesPage from "./pages/dashboard/ServicesPage";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
+import AdminsPage from "./pages/dashboard/AdminsPage";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="checkin" element={<CheckinPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
+              <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
 
