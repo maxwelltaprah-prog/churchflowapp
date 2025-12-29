@@ -409,7 +409,7 @@ export default function AttendanceOverviewPage() {
           description={periodLabel}
           isLoading={kpisLoading}
           variant="primary"
-          href="/app/analytics/attendance/checkins"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=all`}
         />
         <KPICard
           title="Unique Attendees"
@@ -418,6 +418,7 @@ export default function AttendanceOverviewPage() {
           description="Distinct people"
           isLoading={kpisLoading}
           variant="accent"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=all`}
         />
         <KPICard
           title="Member Check-ins"
@@ -425,6 +426,7 @@ export default function AttendanceOverviewPage() {
           icon={UsersRound}
           isLoading={kpisLoading}
           variant="success"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=members`}
         />
         <KPICard
           title="Visitor Check-ins"
@@ -432,6 +434,7 @@ export default function AttendanceOverviewPage() {
           icon={UserPlus}
           isLoading={kpisLoading}
           variant="warning"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=visitors`}
         />
         <KPICard
           title="First-Timers"
@@ -440,6 +443,7 @@ export default function AttendanceOverviewPage() {
           description="New this period"
           isLoading={kpisLoading}
           variant="accent"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=first_timers`}
         />
         <KPICard
           title="Absentees"
@@ -448,7 +452,7 @@ export default function AttendanceOverviewPage() {
           description="4+ weeks absent"
           isLoading={kpisLoading}
           variant="destructive"
-          href="/app/analytics/attendance/absentees"
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=absentees`}
         />
       </div>
 
