@@ -18,6 +18,7 @@ import {
   CheckinFeedItem,
 } from "@/hooks/useLiveCheckinFeed";
 import { SectionHeader, EmptyState } from "./DashboardCards";
+import { MemberProfilePopover } from "./MemberProfilePopover";
 
 interface LiveCheckinFeedProps {
   branchId?: string;
@@ -26,6 +27,24 @@ interface LiveCheckinFeedProps {
 
 function FeedItem({ item, index }: { item: CheckinFeedItem; index: number }) {
   const { relative, exact } = formatCheckinTime(item.checkedInAt);
+
+  const memberDetails = {
+    id: item.memberId,
+    fullName: item.memberName,
+    photo: item.memberPhoto,
+    phone: item.memberPhone,
+    email: item.memberEmail,
+    memberStatus: item.memberStatus,
+    memberType: item.memberType,
+    gender: item.memberGender,
+    dateOfBirth: item.memberDateOfBirth,
+    maritalStatus: item.memberMaritalStatus,
+    occupation: item.memberOccupation,
+    residentialArea: item.memberResidentialArea,
+    areaZone: item.memberAreaZone,
+    dateJoined: item.memberDateJoined,
+    branchName: item.branchName,
+  };
 
   return (
     <div
@@ -37,28 +56,37 @@ function FeedItem({ item, index }: { item: CheckinFeedItem; index: number }) {
       )}
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Avatar */}
-      <Avatar className="h-10 w-10 flex-shrink-0">
-        {item.memberPhoto ? (
-          <AvatarImage src={item.memberPhoto} alt={item.memberName} />
-        ) : null}
-        <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-          {getInitials(item.memberName)}
-        </AvatarFallback>
-      </Avatar>
+      {/* Avatar & Name - Clickable for profile */}
+      <MemberProfilePopover member={memberDetails}>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 flex-shrink-0">
+            {item.memberPhoto ? (
+              <AvatarImage src={item.memberPhoto} alt={item.memberName} />
+            ) : null}
+            <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+              {getInitials(item.memberName)}
+            </AvatarFallback>
+          </Avatar>
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{item.memberName}</span>
-          <span className="text-muted-foreground text-xs">checked in</span>
-          {item.isNew && (
-            <span className="flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm truncate hover:text-primary transition-colors">
+                {item.memberName}
+              </span>
+              {item.isNew && (
+                <span className="flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">checked in</p>
+          </div>
         </div>
+      </MemberProfilePopover>
+
+      {/* Service info */}
+      <div className="flex-1 min-w-0 hidden sm:block">
         <p className="text-xs text-muted-foreground truncate">
           {item.branchName} • {item.serviceName}
         </p>
