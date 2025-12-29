@@ -10,12 +10,14 @@ import {
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import { useUpdateMember } from "@/hooks/useChurchMutations";
 import { useBranches } from "@/hooks/useChurchData";
 import { useActiveGroups, useMemberGroups } from "@/hooks/useGroupsData";
 import { useSetMemberGroups } from "@/hooks/useGroupMutations";
 import { MemberForm } from "@/components/member/MemberForm";
-import { memberFormSchema, type MemberFormData } from "@/lib/member-form-schema";
+import { memberEditSchema, type MemberEditFormData } from "@/lib/member-form-schema";
 
 interface EditMemberDialogProps {
   open: boolean;
@@ -45,9 +47,12 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
   const { data: branches } = useBranches();
   const { data: memberGroups } = useMemberGroups(member?.id || null);
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+
+  // Check if member has incomplete required fields
+  const hasMissingFields = member && (!member.gender || !member.date_of_birth);
   
-  const form = useForm<MemberFormData>({
-    resolver: zodResolver(memberFormSchema),
+  const form = useForm<MemberEditFormData>({
+    resolver: zodResolver(memberEditSchema),
     defaultValues: {
       full_name: "",
       phone: "",
@@ -97,7 +102,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     }
   }, [member, memberGroups, form]);
 
-  const onSubmit = async (data: MemberFormData) => {
+  const onSubmit = async (data: MemberEditFormData) => {
     if (!member) return;
     
     await updateMember.mutateAsync({
@@ -105,8 +110,8 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       full_name: data.full_name,
       phone: data.phone,
       email: data.email || undefined,
-      gender: data.gender,
-      date_of_birth: data.date_of_birth,
+      gender: data.gender || undefined,
+      date_of_birth: data.date_of_birth || undefined,
       membership_status: data.membership_status,
       branch_id: data.branch_id,
       member_type: data.member_type || undefined,
@@ -136,6 +141,17 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
             Update member information
           </DialogDescription>
         </DialogHeader>
+        
+        {hasMissingFields && (
+          <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-700 dark:text-amber-400">
+              This member is missing some required information (Gender or Date of Birth). 
+              Please update their profile to complete their record.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <MemberForm
