@@ -75,7 +75,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
           checkin_method,
           members!inner(full_name, membership_status, photo_url, phone, email, gender, date_of_birth, marital_status, occupation, residential_area, area_zone, date_joined, member_type),
           services!inner(name, service_date, start_time, end_time),
-          branches!inner(name)
+          branches!attendance_branch_id_fkey(name)
         `)
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", start.toISOString())
@@ -156,7 +156,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
               checkin_method,
               members!inner(full_name, membership_status, photo_url, phone, email, gender, date_of_birth, marital_status, occupation, residential_area, area_zone, date_joined, member_type),
               services!inner(name),
-              branches!inner(name)
+              branches!attendance_branch_id_fkey(name)
             `)
             .eq("id", newRecord.id)
             .single();
