@@ -1,127 +1,213 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Activity, Radio, Clock, ChevronRight, User } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { 
+  Activity, Radio, Clock, ChevronRight, ChevronDown, 
+  Smartphone, QrCode, Zap, Filter, Building2 
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   useLiveCheckinFeed,
   formatCheckinTime,
   getInitials,
-  getStatusVariant,
   formatStatusLabel,
   FeedMode,
   CheckinFeedItem,
 } from "@/hooks/useLiveCheckinFeed";
-import { SectionHeader, EmptyState } from "./DashboardCards";
-import { MemberProfilePopover } from "./MemberProfilePopover";
+import { EmptyState } from "./DashboardCards";
+import { CheckinDetailDrawer } from "./CheckinDetailDrawer";
+import { useBranches } from "@/hooks/useChurchData";
 
 interface LiveCheckinFeedProps {
   branchId?: string;
   maxItems?: number;
 }
 
-function FeedItem({ item, index }: { item: CheckinFeedItem; index: number }) {
-  const { relative, exact } = formatCheckinTime(item.checkedInAt);
+// Status color mappings for consistent branding
+function getStatusStyles(status: string): { bg: string; text: string; border: string } {
+  switch (status) {
+    case "first_timer":
+      return { 
+        bg: "bg-amber-500/10", 
+        text: "text-amber-700 dark:text-amber-400", 
+        border: "border-amber-500/30" 
+      };
+    case "visitor":
+      return { 
+        bg: "bg-blue-500/10", 
+        text: "text-blue-700 dark:text-blue-400", 
+        border: "border-blue-500/30" 
+      };
+    case "new_convert":
+      return { 
+        bg: "bg-purple-500/10", 
+        text: "text-purple-700 dark:text-purple-400", 
+        border: "border-purple-500/30" 
+      };
+    default: // member
+      return { 
+        bg: "bg-emerald-500/10", 
+        text: "text-emerald-700 dark:text-emerald-400", 
+        border: "border-emerald-500/30" 
+      };
+  }
+}
 
-  const memberDetails = {
-    id: item.memberId,
-    fullName: item.memberName,
-    photo: item.memberPhoto,
-    phone: item.memberPhone,
-    email: item.memberEmail,
-    memberStatus: item.memberStatus,
-    memberType: item.memberType,
-    gender: item.memberGender,
-    dateOfBirth: item.memberDateOfBirth,
-    maritalStatus: item.memberMaritalStatus,
-    occupation: item.memberOccupation,
-    residentialArea: item.memberResidentialArea,
-    areaZone: item.memberAreaZone,
-    dateJoined: item.memberDateJoined,
-    branchName: item.branchName,
-  };
+// Branch color palette for consistent branch badges
+const BRANCH_COLORS = [
+  "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30",
+  "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+  "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
+  "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
+  "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30",
+];
+
+function getBranchColor(branchId: string): string {
+  const hash = branchId.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
+  return BRANCH_COLORS[hash % BRANCH_COLORS.length];
+}
+
+interface FeedItemProps {
+  item: CheckinFeedItem;
+  index: number;
+  onClick: () => void;
+}
+
+function FeedItem({ item, index, onClick }: FeedItemProps) {
+  const { relative, exact } = formatCheckinTime(item.checkedInAt);
+  const statusStyles = getStatusStyles(item.memberStatus);
+  const branchColor = getBranchColor(item.branchId);
+  const [showNewBadge, setShowNewBadge] = useState(item.isNew);
+
+  // Hide NEW badge after 10 seconds
+  useEffect(() => {
+    if (item.isNew) {
+      setShowNewBadge(true);
+      const timer = setTimeout(() => setShowNewBadge(false), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [item.isNew]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, delay: index * 0.02 }}
+      onClick={onClick}
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg transition-all duration-500",
-        item.isNew 
-          ? "bg-primary/10 ring-1 ring-primary/30 animate-pulse" 
-          : "bg-muted/30 hover:bg-muted/50"
+        "group relative flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all duration-300",
+        "hover:bg-muted/60 hover:shadow-md",
+        item.isNew && "bg-primary/5 ring-1 ring-primary/20 shadow-sm shadow-primary/10"
       )}
-      style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Avatar & Name - Clickable for profile */}
-      <MemberProfilePopover member={memberDetails}>
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 flex-shrink-0">
-            {item.memberPhoto ? (
-              <AvatarImage src={item.memberPhoto} alt={item.memberName} />
-            ) : null}
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-              {getInitials(item.memberName)}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm truncate hover:text-primary transition-colors">
-                {item.memberName}
-              </span>
-              {item.isNew && (
-                <span className="flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">checked in</p>
-          </div>
+      {/* Live indicator pulse for new items */}
+      {item.isNew && (
+        <div className="absolute left-2 top-1/2 -translate-y-1/2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+          </span>
         </div>
-      </MemberProfilePopover>
+      )}
 
-      {/* Service info */}
-      <div className="flex-1 min-w-0 hidden sm:block">
-        <p className="text-xs text-muted-foreground truncate">
-          {item.branchName} • {item.serviceName}
-        </p>
+      {/* Avatar */}
+      <div className={cn("relative", item.isNew && "ml-3")}>
+        <Avatar className="h-12 w-12 ring-2 ring-background shadow-sm group-hover:ring-primary/20 transition-all">
+          {item.memberPhoto ? (
+            <AvatarImage src={item.memberPhoto} alt={item.memberName} className="object-cover" />
+          ) : null}
+          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold text-sm">
+            {getInitials(item.memberName)}
+          </AvatarFallback>
+        </Avatar>
+        
+        {/* Method indicator */}
+        <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-background border-2 border-background shadow flex items-center justify-center">
+          {item.checkinMethod === "self_scan" ? (
+            <Smartphone className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <QrCode className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
       </div>
 
-      {/* Right side: time & badge */}
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+            {item.memberName}
+          </span>
+          {showNewBadge && (
+            <Badge className="bg-primary/20 text-primary border-0 text-[10px] px-1.5 py-0 h-4 font-medium animate-pulse">
+              NEW
+            </Badge>
+          )}
+        </div>
+        
+        {/* Badges row */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge 
+            variant="outline" 
+            className={cn("text-[10px] px-2 py-0.5 h-5 font-medium border", statusStyles.bg, statusStyles.text, statusStyles.border)}
+          >
+            {formatStatusLabel(item.memberStatus)}
+          </Badge>
+          <Badge 
+            variant="outline" 
+            className={cn("text-[10px] px-2 py-0.5 h-5 font-medium border", branchColor)}
+          >
+            {item.branchName}
+          </Badge>
+          <span className="text-[10px] text-muted-foreground hidden sm:inline-flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+            {item.serviceName}
+          </span>
+        </div>
+      </div>
+
+      {/* Time column */}
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <span title={exact}>{relative}</span>
+        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+          <Clock className="h-3 w-3 text-muted-foreground" />
+          <span title={`Checked in at ${exact}`}>{relative}</span>
         </div>
-        <Badge 
-          variant={getStatusVariant(item.memberStatus)} 
-          className="text-[10px] px-1.5 py-0"
-        >
-          {formatStatusLabel(item.memberStatus)}
-        </Badge>
+        <span className="text-[10px] text-muted-foreground">{exact}</span>
       </div>
-    </div>
+
+      {/* Hover arrow indicator */}
+      <ChevronRight className="h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+    </motion.div>
   );
 }
 
-function FeedSkeleton() {
+function FeedSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="space-y-3">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-          <Skeleton className="h-10 w-10 rounded-full" />
+    <div className="space-y-2">
+      {[...Array(count)].map((_, i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
+          <Skeleton className="h-12 w-12 rounded-full" />
           <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-36" />
+            <div className="flex gap-2">
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-3 w-12" />
           </div>
         </div>
       ))}
@@ -129,98 +215,180 @@ function FeedSkeleton() {
   );
 }
 
-export function LiveCheckinFeed({ branchId, maxItems = 10 }: LiveCheckinFeedProps) {
+export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: LiveCheckinFeedProps) {
   const [mode, setMode] = useState<FeedMode>("today");
-  const { items, isLoading, error } = useLiveCheckinFeed(mode, branchId);
+  const [branchFilter, setBranchFilter] = useState<string | undefined>(initialBranchId);
+  const [selectedItem, setSelectedItem] = useState<CheckinFeedItem | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [displayCount, setDisplayCount] = useState(maxItems);
 
-  const displayItems = items.slice(0, maxItems);
-  const hasMore = items.length > maxItems;
+  const { items, isLoading, error } = useLiveCheckinFeed(mode, branchFilter);
+  const { data: branches } = useBranches();
+
+  const displayItems = items.slice(0, displayCount);
+  const hasMore = items.length > displayCount;
+  const totalCount = items.length;
+
+  const handleItemClick = (item: CheckinFeedItem) => {
+    setSelectedItem(item);
+    setDrawerOpen(true);
+  };
+
+  const loadMore = () => {
+    setDisplayCount((prev) => Math.min(prev + 20, 50));
+  };
 
   // Build analytics link based on mode
   const getViewAllLink = () => {
     const params = new URLSearchParams();
     if (mode === "today") params.set("period", "today");
     else if (mode === "last_24h") params.set("period", "last_24h");
-    if (branchId) params.set("branch", branchId);
+    if (branchFilter) params.set("branch", branchFilter);
     return `/app/analytics/attendance?${params.toString()}`;
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Activity className="h-5 w-5 text-primary" />
-              <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
+    <>
+      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-b from-card to-card/95">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                <Activity className="h-5 w-5 text-primary" />
+                <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Live Check-ins</h3>
+                <p className="text-sm text-muted-foreground">Real-time arrivals across branches</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold text-sm">Live Check-in Activity</h3>
-              <p className="text-xs text-muted-foreground">Real-time arrivals</p>
-            </div>
-          </div>
-          {hasMore && (
+
             <Link to={getViewAllLink()}>
-              <Button variant="ghost" size="sm" className="text-xs">
-                View all <ChevronRight className="h-3 w-3 ml-1" />
+              <Button variant="ghost" size="sm" className="text-xs gap-1 -mr-2">
+                View all <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
-          )}
+          </div>
+
+          {/* Filters row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Mode filter */}
+            <Select value={mode} onValueChange={(v) => setMode(v as FeedMode)}>
+              <SelectTrigger className="w-[140px] h-9 text-xs">
+                <SelectValue placeholder="Time filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="open_service">Open Service</SelectItem>
+                <SelectItem value="last_24h">Last 24 Hours</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Branch filter */}
+            {branches && branches.length > 1 && (
+              <Select value={branchFilter || "all"} onValueChange={(v) => setBranchFilter(v === "all" ? undefined : v)}>
+                <SelectTrigger className="w-[160px] h-9 text-xs">
+                  <Building2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="All branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Live indicator */}
+            <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-green-500" />
+                <span className="hidden sm:inline">Live updates</span>
+              </span>
+              {totalCount > 0 && (
+                <Badge variant="secondary" className="text-[10px] h-5">
+                  {totalCount} check-in{totalCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
-      </CardHeader>
 
-      <div className="px-4 pb-2">
-        <Tabs value={mode} onValueChange={(v) => setMode(v as FeedMode)}>
-          <TabsList className="h-8 w-full grid grid-cols-3">
-            <TabsTrigger value="today" className="text-xs py-1">Today</TabsTrigger>
-            <TabsTrigger value="open_service" className="text-xs py-1">Open Service</TabsTrigger>
-            <TabsTrigger value="last_24h" className="text-xs py-1">Last 24h</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+        {/* Feed content */}
+        <CardContent className="px-4 pb-4">
+          {isLoading ? (
+            <FeedSkeleton count={5} />
+          ) : error ? (
+            <div className="py-12">
+              <EmptyState 
+                icon={Activity} 
+                title="Unable to load feed" 
+                description="There was an error fetching check-in data" 
+              />
+            </div>
+          ) : displayItems.length === 0 ? (
+            <div className="py-12">
+              <EmptyState
+                icon={Radio}
+                title="No check-ins yet"
+                description={
+                  mode === "today"
+                    ? "Check-ins will appear here as members arrive"
+                    : mode === "open_service"
+                    ? "No active service check-ins found"
+                    : "No check-ins in the last 24 hours"
+                }
+              />
+            </div>
+          ) : (
+            <div className="space-y-1 max-h-[600px] overflow-y-auto pr-1">
+              <AnimatePresence initial={false}>
+                {displayItems.map((item, index) => (
+                  <FeedItem 
+                    key={item.id} 
+                    item={item} 
+                    index={index} 
+                    onClick={() => handleItemClick(item)}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
 
-      <CardContent className="pt-2">
-        {isLoading ? (
-          <FeedSkeleton />
-        ) : error ? (
-          <EmptyState 
-            icon={Activity} 
-            title="Error loading feed" 
-            description="Unable to fetch check-in data" 
-          />
-        ) : displayItems.length === 0 ? (
-          <EmptyState
-            icon={Radio}
-            title="No check-ins yet"
-            description={
-              mode === "today"
-                ? "Check-ins will appear here as members arrive"
-                : mode === "open_service"
-                ? "No open service check-ins found"
-                : "No check-ins in the last 24 hours"
-            }
-          />
-        ) : (
-          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            {displayItems.map((item, index) => (
-              <FeedItem key={item.id} item={item} index={index} />
-            ))}
-          </div>
-        )}
+          {/* Load more / Footer */}
+          {!isLoading && displayItems.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              {hasMore ? (
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-sm text-muted-foreground hover:text-foreground"
+                  onClick={loadMore}
+                >
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Load more ({items.length - displayCount} remaining)
+                </Button>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
+                  <Radio className="h-3.5 w-3.5 text-green-500 animate-pulse" />
+                  <span>Watching for new check-ins</span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {!isLoading && displayItems.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Radio className="h-3 w-3 text-green-500" />
-              Live updates enabled
-            </span>
-            <span>{items.length} check-in{items.length !== 1 ? "s" : ""}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Member Detail Drawer */}
+      <CheckinDetailDrawer 
+        item={selectedItem}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
+    </>
   );
 }
