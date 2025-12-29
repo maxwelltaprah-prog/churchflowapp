@@ -10,7 +10,6 @@ import {
   BarChart3,
   Activity,
   UserCheck,
-  Grid3X3
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
@@ -348,20 +347,6 @@ export default function AnalyticsPage() {
           </Link>
         </Card>
         
-        <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
-          <Link to="/app/analytics/heatmap">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="p-2 rounded-lg bg-rose-500/10">
-                  <Grid3X3 className="h-5 w-5 text-rose-600" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <CardTitle className="text-base mt-3">Check-in Heatmap</CardTitle>
-              <CardDescription>Arrival patterns by hour across services</CardDescription>
-            </CardHeader>
-          </Link>
-        </Card>
       </div>
     </div>
   );
