@@ -13,6 +13,16 @@ export interface CheckinFeedItem {
   memberName: string;
   memberStatus: string;
   memberPhoto: string | null;
+  memberPhone: string | null;
+  memberEmail: string | null;
+  memberGender: string | null;
+  memberDateOfBirth: string | null;
+  memberMaritalStatus: string | null;
+  memberOccupation: string | null;
+  memberResidentialArea: string | null;
+  memberAreaZone: string | null;
+  memberDateJoined: string | null;
+  memberType: string | null;
   branchId: string;
   branchName: string;
   serviceId: string;
@@ -63,7 +73,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
           service_id,
           checked_in_at,
           checkin_method,
-          members!inner(full_name, membership_status, photo_url),
+          members!inner(full_name, membership_status, photo_url, phone, email, gender, date_of_birth, marital_status, occupation, residential_area, area_zone, date_joined, member_type),
           services!inner(name, service_date, start_time, end_time),
           branches!inner(name)
         `)
@@ -84,6 +94,16 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
         memberName: item.members?.full_name || "Unknown Member",
         memberStatus: item.members?.membership_status || "member",
         memberPhoto: item.members?.photo_url || null,
+        memberPhone: item.members?.phone || null,
+        memberEmail: item.members?.email || null,
+        memberGender: item.members?.gender || null,
+        memberDateOfBirth: item.members?.date_of_birth || null,
+        memberMaritalStatus: item.members?.marital_status || null,
+        memberOccupation: item.members?.occupation || null,
+        memberResidentialArea: item.members?.residential_area || null,
+        memberAreaZone: item.members?.area_zone || null,
+        memberDateJoined: item.members?.date_joined || null,
+        memberType: item.members?.member_type || null,
         branchId: item.branch_id,
         branchName: item.branches?.name || "Unknown Branch",
         serviceId: item.service_id,
@@ -134,7 +154,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
               service_id,
               checked_in_at,
               checkin_method,
-              members!inner(full_name, membership_status, photo_url),
+              members!inner(full_name, membership_status, photo_url, phone, email, gender, date_of_birth, marital_status, occupation, residential_area, area_zone, date_joined, member_type),
               services!inner(name),
               branches!inner(name)
             `)
@@ -142,12 +162,23 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
             .single();
 
           if (fullRecord) {
+            const members = fullRecord.members as any;
             const newItem: CheckinFeedItem = {
               id: fullRecord.id,
               memberId: fullRecord.member_id,
-              memberName: (fullRecord.members as any)?.full_name || "Unknown Member",
-              memberStatus: (fullRecord.members as any)?.membership_status || "member",
-              memberPhoto: (fullRecord.members as any)?.photo_url || null,
+              memberName: members?.full_name || "Unknown Member",
+              memberStatus: members?.membership_status || "member",
+              memberPhoto: members?.photo_url || null,
+              memberPhone: members?.phone || null,
+              memberEmail: members?.email || null,
+              memberGender: members?.gender || null,
+              memberDateOfBirth: members?.date_of_birth || null,
+              memberMaritalStatus: members?.marital_status || null,
+              memberOccupation: members?.occupation || null,
+              memberResidentialArea: members?.residential_area || null,
+              memberAreaZone: members?.area_zone || null,
+              memberDateJoined: members?.date_joined || null,
+              memberType: members?.member_type || null,
               branchId: fullRecord.branch_id,
               branchName: (fullRecord.branches as any)?.name || "Unknown Branch",
               serviceId: fullRecord.service_id,
