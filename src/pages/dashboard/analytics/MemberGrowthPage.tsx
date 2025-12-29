@@ -47,18 +47,14 @@ import {
 } from "recharts";
 import { 
   format, 
-  eachDayOfInterval, 
-  eachWeekOfInterval, 
-  eachMonthOfInterval,
-  differenceInDays,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
   subMonths,
   parseISO,
   isWithinInterval,
+  differenceInDays,
+  startOfMonth,
+  endOfMonth,
 } from "date-fns";
+import { useServiceDrivenMemberGrowth } from "@/hooks/useServiceDrivenTimeline";
 
 const CHART_COLORS = {
   primary: "hsl(var(--primary))",
@@ -146,79 +142,15 @@ function useMemberGrowthKPIs() {
   });
 }
 
-// =================== Acquisition Trend Hook ===================
+// =================== Acquisition Trend Hook (Service-Driven) ===================
 function useAcquisitionTrend() {
-  const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
-  const { accessibleBranchIds } = useBranchAccess();
-
-  return useQuery({
-    queryKey: ["acquisition-trend", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
-    queryFn: async () => {
-      if (!profile?.church_id) return [];
-
-      let query = supabase
-        .from("members")
-        .select("id, created_at, membership_status")
-        .eq("church_id", profile.church_id)
-        .gte("created_at", filters.startDate.toISOString())
-        .lte("created_at", filters.endDate.toISOString());
-
-      query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-
-      const { data: members } = await query;
-
-      const daysDiff = differenceInDays(filters.endDate, filters.startDate);
-      
-      // Choose interval based on date range
-      let intervals: Date[];
-      let dateFormat: string;
-      let getIntervalEnd: (date: Date) => Date;
-
-      if (daysDiff <= 14) {
-        intervals = eachDayOfInterval({ start: filters.startDate, end: filters.endDate });
-        dateFormat = "MMM d";
-        getIntervalEnd = (d) => {
-          const end = new Date(d);
-          end.setHours(23, 59, 59, 999);
-          return end;
-        };
-      } else if (daysDiff <= 90) {
-        intervals = eachWeekOfInterval({ start: filters.startDate, end: filters.endDate });
-        dateFormat = "'W'w";
-        getIntervalEnd = (d) => endOfWeek(d);
-      } else {
-        intervals = eachMonthOfInterval({ start: filters.startDate, end: filters.endDate });
-        dateFormat = "MMM yyyy";
-        getIntervalEnd = (d) => endOfMonth(d);
-      }
-
-      return intervals.map((intervalStart, idx) => {
-        const intervalEnd = getIntervalEnd(intervalStart);
-        
-        const periodMembers = (members || []).filter(m => {
-          const createdAt = new Date(m.created_at);
-          return createdAt >= intervalStart && createdAt <= intervalEnd;
-        });
-
-        const newMembers = periodMembers.filter(m => 
-          m.membership_status === "member" || m.membership_status === "new_convert"
-        ).length;
-        const visitors = periodMembers.filter(m => 
-          m.membership_status === "visitor" || m.membership_status === "first_timer"
-        ).length;
-
-        return {
-          date: format(intervalStart, dateFormat),
-          fullDate: format(intervalStart, "MMM d, yyyy"),
-          total: periodMembers.length,
-          members: newMembers,
-          visitors,
-        };
-      });
-    },
-    enabled: !!profile?.church_id,
-  });
+  
+  return useServiceDrivenMemberGrowth(
+    filters.startDate,
+    filters.endDate,
+    filters.branchId || undefined
+  );
 }
 
 // =================== Retention Metrics Hook ===================
@@ -395,10 +327,13 @@ function KPICard({ title, value, icon: Icon, trend, description, isLoading, vari
 export default function MemberGrowthPage() {
   const { filters } = useAnalyticsFilters();
   const { data: kpis, isLoading: kpisLoading } = useMemberGrowthKPIs();
-  const { data: trendData, isLoading: trendLoading } = useAcquisitionTrend();
+  const { data: trendResult, isLoading: trendLoading } = useAcquisitionTrend();
   const { data: retention, isLoading: retentionLoading } = useRetentionMetrics();
   const { data: monthlyData, isLoading: monthlyLoading } = useMonthlyComparison();
 
+  const trendData = trendResult?.data || [];
+  const hasTrendData = trendResult?.hasData || false;
+  
   const periodLabel = formatDateRangeLabel(filters);
 
   // Status breakdown for the table
@@ -477,13 +412,13 @@ export default function MemberGrowthPage() {
               Acquisition Trend
             </CardTitle>
             <CardDescription>
-              New registrations over {periodLabel.toLowerCase()}
+              New registrations by service period for {periodLabel.toLowerCase()}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
               <Skeleton className="h-[280px] w-full" />
-            ) : trendData && trendData.some(d => d.total > 0) ? (
+            ) : hasTrendData && trendData.some(d => d.total > 0) ? (
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={trendData}>
                   <defs>
@@ -529,7 +464,8 @@ export default function MemberGrowthPage() {
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
                 <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No new registrations in this period</p>
+                <p>No services recorded for this period</p>
+                <p className="text-sm">Create services to see member growth trends</p>
               </div>
             )}
           </CardContent>

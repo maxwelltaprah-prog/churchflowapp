@@ -11,7 +11,6 @@ import {
   Activity,
   UserCheck
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
@@ -19,18 +18,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useBranchAccess, applyBranchFilter } from "@/hooks/useBranchAccess";
+import { useServiceDrivenAttendanceTrend } from "@/hooks/useServiceDrivenTimeline";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
 } from "recharts";
-import { format, eachDayOfInterval, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 
 // Hook for filtered analytics stats
 function useFilteredAnalyticsStats() {
@@ -109,60 +107,24 @@ function useFilteredAnalyticsStats() {
   });
 }
 
-// Hook for attendance trend chart data
+// Use service-driven attendance trend (event-based, not calendar-based)
 function useAttendanceTrendChart() {
-  const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
-  const { accessibleBranchIds } = useBranchAccess();
   
-  return useQuery({
-    queryKey: ["attendance-trend-chart", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
-    queryFn: async () => {
-      if (!profile?.church_id) return [];
-      
-      let query = supabase
-        .from("attendance")
-        .select("checked_in_at")
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", filters.startDate.toISOString())
-        .lte("checked_in_at", filters.endDate.toISOString());
-      
-      query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-      
-      const { data: attendance } = await query;
-      
-      // Group by day
-      const daysDiff = differenceInDays(filters.endDate, filters.startDate);
-      const dateFormat = daysDiff > 14 ? "MMM d" : "EEE";
-      
-      const days = eachDayOfInterval({ start: filters.startDate, end: filters.endDate });
-      
-      return days.map(day => {
-        const dayStart = new Date(day);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(day);
-        dayEnd.setHours(23, 59, 59, 999);
-        
-        const count = attendance?.filter(a => {
-          const checkinDate = new Date(a.checked_in_at);
-          return checkinDate >= dayStart && checkinDate <= dayEnd;
-        }).length || 0;
-        
-        return {
-          date: format(day, dateFormat),
-          fullDate: format(day, "MMM d, yyyy"),
-          attendance: count,
-        };
-      });
-    },
-    enabled: !!profile?.church_id,
-  });
+  return useServiceDrivenAttendanceTrend(
+    filters.startDate,
+    filters.endDate,
+    filters.branchId || undefined
+  );
 }
 
 export default function AnalyticsPage() {
   const { filters } = useAnalyticsFilters();
   const { data: stats, isLoading: statsLoading } = useFilteredAnalyticsStats();
-  const { data: trendData, isLoading: trendLoading } = useAttendanceTrendChart();
+  const { data: trendResult, isLoading: trendLoading } = useAttendanceTrendChart();
+  
+  const trendData = trendResult?.data || [];
+  const hasData = trendResult?.hasData || false;
   
   const periodLabel = formatDateRangeLabel(filters);
   
@@ -248,7 +210,7 @@ export default function AnalyticsPage() {
           <div>
             <CardTitle className="text-lg">Attendance Trend</CardTitle>
             <CardDescription>
-              Daily check-ins for {periodLabel.toLowerCase()}
+              Check-ins by service date for {periodLabel.toLowerCase()}
             </CardDescription>
           </div>
         </CardHeader>
@@ -257,7 +219,7 @@ export default function AnalyticsPage() {
             <div className="h-[300px] flex items-center justify-center">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : trendData && trendData.length > 0 && trendData.some(d => d.attendance > 0) ? (
+          ) : hasData && trendData.some(d => d.total > 0) ? (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={trendData}>
                 <defs>
@@ -290,18 +252,19 @@ export default function AnalyticsPage() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="attendance"
+                  dataKey="total"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   fill="url(#attendanceGradient)"
+                  name="Attendance"
                 />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
               <Activity className="w-12 h-12 mb-3 opacity-20" />
-              <p>No attendance data for this period</p>
-              <p className="text-sm">Record check-ins to see trends here</p>
+              <p>No services recorded for this period</p>
+              <p className="text-sm">Create services and record check-ins to see trends</p>
             </div>
           )}
         </CardContent>
