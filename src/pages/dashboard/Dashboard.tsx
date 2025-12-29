@@ -121,6 +121,17 @@ export default function Dashboard() {
                       <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
                       <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
                     </linearGradient>
+                    <linearGradient id="peakGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(38 92% 50%)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="hsl(38 92% 50%)" stopOpacity={0.7} />
+                    </linearGradient>
+                    <filter id="peakGlow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                   <XAxis 
@@ -155,10 +166,17 @@ export default function Dashboard() {
                   />
                   <Bar 
                     dataKey="checkins" 
-                    fill="url(#barGradient)" 
                     radius={[4, 4, 0, 0]}
                     maxBarSize={50}
-                  />
+                  >
+                    {checkinTrend.data.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`}
+                        fill={entry.time === checkinTrend.peakTime && checkinTrend.peakCount > 0 ? "url(#peakGradient)" : "url(#barGradient)"}
+                        filter={entry.time === checkinTrend.peakTime && checkinTrend.peakCount > 0 ? "url(#peakGlow)" : undefined}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
