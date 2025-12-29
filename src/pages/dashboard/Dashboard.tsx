@@ -126,7 +126,14 @@ export default function Dashboard() {
                       <stop offset="100%" stopColor="hsl(38 92% 50%)" stopOpacity={0.7} />
                     </linearGradient>
                     <filter id="peakGlow" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur">
+                        <animate 
+                          attributeName="stdDeviation" 
+                          values="2;5;2" 
+                          dur="1.5s" 
+                          repeatCount="indefinite"
+                        />
+                      </feGaussianBlur>
                       <feMerge>
                         <feMergeNode in="coloredBlur"/>
                         <feMergeNode in="SourceGraphic"/>
