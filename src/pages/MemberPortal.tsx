@@ -298,7 +298,67 @@ export default function MemberPortal() {
             <span className="text-sm font-medium">Member Portal</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Welcome, {member.full_name.split(" ")[0]}!</h1>
-          <p className="text-muted-foreground">{member.churches?.name} • {member.branches?.name}</p>
+        <p className="text-muted-foreground">{member.churches?.name} • {member.branches?.name}</p>
+        </div>
+
+        {/* Quick Check-in Card */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="w-5 h-5" />
+                Your QR Code
+              </CardTitle>
+              <CardDescription>
+                Show this to staff for quick check-in
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              <div className="bg-white p-4 rounded-xl mb-4">
+                <QRCodeSVG value={member.qr_code_token} size={160} />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Staff can scan this code to check you in
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Your Member Code
+              </CardTitle>
+              <CardDescription>
+                Use for self check-in at services
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-2">Member Code</p>
+                <p className="text-2xl font-mono font-bold tracking-wider text-primary">
+                  {member.phone?.slice(-4) || "----"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Last 4 digits of your phone
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-3 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Full Code (for reference)</p>
+                  <p className="font-mono font-semibold">{member.member_code}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyCode}
+                  className="shrink-0"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Gamified Streak Dashboard */}
