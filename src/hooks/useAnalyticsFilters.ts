@@ -32,7 +32,7 @@ export interface UseAnalyticsFiltersReturn {
   setServiceId: (serviceId: string | null) => void;
   resetFilters: () => void;
   // Helper for URL generation (for deep linking from dashboard)
-  buildAnalyticsUrl: (overrides?: Partial<Pick<AnalyticsFilters, 'datePreset' | 'branchId'>>) => string;
+  buildAnalyticsUrl: (basePath?: string, overrides?: Partial<Pick<AnalyticsFilters, 'datePreset' | 'branchId'>> & { group_id?: string; segment?: string }) => string;
   // Access control
   accessibleBranchIds: string[] | null;
   isChurchAdmin: boolean;
@@ -148,7 +148,7 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
   
-  const buildAnalyticsUrl = useCallback((overrides?: Partial<Pick<AnalyticsFilters, 'datePreset' | 'branchId'>>) => {
+  const buildAnalyticsUrl = useCallback((basePath?: string, overrides?: Partial<Pick<AnalyticsFilters, 'datePreset' | 'branchId'>> & { group_id?: string; segment?: string }) => {
     const params = new URLSearchParams();
     
     const preset = overrides?.datePreset ?? filters.datePreset;
@@ -160,9 +160,16 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
     if (branch) {
       params.set("branch", branch);
     }
+    if (overrides?.group_id) {
+      params.set("group_id", overrides.group_id);
+    }
+    if (overrides?.segment) {
+      params.set("segment", overrides.segment);
+    }
     
+    const path = basePath || "/app/analytics";
     const queryString = params.toString();
-    return `/app/analytics${queryString ? `?${queryString}` : ""}`;
+    return `${path}${queryString ? `?${queryString}` : ""}`;
   }, [filters]);
   
   return {
