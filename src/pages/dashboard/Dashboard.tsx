@@ -91,7 +91,10 @@ export default function Dashboard() {
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
-      {/* SECTION 2: Check-in Flow Chart */}
+      {/* SECTION 2: Live Check-in Activity - Full Width */}
+      <LiveCheckinFeed branchId={branchId} maxItems={10} />
+
+      {/* SECTION 3: Check-in Flow Chart */}
       <Card>
         <CardHeader className="pb-2">
           <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
@@ -233,8 +236,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* SECTION: Live Check-in Activity - Full Width */}
-      <LiveCheckinFeed branchId={branchId} maxItems={10} />
     </div>
   );
 }
