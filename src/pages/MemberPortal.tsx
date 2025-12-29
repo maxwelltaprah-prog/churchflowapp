@@ -50,12 +50,16 @@ interface AttendanceRecord {
   } | null;
 }
 
+const RECORDS_PER_PAGE = 10;
+
 export default function MemberPortal() {
   const [member, setMember] = useState<MemberData | null>(null);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(RECORDS_PER_PAGE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -387,7 +391,7 @@ export default function MemberPortal() {
               </div>
             ) : (
               <div className="space-y-3">
-                {attendanceHistory.slice(0, 10).map((record) => (
+                {attendanceHistory.slice(0, visibleCount).map((record) => (
                   <div
                     key={record.id}
                     className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -426,11 +430,40 @@ export default function MemberPortal() {
                     </div>
                   </div>
                 ))}
-                {attendanceHistory.length > 10 && (
-                  <p className="text-center text-sm text-muted-foreground pt-2">
-                    Showing 10 of {attendanceHistory.length} records
+                
+                {/* Load More / Showing count */}
+                {attendanceHistory.length > visibleCount ? (
+                  <div className="pt-4 space-y-2">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setIsLoadingMore(true);
+                        setTimeout(() => {
+                          setVisibleCount(prev => prev + RECORDS_PER_PAGE);
+                          setIsLoadingMore(false);
+                        }, 300);
+                      }}
+                      disabled={isLoadingMore}
+                    >
+                      {isLoadingMore ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Loading...
+                        </span>
+                      ) : (
+                        `Load More (${attendanceHistory.length - visibleCount} remaining)`
+                      )}
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">
+                      Showing {visibleCount} of {attendanceHistory.length} records
+                    </p>
+                  </div>
+                ) : attendanceHistory.length > RECORDS_PER_PAGE ? (
+                  <p className="text-center text-sm text-muted-foreground pt-4">
+                    Showing all {attendanceHistory.length} records
                   </p>
-                )}
+                ) : null}
               </div>
             )}
           </CardContent>
