@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useChurchData";
 import {
@@ -97,22 +97,59 @@ export default function Dashboard() {
       {/* SECTION 3: Check-in Flow Chart */}
       <Card>
         <CardHeader className="pb-2">
-          <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
+          <SectionHeader title="Check-in Flow" description="Arrival pattern by hour" icon={BarChart3} />
         </CardHeader>
         <CardContent>
           <div className="h-[280px]">
             {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
-              <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
+              <EmptyState icon={BarChart3} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={checkinTrend.data}>
-                  <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
-                  <YAxis className="text-xs" allowDecimals={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                  <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
-                </AreaChart>
+                <BarChart data={checkinTrend.data} barCategoryGap="15%">
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    className="text-xs" 
+                    tickFormatter={(v) => v.replace(":00", "")} 
+                    interval={checkinTrend.isTimeOfDay ? 1 : "preserveStartEnd"}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    axisLine={{ stroke: "hsl(var(--border))" }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    className="text-xs" 
+                    allowDecimals={false}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))", 
+                      border: "1px solid hsl(var(--border))", 
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                    }}
+                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                    itemStyle={{ color: "hsl(var(--muted-foreground))" }}
+                    formatter={(value: number) => [`${value} check-in${value !== 1 ? "s" : ""}`, "Arrivals"]}
+                    labelFormatter={(label) => `${label}`}
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                  />
+                  <Bar 
+                    dataKey="checkins" 
+                    fill="url(#barGradient)" 
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={50}
+                  />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>
