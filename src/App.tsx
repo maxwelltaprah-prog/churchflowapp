@@ -27,6 +27,7 @@ import ServicesPage from "./pages/dashboard/ServicesPage";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
 import AttendanceOverviewPage from "./pages/dashboard/analytics/AttendanceOverviewPage";
 import DemographicsPage from "./pages/dashboard/analytics/DemographicsPage";
+import MemberGrowthPage from "./pages/dashboard/analytics/MemberGrowthPage";
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
 
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="analytics/attendance" element={<AttendanceOverviewPage />} />
               <Route path="analytics/demographics" element={<DemographicsPage />} />
+              <Route path="analytics/members" element={<MemberGrowthPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
