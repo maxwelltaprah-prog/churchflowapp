@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2, Church, QrCode, ArrowLeft } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -18,6 +18,11 @@ interface ServiceData {
   branches?: { name: string } | null;
 }
 
+interface MemberMatch {
+  id: string;
+  full_name: string;
+}
+
 export default function SelfCheckin() {
   const { serviceId } = useParams<{ serviceId: string }>();
   const [service, setService] = useState<ServiceData | null>(null);
@@ -26,6 +31,10 @@ export default function SelfCheckin() {
   const [memberCode, setMemberCode] = useState("");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; name?: string } | null>(null);
+  
+  // Disambiguation state
+  const [matchingMembers, setMatchingMembers] = useState<MemberMatch[]>([]);
+  const [showDisambiguation, setShowDisambiguation] = useState(false);
 
   useEffect(() => {
     loadService();
@@ -63,8 +72,19 @@ export default function SelfCheckin() {
     }
   };
 
-  const handleCheckin = async () => {
-    if (!memberCode.trim() || !serviceId) return;
+  const handleMemberCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 4
+    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setMemberCode(value);
+    // Reset disambiguation when code changes
+    if (showDisambiguation) {
+      setShowDisambiguation(false);
+      setMatchingMembers([]);
+    }
+  };
+
+  const handleCheckin = async (selectedMemberId?: string) => {
+    if (memberCode.length !== 4 || !serviceId) return;
 
     setChecking(true);
     setResult(null);
@@ -75,6 +95,7 @@ export default function SelfCheckin() {
           action: "checkin",
           serviceId,
           memberCode: memberCode.trim(),
+          memberId: selectedMemberId, // Pass selected member if disambiguation
         },
       });
 
@@ -86,16 +107,29 @@ export default function SelfCheckin() {
 
       const status = (data as any)?.status as string | undefined;
       const name = (data as any)?.name as string | undefined;
+      const members = (data as any)?.members as MemberMatch[] | undefined;
+
+      // Handle disambiguation case
+      if (status === "disambiguation_required" && members) {
+        setMatchingMembers(members);
+        setShowDisambiguation(true);
+        setChecking(false);
+        return;
+      }
 
       if (status === "checked_in") {
         setResult({ success: true, message: "Check-in successful!", name });
         setMemberCode("");
+        setShowDisambiguation(false);
+        setMatchingMembers([]);
         toast.success("Checked in successfully!");
         return;
       }
 
       if (status === "already_checked_in") {
         setResult({ success: true, message: "You're already checked in!", name });
+        setShowDisambiguation(false);
+        setMatchingMembers([]);
         return;
       }
 
@@ -107,6 +141,16 @@ export default function SelfCheckin() {
     } finally {
       setChecking(false);
     }
+  };
+
+  const handleSelectMember = (memberId: string) => {
+    handleCheckin(memberId);
+  };
+
+  const handleCancelDisambiguation = () => {
+    setShowDisambiguation(false);
+    setMatchingMembers([]);
+    setMemberCode("");
   };
 
   if (loading) {
@@ -170,43 +214,88 @@ export default function SelfCheckin() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-primary" />
+              <Hash className="w-5 h-5 text-primary" />
               Self Check-in
             </CardTitle>
             <CardDescription>
-              Enter your member code to check in
+              Enter your member code to check in quickly
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                placeholder="Enter your member code (e.g., CHU-12345)"
-                value={memberCode}
-                onChange={(e) => setMemberCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && handleCheckin()}
-                className="font-mono text-center text-lg"
-                disabled={checking}
-              />
-            </div>
+            {!showDisambiguation ? (
+              <>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Last 4 digits of your phone number"
+                    value={memberCode}
+                    onChange={handleMemberCodeChange}
+                    onKeyDown={(e) => e.key === "Enter" && memberCode.length === 4 && handleCheckin()}
+                    className="text-center text-2xl font-mono tracking-[0.5em] h-14"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    disabled={checking}
+                  />
+                  <p className="text-xs text-center text-muted-foreground">
+                    No PIN required for check-in
+                  </p>
+                </div>
 
-            <Button 
-              className="w-full" 
-              size="lg"
-              onClick={handleCheckin}
-              disabled={!memberCode.trim() || checking}
-            >
-              {checking ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Checking In...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Check In
-                </>
-              )}
-            </Button>
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => handleCheckin()}
+                  disabled={memberCode.length !== 4 || checking}
+                >
+                  {checking ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Checking In...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Check In
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              /* Disambiguation UI */
+              <div className="space-y-4">
+                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                  <Users className="w-6 h-6 mx-auto text-primary mb-2" />
+                  <p className="text-sm font-medium">Multiple members found</p>
+                  <p className="text-xs text-muted-foreground">Please select your name below</p>
+                </div>
+                
+                <div className="space-y-2">
+                  {matchingMembers.map((member) => (
+                    <Button
+                      key={member.id}
+                      variant="outline"
+                      className="w-full justify-start h-auto py-3"
+                      onClick={() => handleSelectMember(member.id)}
+                      disabled={checking}
+                    >
+                      <div className="text-left">
+                        <p className="font-medium">{member.full_name}</p>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleCancelDisambiguation}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Enter different code
+                </Button>
+              </div>
+            )}
 
             {/* Result Message */}
             {result && (
@@ -231,15 +320,17 @@ export default function SelfCheckin() {
               </div>
             )}
 
-            <p className="text-xs text-center text-muted-foreground">
-              Don't know your code? Ask a church staff member for help.
-            </p>
+            {!showDisambiguation && (
+              <p className="text-xs text-center text-muted-foreground">
+                Don't know your code? It's the last 4 digits of your registered phone number.
+              </p>
+            )}
           </CardContent>
         </Card>
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground">
-          Powered by Church Attendance
+          Powered by ChurchFlow
         </p>
       </div>
     </div>

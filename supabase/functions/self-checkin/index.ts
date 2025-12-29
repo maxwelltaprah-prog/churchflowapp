@@ -1,7 +1,8 @@
 // Self check-in public function (no login required)
 // Supports:
 // - action: "get_service" (serviceId)
-// - action: "checkin" (serviceId, memberCode)
+// - action: "checkin" (serviceId, memberCode) - memberCode is last 4 digits of phone
+// If multiple members match, returns disambiguation list
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -11,6 +12,11 @@ const corsHeaders = {
 };
 
 type Action = "get_service" | "checkin";
+
+interface MemberMatch {
+  id: string;
+  full_name: string;
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -88,6 +94,7 @@ Deno.serve(async (req) => {
     if (action === "checkin") {
       const serviceId: string | undefined = body?.serviceId;
       const memberCodeRaw: string | undefined = body?.memberCode;
+      const memberId: string | undefined = body?.memberId; // For disambiguation
 
       if (!serviceId || !memberCodeRaw) {
         return new Response(JSON.stringify({ error: "Missing serviceId or memberCode" }), {
@@ -97,6 +104,14 @@ Deno.serve(async (req) => {
       }
 
       const memberCode = memberCodeRaw.trim();
+
+      // Validate memberCode is exactly 4 digits
+      if (!/^\d{4}$/.test(memberCode)) {
+        return new Response(JSON.stringify({ error: "Member code must be exactly 4 digits" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const { data: service, error: serviceErr } = await supabase
         .from("services")
@@ -120,25 +135,62 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Find member (member_code OR qr_code_token)
-      const memberCodeUpper = memberCode.toUpperCase();
-      const memberToken = memberCode.toLowerCase();
+      let member = null;
 
-      const { data: memberByCode } = await supabase
-        .from("members")
-        .select("id, full_name, branch_id, is_active, approval_status")
-        .eq("church_id", service.church_id)
-        .eq("member_code", memberCodeUpper)
-        .maybeSingle();
-
-      const member =
-        memberByCode ??
-        (await supabase
+      // If memberId is provided (disambiguation resolved), use it directly
+      if (memberId) {
+        const { data: memberById, error: memberByIdErr } = await supabase
           .from("members")
           .select("id, full_name, branch_id, is_active, approval_status")
+          .eq("id", memberId)
           .eq("church_id", service.church_id)
-          .eq("qr_code_token", memberToken)
-          .maybeSingle()).data;
+          .maybeSingle();
+
+        if (memberByIdErr) {
+          console.error("member lookup by id error", memberByIdErr);
+        }
+        member = memberById;
+      } else {
+        // Find members whose phone ends with these 4 digits within this church
+        const { data: matchingMembers, error: memberErr } = await supabase
+          .from("members")
+          .select("id, full_name, phone, branch_id, is_active, approval_status")
+          .eq("church_id", service.church_id)
+          .eq("is_active", true)
+          .eq("approval_status", "approved")
+          .like("phone", `%${memberCode}`);
+
+        if (memberErr) {
+          console.error("member lookup error", memberErr);
+          return new Response(JSON.stringify({ error: "Failed to find member" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (!matchingMembers || matchingMembers.length === 0) {
+          return new Response(JSON.stringify({ error: "Member not found. Please check your code." }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // If multiple members match, return disambiguation
+        if (matchingMembers.length > 1) {
+          const members: MemberMatch[] = matchingMembers.map(m => ({
+            id: m.id,
+            full_name: m.full_name,
+          }));
+          
+          return new Response(
+            JSON.stringify({ status: "disambiguation_required", members }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        // Single match
+        member = matchingMembers[0];
+      }
 
       if (!member) {
         return new Response(JSON.stringify({ error: "Member not found" }), {
