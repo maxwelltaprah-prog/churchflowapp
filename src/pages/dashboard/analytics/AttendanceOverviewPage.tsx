@@ -47,7 +47,7 @@ import {
   PieChart,
   Pie,
 } from "recharts";
-import { format, subWeeks, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useServiceDrivenAttendanceTrend } from "@/hooks/useServiceDrivenTimeline";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)"];
@@ -101,9 +101,39 @@ function useAttendanceKPIs() {
       );
       const firstTimers = firstTimerIds.size;
 
-      // Absentees: members who haven't attended in 4 weeks
-      const fourWeeksAgo = subWeeks(new Date(), 4);
+      // Absentees: members who missed 3+ consecutive service days
+      // Get all service dates (grouped by day) to determine consecutive absences
+      let servicesQuery = supabase
+        .from("services")
+        .select("id, service_date")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .order("service_date", { ascending: false });
+
+      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: servicesData } = await servicesQuery;
       
+      // Group services by date (multiple services on same day count as one)
+      const uniqueServiceDates = [...new Set((servicesData || []).map(s => s.service_date))];
+      
+      // Get at least the last 3 service days
+      const lastThreeServiceDays = uniqueServiceDates.slice(0, 3);
+      
+      if (lastThreeServiceDays.length < 3) {
+        // Not enough service days to determine 3-consecutive absences
+        return {
+          totalCheckins,
+          uniqueAttendees,
+          memberCheckins,
+          visitorCheckins,
+          firstTimers,
+          absentees: 0,
+          totalMembers: 0,
+        };
+      }
+
+      // Get all members
       let membersQuery = supabase
         .from("members")
         .select("id")
@@ -117,19 +147,38 @@ function useAttendanceKPIs() {
       const { data: allMembers } = await membersQuery;
       const memberIds = (allMembers || []).map(m => m.id);
 
-      // Get attendance in last 4 weeks for these members
+      // Get services on the last 3 service days
+      const serviceIdsOnLastThreeDays = (servicesData || [])
+        .filter(s => lastThreeServiceDays.includes(s.service_date))
+        .map(s => s.id);
+
+      // Get attendance for these services
       let recentAttendanceQuery = supabase
         .from("attendance")
-        .select("member_id")
+        .select("member_id, checked_in_at, service_id, services!inner(service_date)")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", fourWeeksAgo.toISOString());
+        .in("service_id", serviceIdsOnLastThreeDays);
 
       recentAttendanceQuery = applyBranchFilter(recentAttendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
       const { data: recentAttendance } = await recentAttendanceQuery;
-      const recentAttendeeIds = new Set((recentAttendance || []).map(a => a.member_id));
       
-      const absentees = memberIds.filter(id => !recentAttendeeIds.has(id)).length;
+      // For each member, check which service days they attended
+      const memberAttendanceDays = new Map<string, Set<string>>();
+      memberIds.forEach(id => memberAttendanceDays.set(id, new Set()));
+      
+      (recentAttendance || []).forEach(a => {
+        const serviceDate = (a.services as any)?.service_date;
+        if (serviceDate && memberAttendanceDays.has(a.member_id)) {
+          memberAttendanceDays.get(a.member_id)!.add(serviceDate);
+        }
+      });
+
+      // Count members who attended NONE of the last 3 service days
+      const absentees = memberIds.filter(id => {
+        const daysAttended = memberAttendanceDays.get(id);
+        return daysAttended && daysAttended.size === 0;
+      }).length;
 
       return {
         totalCheckins,
