@@ -54,19 +54,35 @@ export function useBranchAccess(): BranchAccess {
 
 /**
  * Helper to build a Supabase query with branch filtering.
- * Returns the query with appropriate .in() or .eq() filter applied.
+ * Handles both UI-selected branch filter and access control.
+ * 
+ * @param query - The Supabase query builder
+ * @param branchColumn - The column name for branch_id
+ * @param selectedBranchId - Optional UI-selected branch filter
+ * @param accessibleBranchIds - null for church admin (all branches), or array of accessible branch IDs
  */
-export function applyBranchFilter<T extends { eq: (col: string, val: string) => T; in: (col: string, vals: string[]) => T }>(
-  query: T,
+export function applyBranchFilter(
+  query: any,
   branchColumn: string,
+  selectedBranchId: string | undefined,
   accessibleBranchIds: string[] | null
-): T {
+): any {
+  // If a specific branch is selected via UI, use that (if user has access)
+  if (selectedBranchId) {
+    // Verify access if not church admin
+    if (accessibleBranchIds !== null && !accessibleBranchIds.includes(selectedBranchId)) {
+      // User doesn't have access to selected branch - return impossible filter
+      return query.in(branchColumn, ["__no_access__"]);
+    }
+    return query.eq(branchColumn, selectedBranchId);
+  }
+  
+  // No specific branch selected - apply access control
   // null means church admin - no filtering needed
   if (accessibleBranchIds === null) return query;
   
   // Empty array means no access
   if (accessibleBranchIds.length === 0) {
-    // Return a query that will match nothing by filtering for impossible value
     return query.in(branchColumn, ["__no_access__"]);
   }
   

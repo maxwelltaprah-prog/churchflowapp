@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBranchAccess } from "./useBranchAccess";
+import { useBranchAccess, applyBranchFilter } from "./useBranchAccess";
 import { startOfDay, endOfDay, subDays, subWeeks, startOfMonth, endOfMonth, format, parseISO, differenceInYears } from "date-fns";
 
 export type DateRange = "today" | "this_week" | "this_month";
