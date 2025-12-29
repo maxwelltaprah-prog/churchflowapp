@@ -791,12 +791,12 @@ export function useGroupsSnapshot(branchId?: string) {
 }
 
 // =================== SECTION 8: DEMOGRAPHICS ===================
-export function useDemographicsSnapshot(branchId?: string) {
+export function useDemographicsSnapshot(branchId?: string, dateRange: DateRange = "today") {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["demographics-snapshot", profile?.church_id, branchId, accessibleBranchIds],
+    queryKey: ["demographics-snapshot", profile?.church_id, branchId, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { gender: [], ageBands: [], topAreas: [] };
 
@@ -804,15 +804,33 @@ export function useDemographicsSnapshot(branchId?: string) {
         return { gender: [], ageBands: [], topAreas: [] };
       }
 
-      let query = supabase
+      // Calculate date range
+      const { start, end } = getDateRange(dateRange);
+
+      // First, get unique member IDs who checked in during the date range
+      let attendanceQuery = supabase
+        .from("attendance")
+        .select("member_id")
+        .eq("church_id", profile.church_id)
+        .gte("checked_in_at", start.toISOString())
+        .lte("checked_in_at", end.toISOString());
+
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
+
+      const { data: attendanceData } = await attendanceQuery;
+      const uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
+
+      if (uniqueMemberIds.length === 0) {
+        return { gender: [], ageBands: [], topAreas: [] };
+      }
+
+      // Fetch member demographics for those who checked in
+      const { data: members } = await supabase
         .from("members")
         .select("gender, date_of_birth, residential_area")
         .eq("church_id", profile.church_id)
-        .eq("is_active", true);
-
-      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-      
-      const { data: members } = await query;
+        .eq("is_active", true)
+        .in("id", uniqueMemberIds);
 
       // Gender distribution
       const genderCounts: Record<string, number> = {};

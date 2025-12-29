@@ -59,7 +59,7 @@ export default function Dashboard() {
   const { data: engagement } = useEngagementSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId);
-  const { data: demographics } = useDemographicsSnapshot(branchId);
+  const { data: demographics } = useDemographicsSnapshot(branchId, dateRange);
   const { data: serviceQuality } = useServiceQuality(branchId, dateRange);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
 
