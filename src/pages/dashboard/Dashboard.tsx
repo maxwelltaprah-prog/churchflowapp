@@ -1,9 +1,8 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  Users, UserPlus, UserCheck, Clock, AlertCircle, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, Activity, MessageSquare,
-  ShieldCheck, UsersRound, MapPin
+  Users, UserPlus, UserCheck, Clock, ChevronRight, Building2,
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, Activity, UsersRound
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,8 +15,7 @@ import {
   useTodayKPIs, useCheckinTrend, useAttendanceTrend,
   useMemberVisitorBreakdown, useEngagementSignals, useBranchOperations,
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
-  useBroadcastImpact, useDataHealth, useFollowUpList, useLikelyAbsentees,
-  useTodayServices, useRecentServices, DateRange
+  useFollowUpList, useTodayServices, useRecentServices, DateRange
 } from "@/hooks/useDashboardData";
 import { DashboardFilterBar } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
@@ -62,10 +60,7 @@ export default function Dashboard() {
   const { data: groups } = useGroupsSnapshot(branchId);
   const { data: demographics } = useDemographicsSnapshot(branchId);
   const { data: serviceQuality } = useServiceQuality(branchId, dateRange);
-  const { data: broadcasts } = useBroadcastImpact(branchId);
-  const { data: dataHealth } = useDataHealth(branchId);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
-  const { data: absentees, isLoading: absenteesLoading } = useLikelyAbsentees(branchId);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;
 
@@ -206,75 +201,36 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* SECTION 9-11: Operations & Data Health */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Branch Leaderboard" icon={Building2} /></CardHeader>
-          <CardContent>
-            {!branchOps?.leaderboard?.length ? <EmptyState icon={Building2} title="No branches" description="Add branches to track" /> : (
-              <div className="space-y-2">
-                {branchOps.leaderboard.slice(0, 5).map((b, i) => (
-                  <ListItem key={b.id} name={`${i + 1}. ${b.name}`} value={b.attendance} badge={b.change !== 0 ? `${b.change > 0 ? "+" : ""}${b.change}%` : undefined} badgeVariant={b.change > 0 ? "default" : b.change < 0 ? "destructive" : "outline"} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Branch Leaderboard */}
+      <Card>
+        <CardHeader className="pb-3"><SectionHeader title="Branch Leaderboard" icon={Building2} /></CardHeader>
+        <CardContent>
+          {!branchOps?.leaderboard?.length ? <EmptyState icon={Building2} title="No branches" description="Add branches to track" /> : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {branchOps.leaderboard.slice(0, 5).map((b, i) => (
+                <ListItem key={b.id} name={`${i + 1}. ${b.name}`} value={b.attendance} badge={b.change !== 0 ? `${b.change > 0 ? "+" : ""}${b.change}%` : undefined} badgeVariant={b.change > 0 ? "default" : b.change < 0 ? "destructive" : "outline"} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Broadcasts" icon={MessageSquare} /></CardHeader>
-          <CardContent className="space-y-3">
-            <StatCard label="Sent (30 days)" value={broadcasts?.sent || 0} />
-            <StatCard label="Est. Reach" value={broadcasts?.estimatedReach || 0} />
-            <StatCard label="Read Rate" value={`${broadcasts?.readRate || 0}%`} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Data Health" icon={ShieldCheck} /></CardHeader>
-          <CardContent className="space-y-2">
-            {dataHealth?.pendingApprovals ? <ListItem name="Pending Approvals" value={dataHealth.pendingApprovals} badge="Action" badgeVariant="destructive" href="/app/members?approval=pending" /> : null}
-            {dataHealth?.missingPhone ? <ListItem name="Missing Phone" value={dataHealth.missingPhone} badge="Warn" badgeVariant="outline" /> : null}
-            {dataHealth?.duplicates ? <ListItem name="Duplicates Detected" value={dataHealth.duplicates} badge="Warn" badgeVariant="outline" /> : null}
-            {!dataHealth?.pendingApprovals && !dataHealth?.missingPhone && !dataHealth?.duplicates && <EmptyState icon={ShieldCheck} title="All clear" description="No data issues detected" />}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ACTIONABLE LISTS */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", "today", branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
-          <CardContent>
-            {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (
-              <div className="space-y-2">
-                {followUps.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div><p className="font-medium text-sm">{p.name}</p><Badge variant="secondary" className="text-xs capitalize mt-1">{p.status?.replace("_", " ")}</Badge></div>
-                    {p.phone && <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md"><Phone className="w-4 h-4 text-primary" /></a>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Likely Absent Today" icon={AlertCircle} /></CardHeader>
-          <CardContent>
-            {absenteesLoading ? <Skeleton className="h-24" /> : !absentees?.length ? <EmptyState icon={Users} title="All regulars present" description="Or not enough data yet" /> : (
-              <div className="space-y-2">
-                {absentees.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div><p className="font-medium text-sm">{p.name}</p><p className="text-xs text-muted-foreground">Usually attends {p.usualAttendance}x/month</p></div>
-                    {p.phone && <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md"><Phone className="w-4 h-4 text-primary" /></a>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* New People to Follow Up */}
+      <Card>
+        <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", "today", branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+        <CardContent>
+          {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {followUps.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div><p className="font-medium text-sm">{p.name}</p><Badge variant="secondary" className="text-xs capitalize mt-1">{p.status?.replace("_", " ")}</Badge></div>
+                  {p.phone && <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md"><Phone className="w-4 h-4 text-primary" /></a>}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
