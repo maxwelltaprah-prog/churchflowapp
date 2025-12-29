@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, UserCheck, Clock, AlertCircle, ChevronRight, Building2,
@@ -23,6 +23,17 @@ import { DashboardFilterBar } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
+
+// Helper to build analytics URL with proper query params
+function buildAnalyticsLink(dateRange: DateRange, branchId?: string): string {
+  const params = new URLSearchParams();
+  if (dateRange === "today") params.set("period", "today");
+  else if (dateRange === "this_week") params.set("period", "this_week");
+  else if (dateRange === "this_month") params.set("period", "this_month");
+  if (branchId) params.set("branch", branchId);
+  const queryString = params.toString();
+  return `/app/analytics${queryString ? `?${queryString}` : ""}`;
+}
 
 export default function Dashboard() {
   const { profile, isChurchAdmin } = useAuth();
@@ -70,12 +81,12 @@ export default function Dashboard() {
         isLoading={kpisLoading}
       />
 
-      {/* SECTION 1: KPI Cards */}
+      {/* SECTION 1: KPI Cards - with deep links to analytics */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href="/app/analytics" isLoading={kpisLoading} change={kpis?.change} />
-        <KPICard title="Visitors" value={kpis?.visitorsToday ?? 0} icon={UserPlus} href="/app/members?status=visitor" isLoading={kpisLoading} variant="accent" />
-        <KPICard title="First-Timers" value={kpis?.firstTimersToday ?? 0} icon={UserCheck} href="/app/members?status=first_timer" isLoading={kpisLoading} variant="accent" />
-        <KPICard title="Returning Visitors" value={kpis?.returningVisitorsToday ?? 0} icon={RefreshCw} isLoading={kpisLoading} />
+        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink(dateRange, branchId)} isLoading={kpisLoading} change={kpis?.change} />
+        <KPICard title="Visitors" value={kpis?.visitorsToday ?? 0} icon={UserPlus} href={`/app/members?status=visitor&period=${dateRange}`} isLoading={kpisLoading} variant="accent" />
+        <KPICard title="First-Timers" value={kpis?.firstTimersToday ?? 0} icon={UserCheck} href={`/app/members?status=first_timer&period=${dateRange}`} isLoading={kpisLoading} variant="accent" />
+        <KPICard title="Returning Visitors" value={kpis?.returningVisitorsToday ?? 0} icon={RefreshCw} href={buildAnalyticsLink(dateRange, branchId)} isLoading={kpisLoading} />
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
