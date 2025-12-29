@@ -9,6 +9,7 @@ export interface ServiceInstance {
   name: string;
   serviceDate: string;
   startTime: string | null;
+  endTime: string | null;
   branchId: string;
   branchName?: string;
 }
@@ -35,6 +36,58 @@ export interface HeatmapData {
 }
 
 /**
+ * Parse time string (HH:MM:SS) to hour number
+ */
+function parseTimeToHour(timeStr: string | null): number | null {
+  if (!timeStr) return null;
+  const parts = timeStr.split(":");
+  if (parts.length >= 1) {
+    return parseInt(parts[0], 10);
+  }
+  return null;
+}
+
+/**
+ * Calculate hour range based on service times
+ * Start: 3 hours before earliest service start
+ * End: 1 hour after latest service end
+ */
+function calculateHourRange(
+  services: { start_time: string | null; end_time: string | null }[]
+): number[] {
+  let earliestStart = 24;
+  let latestEnd = 0;
+
+  services.forEach(service => {
+    const startHour = parseTimeToHour(service.start_time);
+    const endHour = parseTimeToHour(service.end_time);
+    
+    if (startHour !== null) {
+      earliestStart = Math.min(earliestStart, startHour);
+    }
+    if (endHour !== null) {
+      latestEnd = Math.max(latestEnd, endHour);
+    }
+  });
+
+  // If no valid times found, default to reasonable range
+  if (earliestStart === 24) earliestStart = 8;
+  if (latestEnd === 0) latestEnd = 14;
+
+  // Apply 3 hours before start, 1 hour after end
+  const rangeStart = Math.max(0, earliestStart - 3);
+  const rangeEnd = Math.min(23, latestEnd + 1);
+
+  // Generate array of hours
+  const hours: number[] = [];
+  for (let h = rangeStart; h <= rangeEnd; h++) {
+    hours.push(h);
+  }
+
+  return hours;
+}
+
+/**
  * Fetch service instances within date range
  */
 export function useServiceInstances(
@@ -52,7 +105,7 @@ export function useServiceInstances(
 
       let query = supabase
         .from("services")
-        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .select("id, name, service_date, start_time, end_time, branch_id, branches(name)")
         .eq("church_id", profile.church_id)
         .gte("service_date", format(startDate, "yyyy-MM-dd"))
         .lte("service_date", format(endDate, "yyyy-MM-dd"))
@@ -70,6 +123,7 @@ export function useServiceInstances(
         name: s.name,
         serviceDate: s.service_date,
         startTime: s.start_time,
+        endTime: s.end_time,
         branchId: s.branch_id,
         branchName: (s.branches as any)?.name || "Unknown",
       })) as ServiceInstance[];
@@ -99,10 +153,10 @@ export function useCheckinHeatmapData(
         return { cells: [], hours: [], rows: [], maxCount: 0, peakHour: null, peakCount: 0, totalCheckins: 0, hasData: false };
       }
 
-      // Fetch services in range
+      // Fetch services in range (include end_time for hour range calculation)
       let servicesQuery = supabase
         .from("services")
-        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .select("id, name, service_date, start_time, end_time, branch_id, branches(name)")
         .eq("church_id", profile.church_id)
         .gte("service_date", format(startDate, "yyyy-MM-dd"))
         .lte("service_date", format(endDate, "yyyy-MM-dd"))
@@ -123,6 +177,9 @@ export function useCheckinHeatmapData(
         return { cells: [], hours: [], rows: [], maxCount: 0, peakHour: null, peakCount: 0, totalCheckins: 0, hasData: false };
       }
 
+      // Calculate hour range based on service times (3hrs before, 1hr after)
+      const hourRange = calculateHourRange(services);
+
       const serviceIds = services.map(s => s.id);
 
       // Fetch attendance for these services
@@ -137,18 +194,14 @@ export function useCheckinHeatmapData(
       const { data: attendance, error: attendanceError } = await attendanceQuery;
       if (attendanceError) throw attendanceError;
 
-      if (!attendance?.length) {
-        return { cells: [], hours: [], rows: [], maxCount: 0, peakHour: null, peakCount: 0, totalCheckins: 0, hasData: false };
-      }
-
       const isSingleService = !!serviceId;
 
       if (isSingleService) {
         // Single service mode: rows = 10-minute buckets
-        return buildSingleServiceHeatmap(attendance, services[0]);
+        return buildSingleServiceHeatmap(attendance || [], services[0], hourRange);
       } else {
         // All services mode: rows = service instances
-        return buildAllServicesHeatmap(attendance, services);
+        return buildAllServicesHeatmap(attendance || [], services, hourRange);
       }
     },
     enabled: !!profile?.church_id,
@@ -157,14 +210,13 @@ export function useCheckinHeatmapData(
 
 function buildSingleServiceHeatmap(
   attendance: { service_id: string; checked_in_at: string }[],
-  service: { id: string; name: string; service_date: string; start_time: string | null; branches: unknown }
+  service: { id: string; name: string; service_date: string; start_time: string | null; end_time: string | null; branches: unknown },
+  hourRange: number[]
 ): HeatmapData {
   // Create 10-minute buckets for rows (00, 10, 20, 30, 40, 50)
   const minuteBuckets = [0, 10, 20, 30, 40, 50];
   const rows = minuteBuckets.map(m => `:${m.toString().padStart(2, "0")}`);
 
-  // Determine hour range from data
-  const hours = new Set<number>();
   const checkinMatrix: Record<string, number> = {};
   const hourCounts: Record<number, number> = {};
 
@@ -174,19 +226,16 @@ function buildSingleServiceHeatmap(
     const minute = getMinutes(checkinTime);
     const bucket = Math.floor(minute / 10) * 10;
     
-    hours.add(hour);
     const key = `${hour}-${bucket}`;
     checkinMatrix[key] = (checkinMatrix[key] || 0) + 1;
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
   });
 
-  const sortedHours = Array.from(hours).sort((a, b) => a - b);
-  
-  // Build cells
+  // Build cells using the calculated hour range
   const cells: HeatmapCell[] = [];
   let maxCount = 0;
 
-  sortedHours.forEach(hour => {
+  hourRange.forEach(hour => {
     minuteBuckets.forEach((bucket, rowIndex) => {
       const key = `${hour}-${bucket}`;
       const count = checkinMatrix[key] || 0;
@@ -216,19 +265,20 @@ function buildSingleServiceHeatmap(
 
   return {
     cells,
-    hours: sortedHours,
+    hours: hourRange,
     rows,
     maxCount,
     peakHour,
     peakCount,
     totalCheckins: attendance.length,
-    hasData: cells.some(c => c.count > 0),
+    hasData: attendance.length > 0,
   };
 }
 
 function buildAllServicesHeatmap(
   attendance: { service_id: string; checked_in_at: string }[],
-  services: { id: string; name: string; service_date: string; start_time: string | null; branches: unknown }[]
+  services: { id: string; name: string; service_date: string; start_time: string | null; end_time: string | null; branches: unknown }[],
+  hourRange: number[]
 ): HeatmapData {
   // Rows = service instances
   const serviceMap = new Map(services.map((s, i) => [s.id, { 
@@ -239,8 +289,6 @@ function buildAllServicesHeatmap(
   
   const rows = services.map(s => `${s.name} — ${format(parseISO(s.service_date), "MMM d")}`);
 
-  // Build hour range and matrix
-  const hours = new Set<number>();
   const checkinMatrix: Record<string, number> = {};
   const hourCounts: Record<number, number> = {};
 
@@ -250,19 +298,16 @@ function buildAllServicesHeatmap(
     const serviceInfo = serviceMap.get(a.service_id);
     if (!serviceInfo) return;
     
-    hours.add(hour);
     const key = `${hour}-${serviceInfo.index}`;
     checkinMatrix[key] = (checkinMatrix[key] || 0) + 1;
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
   });
 
-  const sortedHours = Array.from(hours).sort((a, b) => a - b);
-  
-  // Build cells
+  // Build cells using the calculated hour range
   const cells: HeatmapCell[] = [];
   let maxCount = 0;
 
-  sortedHours.forEach(hour => {
+  hourRange.forEach(hour => {
     services.forEach((service, rowIndex) => {
       const key = `${hour}-${rowIndex}`;
       const count = checkinMatrix[key] || 0;
@@ -292,12 +337,12 @@ function buildAllServicesHeatmap(
 
   return {
     cells,
-    hours: sortedHours,
+    hours: hourRange,
     rows,
     maxCount,
     peakHour,
     peakCount,
     totalCheckins: attendance.length,
-    hasData: cells.some(c => c.count > 0),
+    hasData: attendance.length > 0,
   };
 }
