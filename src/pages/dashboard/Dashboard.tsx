@@ -9,11 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart as RechartsPie, Pie } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useChurchData";
 import {
-  useTodayKPIs, useCheckinTrend, useBranchComparison, useAttendanceTrend,
+  useTodayKPIs, useCheckinTrend, useAttendanceTrend,
   useMemberVisitorBreakdown, useEngagementSignals, useBranchOperations,
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
   useBroadcastImpact, useDataHealth, useFollowUpList, useLikelyAbsentees,
@@ -55,7 +55,6 @@ export default function Dashboard() {
   // All dashboard data hooks
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceId, dateRange);
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceId, dateRange);
-  const { data: branchComp, isLoading: compLoading } = useBranchComparison(dateRange);
   const { data: attendTrend } = useAttendanceTrend(serviceId, branchId);
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, dateRange);
   const { data: engagement } = useEngagementSignals(branchId);
@@ -96,57 +95,30 @@ export default function Dashboard() {
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
-      {/* SECTION 2: Flow & Momentum */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
-                <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={checkinTrend.data}>
-                    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
-                    <YAxis className="text-xs" allowDecimals={false} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <SectionHeader title="Branch Comparison" description="Attendance by branch" icon={Building2} />
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              {compLoading ? <Skeleton className="h-full w-full" /> : !branchComp?.length ? (
-                <EmptyState icon={Building2} title="No data" description="Branch data will appear here" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={branchComp} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                    <XAxis type="number" className="text-xs" allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" className="text-xs" width={80} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Bar dataKey="attendance" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
-                      {branchComp.map((e, i) => <Cell key={i} fill={e.isMain ? "hsl(var(--accent))" : "hsl(var(--primary))"} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* SECTION 2: Check-in Flow */}
+      <Card>
+        <CardHeader className="pb-2">
+          <SectionHeader title="Check-in Flow" description="Arrival pattern over time" icon={TrendingUp} />
+        </CardHeader>
+        <CardContent>
+          <div className="h-[220px]">
+            {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
+              <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={checkinTrend.data}>
+                  <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
+                  <YAxis className="text-xs" allowDecimals={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                  <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-4">
