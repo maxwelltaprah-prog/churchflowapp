@@ -308,24 +308,7 @@ export default function AnalyticsPage() {
       </Card>
       
       {/* Quick Links to Detailed Analytics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
-          <Link to="/app/analytics/members">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="p-2 rounded-lg bg-accent/10">
-                  <Users className="h-5 w-5 text-accent" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <CardTitle className="text-base mt-3">Member Analytics</CardTitle>
-              <CardDescription>
-                Demographics, growth trends, and member engagement metrics
-              </CardDescription>
-            </CardHeader>
-          </Link>
-        </Card>
-        
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
           <Link to="/app/analytics/attendance">
             <CardHeader>
@@ -338,6 +321,40 @@ export default function AnalyticsPage() {
               <CardTitle className="text-base mt-3">Attendance Analytics</CardTitle>
               <CardDescription>
                 Service attendance patterns, peak times, and comparison
+              </CardDescription>
+            </CardHeader>
+          </Link>
+        </Card>
+        
+        <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
+          <Link to="/app/analytics/demographics">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Users className="h-5 w-5 text-accent" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <CardTitle className="text-base mt-3">Demographics</CardTitle>
+              <CardDescription>
+                Age, gender, and membership breakdown of attendees
+              </CardDescription>
+            </CardHeader>
+          </Link>
+        </Card>
+        
+        <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
+          <Link to="/app/analytics/members">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <TrendingUp className="h-5 w-5 text-amber-600" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <CardTitle className="text-base mt-3">Member Growth</CardTitle>
+              <CardDescription>
+                Track member acquisition and engagement trends
               </CardDescription>
             </CardHeader>
           </Link>
