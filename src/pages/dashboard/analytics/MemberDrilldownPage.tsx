@@ -55,7 +55,7 @@ const SEGMENT_CONFIG: Record<MemberSegment, {
   first_timers: { label: "First-Timers", description: "First time at church", icon: UserCheck, variant: "accent" },
   members: { label: "Members", description: "Full church members", icon: Users, variant: "success" },
   new_converts: { label: "New Converts", description: "Recently joined the faith", icon: RefreshCw, variant: "success" },
-  absentees: { label: "Absentees", description: "Not seen in 4+ weeks", icon: UserMinus, variant: "destructive" },
+  absentees: { label: "Absentees", description: "Missed 3+ consecutive service days", icon: UserMinus, variant: "destructive" },
   at_risk: { label: "At Risk", description: "4-8 weeks without attendance", icon: Clock, variant: "warning" },
   returning_visitors: { label: "Returning Visitors", description: "Visitors who came back", icon: RefreshCw, variant: "accent" },
   cross_branch: { label: "Cross-Branch", description: "Checked in at different branch", icon: Users, variant: "default" },
@@ -89,12 +89,105 @@ function useSegmentedMembers(segment: MemberSegment) {
 
       let results: MemberResult[] = [];
 
-      if (segment === "absentees" || segment === "at_risk") {
-        // These segments are based on lack of attendance
-        const weeksAgo = segment === "absentees" ? 4 : 8;
-        const weeksStart = segment === "at_risk" ? 4 : 0;
-        const cutoffEnd = subWeeks(new Date(), weeksStart);
-        const cutoffStart = subWeeks(new Date(), weeksAgo);
+      if (segment === "absentees") {
+        // Absentees: members who missed 3+ consecutive service days
+        // Get all service dates (grouped by day)
+        let servicesQuery = supabase
+          .from("services")
+          .select("id, service_date")
+          .eq("church_id", profile.church_id)
+          .eq("is_active", true)
+          .order("service_date", { ascending: false });
+
+        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+        const { data: servicesData } = await servicesQuery;
+        
+        // Group services by date (multiple services on same day count as one)
+        const uniqueServiceDates = [...new Set((servicesData || []).map(s => s.service_date))];
+        const lastThreeServiceDays = uniqueServiceDates.slice(0, 3);
+
+        if (lastThreeServiceDays.length < 3) {
+          return { members: [], total: 0 };
+        }
+
+        // Get all active members
+        let membersQuery = supabase
+          .from("members")
+          .select("id, full_name, phone, email, membership_status, gender, date_of_birth, branch_id, created_at")
+          .eq("church_id", profile.church_id)
+          .eq("is_active", true)
+          .eq("approval_status", "approved")
+          .eq("membership_status", "member");
+
+        membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+        const { data: allMembers } = await membersQuery;
+        const memberIds = (allMembers || []).map(m => m.id);
+
+        if (memberIds.length === 0) return { members: [], total: 0 };
+
+        // Get services on the last 3 service days
+        const serviceIdsOnLastThreeDays = (servicesData || [])
+          .filter(s => lastThreeServiceDays.includes(s.service_date))
+          .map(s => s.id);
+
+        // Get attendance for these services
+        let recentAttendanceQuery = supabase
+          .from("attendance")
+          .select("member_id, checked_in_at, service_id, services!inner(service_date)")
+          .eq("church_id", profile.church_id)
+          .in("service_id", serviceIdsOnLastThreeDays);
+
+        recentAttendanceQuery = applyBranchFilter(recentAttendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+        const { data: recentAttendance } = await recentAttendanceQuery;
+
+        // For each member, track which service days they attended
+        const memberAttendanceDays = new Map<string, Set<string>>();
+        memberIds.forEach(id => memberAttendanceDays.set(id, new Set()));
+
+        (recentAttendance || []).forEach(a => {
+          const serviceDate = (a.services as any)?.service_date;
+          if (serviceDate && memberAttendanceDays.has(a.member_id)) {
+            memberAttendanceDays.get(a.member_id)!.add(serviceDate);
+          }
+        });
+
+        // Get last attendance for context
+        let allAttendanceQuery = supabase
+          .from("attendance")
+          .select("member_id, checked_in_at")
+          .eq("church_id", profile.church_id)
+          .in("member_id", memberIds)
+          .order("checked_in_at", { ascending: false });
+
+        allAttendanceQuery = applyBranchFilter(allAttendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+        const { data: allAttendance } = await allAttendanceQuery;
+        
+        const lastCheckinMap: Record<string, string> = {};
+        (allAttendance || []).forEach(a => {
+          if (!lastCheckinMap[a.member_id]) {
+            lastCheckinMap[a.member_id] = a.checked_in_at;
+          }
+        });
+
+        // Filter to members who attended NONE of the last 3 service days
+        results = (allMembers || [])
+          .filter(m => {
+            const daysAttended = memberAttendanceDays.get(m.id);
+            return daysAttended && daysAttended.size === 0;
+          })
+          .map(m => ({
+            ...m,
+            last_checkin: lastCheckinMap[m.id],
+          }));
+
+      } else if (segment === "at_risk") {
+        // At risk: last attendance was 4-8 weeks ago
+        const cutoffEnd = subWeeks(new Date(), 4);
+        const cutoffStart = subWeeks(new Date(), 8);
 
         // Get all active members
         let membersQuery = supabase
@@ -117,15 +210,8 @@ function useSegmentedMembers(segment: MemberSegment) {
           .from("attendance")
           .select("member_id, checked_in_at")
           .eq("church_id", profile.church_id)
-          .in("member_id", memberIds);
-
-        if (segment === "at_risk") {
-          // At risk: no attendance in 4-8 weeks
-          attendanceQuery = attendanceQuery.gte("checked_in_at", cutoffStart.toISOString());
-        } else {
-          // Absentees: no attendance in 4+ weeks
-          attendanceQuery = attendanceQuery.gte("checked_in_at", cutoffStart.toISOString());
-        }
+          .in("member_id", memberIds)
+          .gte("checked_in_at", cutoffStart.toISOString());
 
         attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
@@ -139,25 +225,18 @@ function useSegmentedMembers(segment: MemberSegment) {
           }
         });
 
-        // Filter members based on segment
-        if (segment === "absentees") {
-          // No attendance in last 4 weeks
-          results = (allMembers || []).filter(m => !lastCheckinMap[m.id]).map(m => ({
-            ...m,
-            last_checkin: undefined,
-          }));
-        } else {
-          // At risk: last attendance was 4-8 weeks ago
-          results = (allMembers || []).filter(m => {
+        // Filter members: last attendance was 4-8 weeks ago
+        results = (allMembers || [])
+          .filter(m => {
             const lastCheckin = lastCheckinMap[m.id];
             if (!lastCheckin) return false;
             const checkinDate = new Date(lastCheckin);
             return checkinDate >= cutoffStart && checkinDate <= cutoffEnd;
-          }).map(m => ({
+          })
+          .map(m => ({
             ...m,
             last_checkin: lastCheckinMap[m.id],
           }));
-        }
       } else if (segment === "cross_branch") {
         // Cross-branch attendees
         let query = supabase
