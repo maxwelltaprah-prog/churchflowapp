@@ -1,12 +1,29 @@
 import { z } from "zod";
 
+// Validate date of birth is a real date and not in the future
+const validateDateOfBirth = (dateStr: string) => {
+  if (!dateStr) return false;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return false;
+  if (date > new Date()) return false;
+  // Reasonable age limit (0-150 years)
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() - 150);
+  return date >= minDate;
+};
+
 // Shared member form schema
 export const memberFormSchema = z.object({
   // Required fields (Section A)
   full_name: z.string().min(2, "Name must be at least 2 characters").max(100),
   phone: z.string().min(8, "Phone number is required").max(20),
-  gender: z.enum(["male", "female", "prefer_not_to_say"]),
-  date_of_birth: z.string().min(1, "Date of birth is required"),
+  gender: z.enum(["male", "female", "prefer_not_to_say"], {
+    required_error: "Please select your gender",
+    invalid_type_error: "Please select your gender",
+  }),
+  date_of_birth: z.string()
+    .min(1, "Date of birth is required")
+    .refine(validateDateOfBirth, "Please enter a valid date of birth"),
   membership_status: z.enum(["member", "visitor", "new_convert", "first_timer"]),
   branch_id: z.string().min(1, "Please select a branch"),
   
@@ -26,6 +43,18 @@ export const memberFormSchema = z.object({
   date_joined: z.string().optional().nullable(),
 });
 
+// Schema for editing members - allows empty optional fields for data quality handling
+// (existing members may not have all fields filled in)
+export const memberEditSchema = memberFormSchema.extend({
+  // Make gender optional for editing (existing members may not have it set)
+  // but require it to be valid if provided
+  gender: z.enum(["male", "female", "prefer_not_to_say"]).optional(),
+  date_of_birth: z.string().optional().refine(
+    (val) => !val || validateDateOfBirth(val),
+    "Please enter a valid date of birth"
+  ),
+});
+
 // Schema for self-registration (without branch_id - it's auto-filled)
 export const selfRegisterSchema = memberFormSchema.omit({ branch_id: true }).extend({
   // PIN fields for self-registration
@@ -37,4 +66,5 @@ export const selfRegisterSchema = memberFormSchema.omit({ branch_id: true }).ext
 });
 
 export type MemberFormData = z.infer<typeof memberFormSchema>;
+export type MemberEditFormData = z.infer<typeof memberEditSchema>;
 export type SelfRegisterFormData = z.infer<typeof selfRegisterSchema>;

@@ -35,7 +35,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
     defaultValues: {
       full_name: "",
       phone: "",
-      gender: undefined,
+      gender: undefined, // Required - will show validation error if not selected
       date_of_birth: "",
       membership_status: "first_timer",
       branch_id: "",
