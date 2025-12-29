@@ -52,8 +52,9 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { format, eachWeekOfInterval, eachMonthOfInterval, differenceInDays, endOfWeek, endOfMonth } from "date-fns";
+import { format, differenceInDays, eachWeekOfInterval, eachMonthOfInterval, endOfWeek, endOfMonth } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useServiceDrivenGroupGrowth } from "@/hooks/useServiceDrivenTimeline";
 
 const CHART_COLORS = [
   "hsl(var(--primary))",

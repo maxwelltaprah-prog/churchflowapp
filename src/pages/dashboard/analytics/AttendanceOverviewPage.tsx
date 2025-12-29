@@ -47,7 +47,8 @@ import {
   PieChart,
   Pie,
 } from "recharts";
-import { format, eachDayOfInterval, differenceInDays, subWeeks, parseISO } from "date-fns";
+import { format, subWeeks, parseISO } from "date-fns";
+import { useServiceDrivenAttendanceTrend } from "@/hooks/useServiceDrivenTimeline";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)"];
 
@@ -144,64 +145,15 @@ function useAttendanceKPIs() {
   });
 }
 
-// =================== Attendance Trend Hook ===================
+// =================== Attendance Trend Hook (Service-Driven) ===================
 function useAttendanceTrendData() {
-  const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
-  const { accessibleBranchIds } = useBranchAccess();
-
-  return useQuery({
-    queryKey: ["attendance-trend-detailed", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
-    queryFn: async () => {
-      if (!profile?.church_id) return [];
-
-      let query = supabase
-        .from("attendance")
-        .select("checked_in_at, members!inner(membership_status)")
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", filters.startDate.toISOString())
-        .lte("checked_in_at", filters.endDate.toISOString());
-
-      query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-
-      const { data: attendance } = await query;
-
-      const daysDiff = differenceInDays(filters.endDate, filters.startDate);
-      const dateFormat = daysDiff > 14 ? "MMM d" : "EEE";
-      const days = eachDayOfInterval({ start: filters.startDate, end: filters.endDate });
-
-      return days.map(day => {
-        const dayStart = new Date(day);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(day);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        const dayAttendance = (attendance || []).filter(a => {
-          const checkinDate = new Date(a.checked_in_at);
-          return checkinDate >= dayStart && checkinDate <= dayEnd;
-        });
-
-        const members = dayAttendance.filter(a => 
-          (a.members as any)?.membership_status === "member" || 
-          (a.members as any)?.membership_status === "new_convert"
-        ).length;
-
-        const visitors = dayAttendance.filter(a => 
-          (a.members as any)?.membership_status === "visitor" || 
-          (a.members as any)?.membership_status === "first_timer"
-        ).length;
-
-        return {
-          date: format(day, dateFormat),
-          fullDate: format(day, "MMM d, yyyy"),
-          total: dayAttendance.length,
-          members,
-          visitors,
-        };
-      });
-    },
-    enabled: !!profile?.church_id,
-  });
+  
+  return useServiceDrivenAttendanceTrend(
+    filters.startDate,
+    filters.endDate,
+    filters.branchId || undefined
+  );
 }
 
 // =================== Branch Comparison Hook ===================
@@ -365,11 +317,14 @@ function KPICard({ title, value, icon: Icon, description, href, isLoading, varia
 export default function AttendanceOverviewPage() {
   const { filters } = useAnalyticsFilters();
   const { data: kpis, isLoading: kpisLoading } = useAttendanceKPIs();
-  const { data: trendData, isLoading: trendLoading } = useAttendanceTrendData();
+  const { data: trendResult, isLoading: trendLoading } = useAttendanceTrendData();
   const { data: branchData, isLoading: branchLoading } = useBranchComparisonData();
   const { data: services, isLoading: servicesLoading } = useServicesSummary();
   const { data: branches } = useBranches();
 
+  const trendData = trendResult?.data || [];
+  const hasTrendData = trendResult?.hasData || false;
+  
   const periodLabel = formatDateRangeLabel(filters);
   const showBranchChart = (branches?.length || 0) > 1;
 
@@ -466,13 +421,13 @@ export default function AttendanceOverviewPage() {
               Attendance Trend
             </CardTitle>
             <CardDescription>
-              Daily attendance breakdown for {periodLabel.toLowerCase()}
+              Attendance by service date for {periodLabel.toLowerCase()}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
               <Skeleton className="h-[280px] w-full" />
-            ) : trendData && trendData.some(d => d.total > 0) ? (
+            ) : hasTrendData && trendData.some(d => d.total > 0) ? (
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={trendData}>
                   <defs>
@@ -530,7 +485,8 @@ export default function AttendanceOverviewPage() {
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
                 <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No attendance data for this period</p>
+                <p>No services recorded for this period</p>
+                <p className="text-sm">Create services and record check-ins to see trends</p>
               </div>
             )}
           </CardContent>
