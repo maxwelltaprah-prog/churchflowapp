@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranchAccess } from "./useBranchAccess";
 import { startOfDay, endOfDay, subDays, subWeeks, startOfMonth, endOfMonth, format, parseISO, differenceInYears } from "date-fns";
 
 export type DateRange = "today" | "this_week" | "this_month";
@@ -19,15 +20,22 @@ const getDateRange = (range: DateRange) => {
   }
 };
 
+// Branch filtering is applied inline in each query to avoid TypeScript generic issues
+
 // =================== SECTION 1: TODAY'S SNAPSHOT KPIs ===================
 export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: DateRange = "today") {
-  const { profile, roles } = useAuth();
+  const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
 
   return useQuery({
-    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceId, dateRange],
+    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceId, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { totalAttendance: 0, visitorsToday: 0, firstTimersToday: 0, returningVisitorsToday: 0, lateArrivals: 0, change: 0 };
+      }
 
       // Build attendance query
       let query = supabase
@@ -37,7 +45,7 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
         .gte("checked_in_at", start.toISOString())
         .lte("checked_in_at", end.toISOString());
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
       if (serviceId) query = query.eq("service_id", serviceId);
 
       const { data: records, error } = await query;
@@ -85,7 +93,7 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", prevStart.toISOString())
         .lte("checked_in_at", prevEnd.toISOString());
-      if (branchId) prevQuery = prevQuery.eq("branch_id", branchId);
+      prevQuery = applyBranchFilter(prevQuery, "branch_id", branchId, accessibleBranchIds);
       
       const { count: prevAttendance } = await prevQuery;
       const change = prevAttendance ? Math.round(((totalAttendance - prevAttendance) / prevAttendance) * 100) : 0;
@@ -99,7 +107,7 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
         change
       };
     },
-    enabled: !!profile?.church_id,
+    enabled: !!profile?.church_id && !accessLoading,
     refetchInterval: 30000
   });
 }
@@ -107,12 +115,17 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
 // =================== SECTION 2: TODAY'S FLOW (Check-in Trend) ===================
 export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange: DateRange = "today") {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
 
   return useQuery({
-    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceId, dateRange],
+    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceId, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
 
       let query = supabase
         .from("attendance")
@@ -122,7 +135,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
         .lte("checked_in_at", end.toISOString())
         .order("checked_in_at");
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
       if (serviceId) query = query.eq("service_id", serviceId);
 
       const { data, error } = await query;
@@ -154,7 +167,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
 
       return Object.entries(buckets).map(([time, count]) => ({ time, checkins: count }));
     },
-    enabled: !!profile?.church_id,
+    enabled: !!profile?.church_id && !accessLoading,
     refetchInterval: 30000
   });
 }
@@ -162,18 +175,29 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
 // =================== SECTION 2: BRANCH COMPARISON ===================
 export function useBranchComparison(dateRange: DateRange = "today") {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
 
   return useQuery({
-    queryKey: ["branch-comparison", profile?.church_id, dateRange],
+    queryKey: ["branch-comparison", profile?.church_id, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
-      const { data: branches } = await supabase
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+
+      let branchQuery = supabase
         .from("branches")
         .select("id, name, is_main_branch")
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
+
+      if (accessibleBranchIds !== null) {
+        branchQuery = branchQuery.in("id", accessibleBranchIds);
+      }
+
+      const { data: branches } = await branchQuery;
 
       if (!branches?.length) return [];
 
@@ -202,28 +226,37 @@ export function useBranchComparison(dateRange: DateRange = "today") {
 
       return stats.sort((a, b) => b.attendance - a.attendance);
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 3: SHORT-TERM TRENDS ===================
 export function useAttendanceTrend(serviceId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["attendance-trend", profile?.church_id, serviceId],
+    queryKey: ["attendance-trend", profile?.church_id, serviceId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { trend: [], weekChange: 0, monthChange: 0 };
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0 };
+      }
 
       // Get last 8 weeks of attendance
       const weeksAgo = subWeeks(new Date(), 8);
       
       let query = supabase
         .from("attendance")
-        .select("checked_in_at, service_id")
+        .select("checked_in_at, service_id, branch_id")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", weeksAgo.toISOString())
         .order("checked_in_at");
+
+      if (accessibleBranchIds !== null) {
+        query = query.in("branch_id", accessibleBranchIds);
+      }
 
       const { data } = await query;
 
@@ -250,45 +283,60 @@ export function useAttendanceTrend(serviceId?: string) {
       const dayOfMonth = new Date().getDate();
       const lastMonthSameDay = subDays(lastMonthEnd, lastMonthEnd.getDate() - dayOfMonth);
 
-      const { count: mtdCount } = await supabase
+      let mtdQuery = supabase
         .from("attendance")
         .select("*", { count: "exact", head: true })
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", thisMonth.toISOString());
+      
+      if (accessibleBranchIds !== null) {
+        mtdQuery = mtdQuery.in("branch_id", accessibleBranchIds);
+      }
+      const { count: mtdCount } = await mtdQuery;
 
-      const { count: prevMtdCount } = await supabase
+      let prevMtdQuery = supabase
         .from("attendance")
         .select("*", { count: "exact", head: true })
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", lastMonth.toISOString())
         .lte("checked_in_at", lastMonthSameDay.toISOString());
+      
+      if (accessibleBranchIds !== null) {
+        prevMtdQuery = prevMtdQuery.in("branch_id", accessibleBranchIds);
+      }
+      const { count: prevMtdCount } = await prevMtdQuery;
 
       const monthChange = prevMtdCount ? Math.round((((mtdCount || 0) - prevMtdCount) / prevMtdCount) * 100) : 0;
 
       return { trend, weekChange, monthChange, mtdCount: mtdCount || 0, prevMtdCount: prevMtdCount || 0 };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 4: MEMBERS VS VISITORS ===================
 export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRange = "today") {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
 
   return useQuery({
-    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, dateRange],
+    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { members: 0, visitors: 0, visitorToReturning: 0, recentConversions: 0, totalNewVisitors: 0 };
+      }
+
       let query = supabase
         .from("attendance")
-        .select("member_id, members!inner(membership_status)")
+        .select("member_id, branch_id, members!inner(membership_status)")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", start.toISOString())
         .lte("checked_in_at", end.toISOString());
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
       
       const { data } = await query;
 
@@ -299,12 +347,20 @@ export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRang
 
       // Visitor to returning visitor ratio (90 days)
       const ninetyDaysAgo = subDays(new Date(), 90);
-      const { data: visitorData } = await supabase
+      let visitorQuery = supabase
         .from("members")
         .select("id")
         .eq("church_id", profile.church_id)
         .in("membership_status", ["visitor"])
         .gte("created_at", ninetyDaysAgo.toISOString());
+      
+      if (accessibleBranchIds !== null && !branchId) {
+        visitorQuery = visitorQuery.in("branch_id", accessibleBranchIds);
+      } else if (branchId) {
+        visitorQuery = visitorQuery.eq("branch_id", branchId);
+      }
+
+      const { data: visitorData } = await visitorQuery;
 
       const visitorIds = (visitorData || []).map((v) => v.id);
       let returningVisitors = 0;
@@ -316,7 +372,6 @@ export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRang
           .in("member_id", visitorIds)
           .gte("checked_in_at", ninetyDaysAgo.toISOString());
         
-        const attendedSet = new Set((returnData || []).map((r) => r.member_id));
         const multipleAttendance = (returnData || []).reduce((acc, r) => {
           acc[r.member_id] = (acc[r.member_id] || 0) + 1;
           return acc;
@@ -328,12 +383,19 @@ export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRang
       const visitorToReturning = visitorIds.length ? Math.round((returningVisitors / visitorIds.length) * 100) : 0;
 
       // Conversion to member (30-90 days)
-      const { count: convertedCount } = await supabase
+      let conversionQuery = supabase
         .from("members")
         .select("*", { count: "exact", head: true })
         .eq("church_id", profile.church_id)
         .eq("membership_status", "member")
         .gte("date_joined", ninetyDaysAgo.toISOString());
+      
+      if (accessibleBranchIds !== null && !branchId) {
+        conversionQuery = conversionQuery.in("branch_id", accessibleBranchIds);
+      } else if (branchId) {
+        conversionQuery = conversionQuery.eq("branch_id", branchId);
+      }
+      const { count: convertedCount } = await conversionQuery;
 
       return {
         members,
@@ -343,22 +405,25 @@ export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRang
         totalNewVisitors: visitorIds.length
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 5: RETENTION & ENGAGEMENT ===================
 export function useEngagementSignals(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["engagement-signals", profile?.church_id, branchId],
+    queryKey: ["engagement-signals", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { active: 0, atRisk: 0, inactive: 0, weekly: 0, monthly: 0, rare: 0 };
+      }
+
       const now = new Date();
-      const fourWeeksAgo = subDays(now, 28);
-      const eightWeeksAgo = subDays(now, 56);
       const twelveWeeksAgo = subDays(now, 84);
 
       // Get all members
@@ -368,7 +433,7 @@ export function useEngagementSignals(branchId?: string) {
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
       
-      if (branchId) memberQuery = memberQuery.eq("branch_id", branchId);
+      memberQuery = applyBranchFilter(memberQuery, "branch_id", branchId, accessibleBranchIds);
       
       const { data: allMembers } = await memberQuery;
       const memberIds = (allMembers || []).map((m) => m.id);
@@ -420,27 +485,38 @@ export function useEngagementSignals(branchId?: string) {
 
       return { active, atRisk, inactive, weekly, monthly, rare };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 6: BRANCH OPERATIONS ===================
 export function useBranchOperations(dateRange: DateRange = "this_week") {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
   const prevStart = subWeeks(start, 1);
   const prevEnd = subWeeks(end, 1);
 
   return useQuery({
-    queryKey: ["branch-operations", profile?.church_id, dateRange],
+    queryKey: ["branch-operations", profile?.church_id, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { leaderboard: [], crossBranch: 0 };
 
-      const { data: branches } = await supabase
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { leaderboard: [], crossBranch: 0 };
+      }
+
+      let branchQuery = supabase
         .from("branches")
         .select("id, name, is_main_branch")
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
+
+      if (accessibleBranchIds !== null) {
+        branchQuery = branchQuery.in("id", accessibleBranchIds);
+      }
+
+      const { data: branches } = await branchQuery;
 
       if (!branches?.length) return { leaderboard: [], crossBranch: 0 };
 
@@ -471,31 +547,41 @@ export function useBranchOperations(dateRange: DateRange = "this_week") {
       }));
 
       // Cross-branch attendance
-      const { count: crossBranch } = await supabase
+      let crossQuery = supabase
         .from("attendance")
         .select("*", { count: "exact", head: true })
         .eq("church_id", profile.church_id)
         .eq("is_cross_branch", true)
         .gte("checked_in_at", start.toISOString())
         .lte("checked_in_at", end.toISOString());
+      
+      if (accessibleBranchIds !== null) {
+        crossQuery = crossQuery.in("branch_id", accessibleBranchIds);
+      }
+      const { count: crossBranch } = await crossQuery;
 
       return {
         leaderboard: leaderboard.sort((a, b) => b.attendance - a.attendance),
         crossBranch: crossBranch || 0
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 7: GROUPS SNAPSHOT ===================
 export function useGroupsSnapshot(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["groups-snapshot", profile?.church_id, branchId],
+    queryKey: ["groups-snapshot", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { topGroups: [], noGroupPercent: 0 };
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { topGroups: [], noGroupPercent: 0, noGroupCount: 0 };
+      }
 
       // Get groups with member counts
       let groupQuery = supabase
@@ -504,7 +590,7 @@ export function useGroupsSnapshot(branchId?: string) {
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
 
-      if (branchId) groupQuery = groupQuery.eq("branch_id", branchId);
+      groupQuery = applyBranchFilter(groupQuery, "branch_id", branchId, accessibleBranchIds);
       
       const { data: groups } = await groupQuery;
 
@@ -524,7 +610,7 @@ export function useGroupsSnapshot(branchId?: string) {
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
       
-      if (branchId) memberQuery = memberQuery.eq("branch_id", branchId);
+      memberQuery = applyBranchFilter(memberQuery, "branch_id", branchId, accessibleBranchIds);
       
       const { data: allMembers } = await memberQuery;
       const memberIds = (allMembers || []).map((m) => m.id);
@@ -544,18 +630,23 @@ export function useGroupsSnapshot(branchId?: string) {
         noGroupCount
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 8: DEMOGRAPHICS ===================
 export function useDemographicsSnapshot(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["demographics-snapshot", profile?.church_id, branchId],
+    queryKey: ["demographics-snapshot", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { gender: [], ageBands: [], topAreas: [] };
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { gender: [], ageBands: [], topAreas: [] };
+      }
 
       let query = supabase
         .from("members")
@@ -563,7 +654,7 @@ export function useDemographicsSnapshot(branchId?: string) {
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
       
       const { data: members } = await query;
 
@@ -619,28 +710,33 @@ export function useDemographicsSnapshot(branchId?: string) {
         topAreas
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 9: SERVICE QUALITY ===================
 export function useServiceQuality(branchId?: string, dateRange: DateRange = "this_week") {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange(dateRange);
 
   return useQuery({
-    queryKey: ["service-quality", profile?.church_id, branchId, dateRange],
+    queryKey: ["service-quality", profile?.church_id, branchId, dateRange, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { lateRate: 0, earlyRate: 0, totalCheckins: 0 };
+      }
+
       let query = supabase
         .from("attendance")
-        .select("checked_in_at, service_id, services!inner(start_time)")
+        .select("checked_in_at, service_id, branch_id, services!inner(start_time)")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", start.toISOString())
         .lte("checked_in_at", end.toISOString());
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
       
       const { data } = await query;
       const records = data || [];
@@ -671,31 +767,43 @@ export function useServiceQuality(branchId?: string, dateRange: DateRange = "thi
         earlyCount: early
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 10: BROADCAST IMPACT ===================
 export function useBroadcastImpact(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const thirtyDaysAgo = subDays(new Date(), 30);
 
   return useQuery({
-    queryKey: ["broadcast-impact", profile?.church_id, branchId],
+    queryKey: ["broadcast-impact", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { sent: 0, readRate: 0 };
 
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { sent: 0, estimatedReach: 0, readRate: 0, recentBroadcasts: [] };
+      }
+
       let query = supabase
         .from("broadcasts")
-        .select("id, title, read_count, sent_at")
+        .select("id, title, read_count, sent_at, branch_id")
         .eq("church_id", profile.church_id)
         .gte("sent_at", thirtyDaysAgo.toISOString())
         .order("sent_at", { ascending: false });
 
-      if (branchId) query = query.eq("branch_id", branchId);
-      
       const { data } = await query;
-      const broadcasts = data || [];
+      
+      // Filter broadcasts based on access
+      let broadcasts = data || [];
+      if (accessibleBranchIds !== null && !branchId) {
+        broadcasts = broadcasts.filter(b => 
+          b.branch_id === null || accessibleBranchIds.includes(b.branch_id)
+        );
+      } else if (branchId) {
+        broadcasts = broadcasts.filter(b => b.branch_id === branchId || b.branch_id === null);
+      }
 
       // Estimate reach based on member count
       let memberQuery = supabase
@@ -704,7 +812,7 @@ export function useBroadcastImpact(branchId?: string) {
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
       
-      if (branchId) memberQuery = memberQuery.eq("branch_id", branchId);
+      memberQuery = applyBranchFilter(memberQuery, "branch_id", branchId, accessibleBranchIds);
       
       const { count: memberCount } = await memberQuery;
       
@@ -721,18 +829,23 @@ export function useBroadcastImpact(branchId?: string) {
         recentBroadcasts: broadcasts.slice(0, 5)
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SECTION 11: DATA HEALTH ===================
 export function useDataHealth(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["data-health", profile?.church_id, branchId],
+    queryKey: ["data-health", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return { missingPhone: 0, missingEmail: 0, missingDob: 0, pendingApprovals: 0, duplicates: 0 };
+      }
 
       const buildQuery = (field: string, isNull: boolean) => {
         let q = supabase
@@ -741,30 +854,37 @@ export function useDataHealth(branchId?: string) {
           .eq("church_id", profile.church_id)
           .eq("is_active", true);
         
-        if (branchId) q = q.eq("branch_id", branchId);
+        q = applyBranchFilter(q, "branch_id", branchId, accessibleBranchIds);
         if (isNull) q = q.is(field, null);
         
         return q;
       };
 
+      let pendingQuery = supabase
+        .from("members")
+        .select("*", { count: "exact", head: true })
+        .eq("church_id", profile.church_id)
+        .eq("approval_status", "pending");
+      
+      pendingQuery = applyBranchFilter(pendingQuery, "branch_id", branchId, accessibleBranchIds);
+
       const [noPhone, noEmail, noDob, pendingApproval] = await Promise.all([
         buildQuery("phone", true),
         buildQuery("email", true),
         buildQuery("date_of_birth", true),
-        supabase
-          .from("members")
-          .select("*", { count: "exact", head: true })
-          .eq("church_id", profile.church_id)
-          .eq("approval_status", "pending")
+        pendingQuery
       ]);
 
       // Duplicate detection (same phone or email)
-      const { data: phoneData } = await supabase
+      let phoneQuery = supabase
         .from("members")
         .select("phone")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
         .not("phone", "is", null);
+      
+      phoneQuery = applyBranchFilter(phoneQuery, "branch_id", branchId, accessibleBranchIds);
+      const { data: phoneData } = await phoneQuery;
 
       const phoneSet = new Set<string>();
       let duplicates = 0;
@@ -781,27 +901,35 @@ export function useDataHealth(branchId?: string) {
         duplicates
       };
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== ACTIONABLE LISTS ===================
 export function useFollowUpList(branchId?: string) {
   const { profile } = useAuth();
-  const today = new Date();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const { start, end } = getDateRange("today");
 
   return useQuery({
-    queryKey: ["followup-list", profile?.church_id, branchId],
+    queryKey: ["followup-list", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
-      const { data: attendance } = await supabase
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+
+      let attendanceQuery = supabase
         .from("attendance")
-        .select("member_id")
+        .select("member_id, branch_id")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", start.toISOString())
         .lte("checked_in_at", end.toISOString());
+
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
+      
+      const { data: attendance } = await attendanceQuery;
 
       const memberIds = [...new Set((attendance || []).map((a) => a.member_id))];
       if (memberIds.length === 0) return [];
@@ -812,7 +940,7 @@ export function useFollowUpList(branchId?: string) {
         .in("id", memberIds)
         .in("membership_status", ["first_timer", "visitor"]);
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
 
       const { data } = await query;
 
@@ -824,27 +952,36 @@ export function useFollowUpList(branchId?: string) {
         branch: m.branches?.name
       }));
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 export function useLikelyAbsentees(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const fourWeeksAgo = subDays(new Date(), 28);
   const { start } = getDateRange("today");
 
   return useQuery({
-    queryKey: ["likely-absentees", profile?.church_id, branchId],
+    queryKey: ["likely-absentees", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+
       // Get past 4 weeks attendance
-      const { data: pastAttendance } = await supabase
+      let pastQuery = supabase
         .from("attendance")
-        .select("member_id")
+        .select("member_id, branch_id")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", fourWeeksAgo.toISOString())
         .lt("checked_in_at", start.toISOString());
+
+      pastQuery = applyBranchFilter(pastQuery, "branch_id", branchId, accessibleBranchIds);
+      
+      const { data: pastAttendance } = await pastQuery;
 
       const attendanceCount: Record<string, number> = {};
       (pastAttendance || []).forEach((r) => {
@@ -858,11 +995,15 @@ export function useLikelyAbsentees(branchId?: string) {
       if (regularIds.length === 0) return [];
 
       // Get today's attendance
-      const { data: todayAttendance } = await supabase
+      let todayQuery = supabase
         .from("attendance")
-        .select("member_id")
+        .select("member_id, branch_id")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", start.toISOString());
+
+      todayQuery = applyBranchFilter(todayQuery, "branch_id", branchId, accessibleBranchIds);
+      
+      const { data: todayAttendance } = await todayQuery;
 
       const todaySet = new Set((todayAttendance || []).map((r) => r.member_id));
       const absentIds = regularIds.filter((id) => !todaySet.has(id)).slice(0, 10);
@@ -875,7 +1016,7 @@ export function useLikelyAbsentees(branchId?: string) {
         .in("id", absentIds)
         .eq("is_active", true);
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
 
       const { data } = await query;
 
@@ -887,19 +1028,24 @@ export function useLikelyAbsentees(branchId?: string) {
         usualAttendance: attendanceCount[m.id] || 0
       }));
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 // =================== SERVICES ===================
 export function useTodayServices(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const today = format(new Date(), "yyyy-MM-dd");
 
   return useQuery({
-    queryKey: ["today-services", profile?.church_id, branchId],
+    queryKey: ["today-services", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
 
       let query = supabase
         .from("services")
@@ -909,24 +1055,29 @@ export function useTodayServices(branchId?: string) {
         .eq("is_active", true)
         .order("start_time");
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
 
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
 
 export function useRecentServices(branchId?: string) {
   const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const weekAgo = subDays(new Date(), 7);
 
   return useQuery({
-    queryKey: ["recent-services", profile?.church_id, branchId],
+    queryKey: ["recent-services", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
 
       let query = supabase
         .from("services")
@@ -938,12 +1089,12 @@ export function useRecentServices(branchId?: string) {
         .order("start_time", { ascending: false })
         .limit(10);
 
-      if (branchId) query = query.eq("branch_id", branchId);
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
 
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!profile?.church_id
+    enabled: !!profile?.church_id && !accessLoading
   });
 }
