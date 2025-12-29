@@ -308,7 +308,7 @@ export default function AnalyticsPage() {
       </Card>
       
       {/* Quick Links to Detailed Analytics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
           <Link to="/app/analytics/attendance">
             <CardHeader>
@@ -319,9 +319,7 @@ export default function AnalyticsPage() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               <CardTitle className="text-base mt-3">Attendance Analytics</CardTitle>
-              <CardDescription>
-                Service attendance patterns, peak times, and comparison
-              </CardDescription>
+              <CardDescription>Service attendance patterns and trends</CardDescription>
             </CardHeader>
           </Link>
         </Card>
@@ -336,9 +334,7 @@ export default function AnalyticsPage() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               <CardTitle className="text-base mt-3">Demographics</CardTitle>
-              <CardDescription>
-                Age, gender, and membership breakdown of attendees
-              </CardDescription>
+              <CardDescription>Age, gender, and membership breakdown</CardDescription>
             </CardHeader>
           </Link>
         </Card>
@@ -353,26 +349,37 @@ export default function AnalyticsPage() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               <CardTitle className="text-base mt-3">Member Growth</CardTitle>
-              <CardDescription>
-                Track member acquisition and engagement trends
-              </CardDescription>
+              <CardDescription>Acquisition and retention trends</CardDescription>
             </CardHeader>
           </Link>
         </Card>
         
         <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
-          <Link to="/app/analytics/branches">
+          <Link to="/app/analytics/groups">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Users className="h-5 w-5 text-purple-600" />
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              <CardTitle className="text-base mt-3">Branch Comparison</CardTitle>
-              <CardDescription>
-                Compare performance across all your branches
-              </CardDescription>
+              <CardTitle className="text-base mt-3">Groups & Ministries</CardTitle>
+              <CardDescription>Group participation and engagement</CardDescription>
+            </CardHeader>
+          </Link>
+        </Card>
+        
+        <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
+          <Link to="/app/analytics/quality">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <Activity className="h-5 w-5 text-green-600" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <CardTitle className="text-base mt-3">Service Quality</CardTitle>
+              <CardDescription>Operational metrics and data completeness</CardDescription>
             </CardHeader>
           </Link>
         </Card>
