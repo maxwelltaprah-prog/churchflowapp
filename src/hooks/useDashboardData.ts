@@ -164,15 +164,15 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
             }
           });
 
-          // If we have service times, use them: 2 hrs before start, 3 hrs after end
+          // If we have service times, use them: 2 hrs before start, 1 hr after end
           if (earliestStart !== null) {
             windowStart = Math.max(0, earliestStart - 2);
           }
           if (latestEnd !== null) {
-            windowEnd = Math.min(23, latestEnd + 3);
+            windowEnd = Math.min(23, latestEnd + 1);
           } else if (earliestStart !== null) {
-            // If no end time, assume 2 hour service + 3 hours after
-            windowEnd = Math.min(23, earliestStart + 5);
+            // If no end time, assume 2 hour service + 1 hour after
+            windowEnd = Math.min(23, earliestStart + 3);
           }
         }
 
