@@ -54,9 +54,9 @@ export default function Dashboard() {
 
   // All dashboard data hooks
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceId, dateRange);
-  const { data: trend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceId, dateRange);
+  const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceId, dateRange);
   const { data: branchComp, isLoading: compLoading } = useBranchComparison(dateRange);
-  const { data: attendTrend } = useAttendanceTrend(serviceId);
+  const { data: attendTrend } = useAttendanceTrend(serviceId, branchId);
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, dateRange);
   const { data: engagement } = useEngagementSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
@@ -104,14 +104,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[220px]">
-              {trendLoading ? <Skeleton className="h-full w-full" /> : !trend?.some(d => d.checkins > 0) ? (
-                <EmptyState icon={TrendingUp} title="No check-ins yet" description="Data appears as members arrive" />
+              {trendLoading ? <Skeleton className="h-full w-full" /> : !checkinTrend?.hasData ? (
+                <EmptyState icon={TrendingUp} title="No check-ins yet" description={checkinTrend?.isTimeOfDay ? "Data appears as members arrive" : "No services recorded for this period"} />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trend}>
+                  <AreaChart data={checkinTrend.data}>
                     <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={3} />
+                    <XAxis dataKey="time" className="text-xs" tickFormatter={(v) => v.replace(":00", "")} interval={checkinTrend.isTimeOfDay ? 3 : "preserveStartEnd"} />
                     <YAxis className="text-xs" allowDecimals={false} />
                     <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
                     <Area type="monotone" dataKey="checkins" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#cg)" />
