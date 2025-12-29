@@ -131,6 +131,52 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
 
       // For "today" view, show time-of-day distribution
       if (dateRange === "today") {
+        // First, fetch services to determine time window
+        let servicesQuery = supabase
+          .from("services")
+          .select("id, start_time, end_time")
+          .eq("church_id", profile.church_id)
+          .eq("service_date", format(start, "yyyy-MM-dd"))
+          .eq("is_active", true);
+
+        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
+        if (serviceId) servicesQuery = servicesQuery.eq("id", serviceId);
+
+        const { data: todayServices } = await servicesQuery;
+
+        // Calculate time window based on service times
+        let windowStart = 8; // Default: 8 AM
+        let windowEnd = 14;  // Default: 2 PM
+
+        if (todayServices?.length) {
+          // Find earliest start time and latest end time
+          let earliestStart: number | null = null;
+          let latestEnd: number | null = null;
+
+          todayServices.forEach(s => {
+            if (s.start_time) {
+              const [h] = s.start_time.split(":").map(Number);
+              if (earliestStart === null || h < earliestStart) earliestStart = h;
+            }
+            if (s.end_time) {
+              const [h] = s.end_time.split(":").map(Number);
+              if (latestEnd === null || h > latestEnd) latestEnd = h;
+            }
+          });
+
+          // If we have service times, use them: 2 hrs before start, 3 hrs after end
+          if (earliestStart !== null) {
+            windowStart = Math.max(0, earliestStart - 2);
+          }
+          if (latestEnd !== null) {
+            windowEnd = Math.min(23, latestEnd + 3);
+          } else if (earliestStart !== null) {
+            // If no end time, assume 2 hour service + 3 hours after
+            windowEnd = Math.min(23, earliestStart + 5);
+          }
+        }
+
+        // Fetch attendance
         let query = supabase
           .from("attendance")
           .select("checked_in_at")
@@ -145,9 +191,9 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
         const { data, error } = await query;
         if (error) throw error;
 
-        // Group by 15-min intervals
+        // Group by 15-min intervals within the dynamic window
         const buckets: Record<string, number> = {};
-        for (let h = 6; h <= 22; h++) {
+        for (let h = windowStart; h <= windowEnd; h++) {
           ["00", "15", "30", "45"].forEach(m => {
             buckets[`${h.toString().padStart(2, "0")}:${m}`] = 0;
           });
