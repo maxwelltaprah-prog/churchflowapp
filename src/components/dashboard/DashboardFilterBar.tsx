@@ -1,8 +1,8 @@
-import { Building2, CalendarDays, RefreshCw, QrCode } from "lucide-react";
+import { Building2, CalendarDays, RefreshCw, QrCode, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
+import { format, parseISO, isToday } from "date-fns";
 import { DateRange } from "@/hooks/useDashboardData";
 
 interface Branch {
@@ -14,6 +14,8 @@ interface Service {
   id: string;
   name: string;
   start_time?: string;
+  service_date?: string;
+  branches?: { name: string } | null;
 }
 
 interface DashboardFilterBarProps {
@@ -28,6 +30,31 @@ interface DashboardFilterBarProps {
   onRefresh: () => void;
   showBranchFilter: boolean;
   isLoading?: boolean;
+}
+
+// Helper to format service display name with differentiation
+function formatServiceDisplay(service: Service): string {
+  const parts: string[] = [service.name];
+  
+  // Add time if available
+  if (service.start_time) {
+    parts.push(`@ ${service.start_time.slice(0, 5)}`);
+  }
+  
+  // Add date if not today
+  if (service.service_date) {
+    const serviceDate = parseISO(service.service_date);
+    if (!isToday(serviceDate)) {
+      parts.push(`• ${format(serviceDate, "MMM d")}`);
+    }
+  }
+  
+  // Add branch if available
+  if (service.branches?.name) {
+    parts.push(`(${service.branches.name.replace(" Branch", "")})`);
+  }
+  
+  return parts.join(" ");
 }
 
 export function DashboardFilterBar({
@@ -90,7 +117,8 @@ export function DashboardFilterBar({
           value={selectedServiceId || "all"} 
           onValueChange={(v) => onServiceChange(v === "all" ? undefined : v)}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[280px]">
+            <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="All Services" />
           </SelectTrigger>
           <SelectContent>
@@ -100,7 +128,7 @@ export function DashboardFilterBar({
             ) : (
               services.map((service) => (
                 <SelectItem key={service.id} value={service.id}>
-                  {service.name} {service.start_time && `(${service.start_time.slice(0, 5)})`}
+                  {formatServiceDisplay(service)}
                 </SelectItem>
               ))
             )}
