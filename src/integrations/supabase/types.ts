@@ -334,6 +334,7 @@ export type Database = {
           how_heard: Database["public"]["Enums"]["how_heard"] | null
           id: string
           is_active: boolean | null
+          is_baptized: boolean | null
           marital_status: Database["public"]["Enums"]["marital_status"] | null
           member_code: string
           member_type: Database["public"]["Enums"]["member_type"] | null
@@ -367,6 +368,7 @@ export type Database = {
           how_heard?: Database["public"]["Enums"]["how_heard"] | null
           id?: string
           is_active?: boolean | null
+          is_baptized?: boolean | null
           marital_status?: Database["public"]["Enums"]["marital_status"] | null
           member_code: string
           member_type?: Database["public"]["Enums"]["member_type"] | null
@@ -400,6 +402,7 @@ export type Database = {
           how_heard?: Database["public"]["Enums"]["how_heard"] | null
           id?: string
           is_active?: boolean | null
+          is_baptized?: boolean | null
           marital_status?: Database["public"]["Enums"]["marital_status"] | null
           member_code?: string
           member_type?: Database["public"]["Enums"]["member_type"] | null

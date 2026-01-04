@@ -38,6 +38,9 @@ export const memberFormSchema = z.object({
   occupation: z.enum(["student", "public_sector", "private_sector", "self_employed", "unemployed", "other"]).optional().nullable(),
   email: z.string().email().optional().or(z.literal("")).nullable(),
   
+  // Optional fields (Section D - Spiritual Journey)
+  is_baptized: z.boolean().optional().nullable(),
+  
   // Admin-only fields
   admin_notes: z.string().max(1000).optional().nullable(),
   date_joined: z.string().optional().nullable(),

@@ -362,6 +362,36 @@ export function MemberForm({
             />
           </div>
 
+          {/* Baptism Status */}
+          <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
+            <h4 className="text-sm font-medium text-foreground">Spiritual Journey</h4>
+            
+            <FormField
+              control={form.control}
+              name="is_baptized"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Baptism Status</FormLabel>
+                  <Select 
+                    onValueChange={(value) => field.onChange(value === "yes" ? true : value === "no" ? false : null)} 
+                    value={field.value === true ? "yes" : field.value === false ? "no" : ""}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Select baptism status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="yes">Yes, Baptized</SelectItem>
+                      <SelectItem value="no">Not Baptized</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           {/* SECTION C: Location & Life Stage (Optional) */}
           <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
             <h4 className="text-sm font-medium text-foreground">Location & Life Stage</h4>
