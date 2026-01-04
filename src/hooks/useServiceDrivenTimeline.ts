@@ -260,7 +260,7 @@ export function useServiceDrivenAttendanceTrend(
 
           serviceAttendance.forEach((a: any) => {
             const status = a.members?.membership_status;
-            if (status === "member" || status === "new_convert") {
+            if (status === "member") {
               members++;
             } else if (status === "visitor" || status === "first_timer") {
               visitors++;
@@ -363,7 +363,7 @@ export function useServiceDrivenMemberGrowth(
         });
 
         const newMembers = periodMembers.filter(m => 
-          m.membership_status === "member" || m.membership_status === "new_convert"
+          m.membership_status === "member"
         ).length;
         const visitors = periodMembers.filter(m => 
           m.membership_status === "visitor" || m.membership_status === "first_timer"

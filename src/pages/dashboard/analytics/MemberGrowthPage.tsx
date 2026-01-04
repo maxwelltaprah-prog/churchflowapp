@@ -114,7 +114,6 @@ function useMemberGrowthKPIs() {
         member: newMembers.filter(m => m.membership_status === "member").length,
         visitor: newMembers.filter(m => m.membership_status === "visitor").length,
         first_timer: newMembers.filter(m => m.membership_status === "first_timer").length,
-        new_convert: newMembers.filter(m => m.membership_status === "new_convert").length,
       };
 
       // Total active members
@@ -123,7 +122,7 @@ function useMemberGrowthKPIs() {
       // Conversion: members who were visitors/first-timers and became members
       // (This is an approximation - ideally we'd track status changes)
       const convertedCount = members.filter(m => 
-        m.membership_status === "member" || m.membership_status === "new_convert"
+        m.membership_status === "member"
       ).length;
       const totalRegistered = members.length;
       const conversionRate = totalRegistered > 0 ? (convertedCount / totalRegistered) * 100 : 0;
@@ -343,7 +342,6 @@ export default function MemberGrowthPage() {
       { status: "Members", count: kpis.newMembersByStatus.member, color: CHART_COLORS.primary },
       { status: "Visitors", count: kpis.newMembersByStatus.visitor, color: CHART_COLORS.accent },
       { status: "First Timers", count: kpis.newMembersByStatus.first_timer, color: CHART_COLORS.warning },
-      { status: "New Converts", count: kpis.newMembersByStatus.new_convert, color: CHART_COLORS.success },
     ].filter(s => s.count > 0);
   }, [kpis]);
 

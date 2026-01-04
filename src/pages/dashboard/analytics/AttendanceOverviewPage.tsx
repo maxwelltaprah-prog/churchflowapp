@@ -90,8 +90,7 @@ function useAttendanceKPIs() {
 
       // Members vs Visitors breakdown
       const memberCheckins = attendance.filter(a => 
-        (a.members as any)?.membership_status === "member" || 
-        (a.members as any)?.membership_status === "new_convert"
+        (a.members as any)?.membership_status === "member"
       ).length;
       const visitorCheckins = attendance.filter(a => 
         (a.members as any)?.membership_status === "visitor" || 

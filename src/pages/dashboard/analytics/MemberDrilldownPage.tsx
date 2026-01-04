@@ -38,7 +38,6 @@ export type MemberSegment =
   | "visitors" 
   | "first_timers" 
   | "members" 
-  | "new_converts"
   | "absentees" 
   | "at_risk" 
   | "returning_visitors"
@@ -54,7 +53,6 @@ const SEGMENT_CONFIG: Record<MemberSegment, {
   visitors: { label: "Visitors", description: "Members with visitor status", icon: UserPlus, variant: "accent" },
   first_timers: { label: "First-Timers", description: "First time at church", icon: UserCheck, variant: "accent" },
   members: { label: "Members", description: "Full church members", icon: Users, variant: "success" },
-  new_converts: { label: "New Converts", description: "Recently joined the faith", icon: RefreshCw, variant: "success" },
   absentees: { label: "Absentees", description: "Missed 3+ consecutive service days", icon: UserMinus, variant: "destructive" },
   at_risk: { label: "At Risk", description: "4-8 weeks without attendance", icon: Clock, variant: "warning" },
   returning_visitors: { label: "Returning Visitors", description: "Visitors who came back", icon: RefreshCw, variant: "accent" },
@@ -305,8 +303,6 @@ function useSegmentedMembers(segment: MemberSegment) {
           query = query.eq("members.membership_status", "first_timer");
         } else if (segment === "members") {
           query = query.eq("members.membership_status", "member");
-        } else if (segment === "new_converts") {
-          query = query.eq("members.membership_status", "new_convert");
         }
 
         query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
@@ -470,7 +466,7 @@ export default function MemberDrilldownPage() {
                     <TableHead>Gender</TableHead>
                     <TableHead>Age</TableHead>
                     <TableHead>Branch</TableHead>
-                    {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "new_converts" || segment === "returning_visitors") && (
+                    {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "returning_visitors") && (
                       <TableHead className="text-right">Check-ins</TableHead>
                     )}
                     {(segment === "absentees" || segment === "at_risk") && (
@@ -497,7 +493,7 @@ export default function MemberDrilldownPage() {
                         <TableCell className="capitalize">{member.gender || "—"}</TableCell>
                         <TableCell>{age !== null ? age : "—"}</TableCell>
                         <TableCell>{member.branch_name || "—"}</TableCell>
-                        {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "new_converts" || segment === "returning_visitors") && (
+                        {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "returning_visitors") && (
                           <TableCell className="text-right">{member.checkin_count || 0}</TableCell>
                         )}
                         {(segment === "absentees" || segment === "at_risk") && (

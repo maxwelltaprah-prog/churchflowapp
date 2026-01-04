@@ -527,7 +527,6 @@ export default function JoinBranch() {
                               <SelectItem value="first_timer">First Timer / New</SelectItem>
                               <SelectItem value="visitor">Visitor</SelectItem>
                               <SelectItem value="member">Member</SelectItem>
-                              <SelectItem value="new_convert">New Convert</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

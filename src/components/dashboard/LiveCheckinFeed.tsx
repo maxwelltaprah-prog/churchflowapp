@@ -72,12 +72,6 @@ function getStatusStyles(status: string): { bg: string; text: string; border: st
         text: "text-blue-700 dark:text-blue-400", 
         border: "border-blue-500/30" 
       };
-    case "new_convert":
-      return { 
-        bg: "bg-purple-500/10", 
-        text: "text-purple-700 dark:text-purple-400", 
-        border: "border-purple-500/30" 
-      };
     default: // member
       return { 
         bg: "bg-emerald-500/10", 

@@ -58,8 +58,6 @@ function getStatusVariant(status?: string | null): "default" | "secondary" | "ou
       return "secondary";
     case "first_timer":
       return "destructive";
-    case "new_convert":
-      return "outline";
     default:
       return "secondary";
   }

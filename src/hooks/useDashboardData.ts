@@ -457,7 +457,7 @@ export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[
 
       const members = (data || []).filter((r: any) => r.members?.membership_status === "member").length;
       const visitors = (data || []).filter((r: any) => 
-        ["visitor", "first_timer", "new_convert"].includes(r.members?.membership_status || "")
+        ["visitor", "first_timer"].includes(r.members?.membership_status || "")
       ).length;
 
       // Visitor to returning visitor ratio (90 days)

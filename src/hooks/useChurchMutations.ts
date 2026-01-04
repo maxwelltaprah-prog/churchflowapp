@@ -15,7 +15,7 @@ export function useCreateMember() {
       email?: string;
       gender: "male" | "female" | "prefer_not_to_say";
       date_of_birth: string;
-      membership_status: "member" | "visitor" | "new_convert" | "first_timer";
+      membership_status: "member" | "visitor" | "first_timer";
       branch_id: string;
       member_type?: "regular" | "occasional" | "worker";
       how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
@@ -395,7 +395,7 @@ export function useUpdateMember() {
       email?: string;
       gender?: "male" | "female" | "prefer_not_to_say";
       date_of_birth?: string;
-      membership_status?: "member" | "visitor" | "new_convert" | "first_timer";
+      membership_status?: "member" | "visitor" | "first_timer";
       branch_id?: string;
       member_type?: "regular" | "occasional" | "worker";
       how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";

@@ -628,7 +628,7 @@ export type Database = {
         | "other"
       marital_status: "single" | "married" | "divorced" | "widowed"
       member_type: "regular" | "occasional" | "worker"
-      membership_status: "member" | "visitor" | "new_convert" | "first_timer"
+      membership_status: "member" | "visitor" | "first_timer"
       occupation_type:
         | "student"
         | "public_sector"
@@ -776,7 +776,7 @@ export const Constants = {
       ],
       marital_status: ["single", "married", "divorced", "widowed"],
       member_type: ["regular", "occasional", "worker"],
-      membership_status: ["member", "visitor", "new_convert", "first_timer"],
+      membership_status: ["member", "visitor", "first_timer"],
       occupation_type: [
         "student",
         "public_sector",
