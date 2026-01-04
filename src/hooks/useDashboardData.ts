@@ -907,11 +907,17 @@ export function useServiceQuality(branchId?: string, serviceIds: string[] = []) 
         const [hours, mins] = r.services.start_time.split(":").map(Number);
         const serviceStart = new Date(checkinTime);
         serviceStart.setHours(hours, mins, 0, 0);
-
-        const diffMins = (checkinTime.getTime() - serviceStart.getTime()) / (1000 * 60);
         
-        if (diffMins > 15) late++;
-        else if (diffMins < -15) early++;
+        // Grace period: 30 minutes after service start
+        const graceThreshold = new Date(serviceStart.getTime() + 30 * 60 * 1000);
+        
+        // Early = arrived before grace threshold (service start + 30 mins)
+        // Late = arrived at or after grace threshold
+        if (checkinTime.getTime() >= graceThreshold.getTime()) {
+          late++;
+        } else {
+          early++;
+        }
       });
 
       return {
