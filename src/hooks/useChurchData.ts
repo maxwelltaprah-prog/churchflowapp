@@ -293,7 +293,7 @@ export function useBranchStats() {
       // Get branches with member counts
       let query = supabase
         .from("branches")
-        .select("id, name, location, is_main_branch, join_code, is_active")
+        .select("id, name, location, is_main_branch, join_code, is_active, overseer_name, overseer_phone, overseer_email")
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
 

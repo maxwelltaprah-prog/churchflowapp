@@ -23,6 +23,9 @@ import { useCreateBranch } from "@/hooks/useChurchMutations";
 const branchSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   location: z.string().optional(),
+  overseer_name: z.string().optional(),
+  overseer_phone: z.string().optional(),
+  overseer_email: z.string().email("Invalid email address").optional().or(z.literal("")),
 });
 
 type BranchFormData = z.infer<typeof branchSchema>;
@@ -40,6 +43,9 @@ export function AddBranchDialog({ open, onOpenChange }: AddBranchDialogProps) {
     defaultValues: {
       name: "",
       location: "",
+      overseer_name: "",
+      overseer_phone: "",
+      overseer_email: "",
     },
   });
 
@@ -47,6 +53,9 @@ export function AddBranchDialog({ open, onOpenChange }: AddBranchDialogProps) {
     await createBranch.mutateAsync({
       name: data.name,
       location: data.location || undefined,
+      overseer_name: data.overseer_name || undefined,
+      overseer_phone: data.overseer_phone || undefined,
+      overseer_email: data.overseer_email || undefined,
     });
     form.reset();
     onOpenChange(false);
@@ -84,6 +93,45 @@ export function AddBranchDialog({ open, onOpenChange }: AddBranchDialogProps) {
                   <FormLabel>Location</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Takoradi, Western Region" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="overseer_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Overseer Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Pastor John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="overseer_phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Overseer Phone</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., +233 XX XXX XXXX" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="overseer_email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Overseer Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="e.g., pastor@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
