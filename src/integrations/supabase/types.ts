@@ -316,6 +316,42 @@ export type Database = {
           },
         ]
       }
+      member_spiritual_journeys: {
+        Row: {
+          id: string
+          joined_at: string
+          member_id: string
+          spiritual_journey_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          member_id: string
+          spiritual_journey_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          member_id?: string
+          spiritual_journey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_spiritual_journeys_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_spiritual_journeys_spiritual_journey_id_fkey"
+            columns: ["spiritual_journey_id"]
+            isOneToOne: false
+            referencedRelation: "spiritual_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           admin_notes: string | null
@@ -537,6 +573,47 @@ export type Database = {
           },
           {
             foreignKeyName: "services_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spiritual_journeys: {
+        Row: {
+          church_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          church_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          church_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spiritual_journeys_church_id_fkey"
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"

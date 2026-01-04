@@ -11,7 +11,8 @@ import {
   LogOut,
   ChevronDown,
   Church,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -48,6 +49,7 @@ const mainNavItems = [
   { title: "Check-in", url: "/app/checkin", icon: QrCode },
   { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
   { title: "Broadcasts", url: "/app/broadcasts", icon: Bell },
+  { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, adminOnly: true },
   { title: "Admins", url: "/app/admins", icon: ShieldCheck, adminOnly: true },
 ];
 

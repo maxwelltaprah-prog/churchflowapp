@@ -36,6 +36,7 @@ import EngagementSignalsPage from "./pages/dashboard/analytics/EngagementSignals
 
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
+import SpiritualJourneyPage from "./pages/dashboard/SpiritualJourneyPage";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,7 @@ const App = () => (
               
               <Route path="analytics/drilldown" element={<MemberDrilldownPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
+              <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

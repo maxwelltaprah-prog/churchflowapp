@@ -14,6 +14,8 @@ import { useBranches } from "@/hooks/useChurchData";
 import { useCreateMember } from "@/hooks/useChurchMutations";
 import { useActiveGroups } from "@/hooks/useGroupsData";
 import { useSetMemberGroups } from "@/hooks/useGroupMutations";
+import { useActiveSpiritualJourneys } from "@/hooks/useSpiritualJourneyData";
+import { useSetMemberSpiritualJourneys } from "@/hooks/useSpiritualJourneyMutations";
 import { MemberForm } from "@/components/member/MemberForm";
 import { memberFormSchema, type MemberFormData } from "@/lib/member-form-schema";
 
@@ -26,9 +28,11 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const { data: branches } = useBranches();
   const createMember = useCreateMember();
   const setMemberGroups = useSetMemberGroups();
+  const setMemberSpiritualJourneys = useSetMemberSpiritualJourneys();
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   
   const { data: availableGroups } = useActiveGroups(selectedBranchId);
+  const { data: availableSpiritualJourneys } = useActiveSpiritualJourneys();
 
   const form = useForm<MemberFormData>({
     resolver: zodResolver(memberFormSchema),
@@ -40,12 +44,14 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       membership_status: "first_timer",
       branch_id: "",
       group_ids: [],
+      spiritual_journey_ids: [],
       member_type: null,
       how_heard: null,
       residential_area: "",
       marital_status: null,
       occupation: null,
       email: "",
+      is_baptized: null,
       admin_notes: "",
       date_joined: new Date().toISOString().split("T")[0],
     },
@@ -82,6 +88,13 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
         groupIds: data.group_ids,
       });
     }
+    // Set member spiritual journeys
+    if (data.spiritual_journey_ids && data.spiritual_journey_ids.length > 0) {
+      await setMemberSpiritualJourneys.mutateAsync({
+        memberId: member.id,
+        journeyIds: data.spiritual_journey_ids,
+      });
+    }
     
     form.reset();
     onOpenChange(false);
@@ -102,6 +115,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
               form={form}
               branches={branches}
               availableGroups={availableGroups}
+              availableSpiritualJourneys={availableSpiritualJourneys}
               mode="add"
               showAdminFields={true}
             />
@@ -110,7 +124,10 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMember.isPending || setMemberGroups.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending}
+              >
                 {createMember.isPending ? "Adding..." : "Add Member"}
               </Button>
             </div>
