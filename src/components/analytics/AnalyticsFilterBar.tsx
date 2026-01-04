@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Calendar, ChevronDown, Filter, Building2, CalendarDays, X } from "lucide-react";
-import { format } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar, ChevronDown, Filter, Building2, CalendarDays, X, Check } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -16,14 +16,17 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { useBranches, useServices } from "@/hooks/useChurchData";
+import { useBranches } from "@/hooks/useChurchData";
 import {
   useAnalyticsFilters,
+  useServicesInDateRange,
   DATE_PRESET_OPTIONS,
   formatDateRangeLabel,
   type DateRangePreset,
 } from "@/hooks/useAnalyticsFilters";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AnalyticsFilterBarProps {
   showServiceFilter?: boolean;
@@ -31,7 +34,7 @@ interface AnalyticsFilterBarProps {
 }
 
 export function AnalyticsFilterBar({ 
-  showServiceFilter = false,
+  showServiceFilter = true,
   className 
 }: AnalyticsFilterBarProps) {
   const {
@@ -39,16 +42,17 @@ export function AnalyticsFilterBar({
     setDatePreset,
     setCustomDateRange,
     setBranchId,
-    setServiceId,
+    setServiceIds,
     resetFilters,
     accessibleBranchIds,
     isChurchAdmin,
   } = useAnalyticsFilters();
   
   const { data: allBranches } = useBranches();
-  const { data: services } = useServices(filters.branchId || undefined);
+  const { data: servicesInRange, isLoading: servicesLoading } = useServicesInDateRange();
   
   const [customDateOpen, setCustomDateOpen] = useState(false);
+  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: filters.startDate,
     to: filters.endDate,
@@ -59,11 +63,25 @@ export function AnalyticsFilterBar({
     if (isChurchAdmin || accessibleBranchIds === null) return true;
     return accessibleBranchIds.includes(branch.id);
   }) || [];
+
+  // Get valid service IDs that are within the current date range
+  const validServiceIds = useMemo(() => {
+    if (!servicesInRange) return [];
+    const rangeServiceIds = new Set(servicesInRange.map(s => s.id));
+    return filters.serviceIds.filter(id => rangeServiceIds.has(id));
+  }, [servicesInRange, filters.serviceIds]);
+
+  // Auto-cleanup: remove selected services that fall outside date range
+  useEffect(() => {
+    if (filters.serviceIds.length > 0 && validServiceIds.length !== filters.serviceIds.length) {
+      setServiceIds(validServiceIds);
+    }
+  }, [validServiceIds, filters.serviceIds, setServiceIds]);
   
   // Check if any filters are active (not default)
   const hasActiveFilters = filters.datePreset !== "this_month" || 
     filters.branchId !== null || 
-    filters.serviceId !== null;
+    filters.serviceIds.length > 0;
   
   const handlePresetChange = (preset: DateRangePreset) => {
     if (preset === "custom") {
@@ -79,6 +97,45 @@ export function AnalyticsFilterBar({
       setCustomDateOpen(false);
     }
   };
+
+  const handleServiceToggle = (serviceId: string) => {
+    const newServiceIds = filters.serviceIds.includes(serviceId)
+      ? filters.serviceIds.filter(id => id !== serviceId)
+      : [...filters.serviceIds, serviceId];
+    setServiceIds(newServiceIds);
+  };
+
+  const handleSelectAllServices = () => {
+    if (!servicesInRange) return;
+    if (filters.serviceIds.length === servicesInRange.length) {
+      // Deselect all
+      setServiceIds([]);
+    } else {
+      // Select all
+      setServiceIds(servicesInRange.map(s => s.id));
+    }
+  };
+
+  const handleClearServices = () => {
+    setServiceIds([]);
+  };
+
+  // Format service display label
+  const formatServiceLabel = (service: { name: string; service_date: string; start_time: string | null; branchName: string }) => {
+    const date = format(parseISO(service.service_date), "MMM d");
+    const time = service.start_time ? format(parseISO(`2000-01-01T${service.start_time}`), "h:mm a") : "";
+    return `${service.name} - ${date}${time ? ` @ ${time}` : ""}`;
+  };
+
+  // Get selected services summary for display
+  const selectedServicesSummary = useMemo(() => {
+    if (filters.serviceIds.length === 0) return "All Services";
+    if (filters.serviceIds.length === 1 && servicesInRange) {
+      const service = servicesInRange.find(s => s.id === filters.serviceIds[0]);
+      return service ? formatServiceLabel(service) : "1 Service";
+    }
+    return `${filters.serviceIds.length} Services`;
+  }, [filters.serviceIds, servicesInRange]);
   
   // Get selected branch name for display
   const selectedBranchName = filters.branchId 
@@ -214,26 +271,101 @@ export function AnalyticsFilterBar({
           )}
         </div>
         
-        {/* Service Selector (optional) */}
+        {/* Service Multi-Select */}
         {showServiceFilter && (
           <>
             <div className="hidden sm:block w-px h-6 bg-border" />
-            <Select 
-              value={filters.serviceId || "all"} 
-              onValueChange={(v) => setServiceId(v === "all" ? null : v)}
-            >
-              <SelectTrigger className="w-[200px] h-9 bg-background">
-                <SelectValue placeholder="All Services" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                <SelectItem value="all">All Services</SelectItem>
-                {services?.map((service) => (
-                  <SelectItem key={service.id} value={service.id}>
-                    {service.name} ({format(new Date(service.service_date), "MMM d")})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={serviceDropdownOpen} onOpenChange={setServiceDropdownOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={serviceDropdownOpen}
+                  className={cn(
+                    "w-[220px] h-9 justify-between bg-background text-sm font-normal",
+                    filters.serviceIds.length > 0 && "border-primary"
+                  )}
+                >
+                  <span className="truncate">{selectedServicesSummary}</span>
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[320px] p-0 bg-popover z-50" align="start">
+                <div className="p-2 border-b">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Select Services</span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={handleSelectAllServices}
+                        disabled={!servicesInRange?.length}
+                      >
+                        {filters.serviceIds.length === servicesInRange?.length ? "Deselect All" : "Select All"}
+                      </Button>
+                      {filters.serviceIds.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={handleClearServices}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ScrollArea className="max-h-[300px]">
+                  {servicesLoading ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Loading services...
+                    </div>
+                  ) : !servicesInRange?.length ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No services in selected date range
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-1">
+                      {servicesInRange.map((service) => (
+                        <div
+                          key={service.id}
+                          className={cn(
+                            "flex items-center gap-3 px-2 py-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+                            filters.serviceIds.includes(service.id) && "bg-primary/5"
+                          )}
+                          onClick={() => handleServiceToggle(service.id)}
+                        >
+                          <Checkbox
+                            checked={filters.serviceIds.includes(service.id)}
+                            onCheckedChange={() => handleServiceToggle(service.id)}
+                            className="pointer-events-none"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{service.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(parseISO(service.service_date), "MMM d, yyyy")}
+                              {service.start_time && ` @ ${format(parseISO(`2000-01-01T${service.start_time}`), "h:mm a")}`}
+                              {service.branchName && ` • ${service.branchName}`}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+                <div className="p-2 border-t">
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setServiceDropdownOpen(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </>
         )}
       </div>
@@ -252,9 +384,11 @@ export function AnalyticsFilterBar({
               {selectedBranchName}
             </Badge>
           )}
-          {filters.serviceId && (
+          {filters.serviceIds.length > 0 && (
             <Badge variant="outline" className="text-xs font-normal">
-              {services?.find(s => s.id === filters.serviceId)?.name || "Service"}
+              {filters.serviceIds.length === 1 && servicesInRange
+                ? servicesInRange.find(s => s.id === filters.serviceIds[0])?.name || "1 Service"
+                : `${filters.serviceIds.length} Services`}
             </Badge>
           )}
         </div>

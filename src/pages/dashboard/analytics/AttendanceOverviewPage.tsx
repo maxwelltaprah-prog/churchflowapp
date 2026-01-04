@@ -59,19 +59,24 @@ function useAttendanceKPIs() {
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["attendance-kpis", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryKey: ["attendance-kpis", profile?.church_id, filters.branchId, filters.serviceIds, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
       // Fetch all attendance in date range
       let attendanceQuery = supabase
         .from("attendance")
-        .select("id, member_id, checked_in_at, branch_id, members!inner(id, membership_status)")
+        .select("id, member_id, checked_in_at, branch_id, service_id, members!inner(id, membership_status)")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", filters.startDate.toISOString())
         .lte("checked_in_at", filters.endDate.toISOString());
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      // Apply service filter if specific services are selected
+      if (filters.serviceIds.length > 0) {
+        attendanceQuery = attendanceQuery.in("service_id", filters.serviceIds);
+      }
 
       const { data: attendanceData } = await attendanceQuery;
       const attendance = attendanceData || [];
@@ -112,6 +117,11 @@ function useAttendanceKPIs() {
 
       servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
+      // Apply service filter for absentee calculation
+      if (filters.serviceIds.length > 0) {
+        servicesQuery = servicesQuery.in("id", filters.serviceIds);
+      }
+
       const { data: servicesData } = await servicesQuery;
       
       // Group services by date (multiple services on same day count as one)
@@ -148,9 +158,14 @@ function useAttendanceKPIs() {
       const memberIds = (allMembers || []).map(m => m.id);
 
       // Get services on the last 3 service days
-      const serviceIdsOnLastThreeDays = (servicesData || [])
+      let serviceIdsOnLastThreeDays = (servicesData || [])
         .filter(s => lastThreeServiceDays.includes(s.service_date))
         .map(s => s.id);
+
+      // If specific services are selected, further filter
+      if (filters.serviceIds.length > 0) {
+        serviceIdsOnLastThreeDays = serviceIdsOnLastThreeDays.filter(id => filters.serviceIds.includes(id));
+      }
 
       // Get attendance for these services
       let recentAttendanceQuery = supabase
@@ -201,7 +216,8 @@ function useAttendanceTrendData() {
   return useServiceDrivenAttendanceTrend(
     filters.startDate,
     filters.endDate,
-    filters.branchId || undefined
+    filters.branchId || undefined,
+    filters.serviceIds
   );
 }
 
@@ -213,7 +229,7 @@ function useBranchComparisonData() {
   const { data: branches } = useBranches();
 
   return useQuery({
-    queryKey: ["branch-comparison-detailed", profile?.church_id, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds, branches],
+    queryKey: ["branch-comparison-detailed", profile?.church_id, filters.serviceIds, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds, branches],
     queryFn: async () => {
       if (!profile?.church_id || !branches?.length) return [];
 
@@ -225,12 +241,19 @@ function useBranchComparisonData() {
 
       const branchStats = await Promise.all(
         accessibleBranches.map(async (branch) => {
-          const { count: attendanceCount } = await supabase
+          let attendanceQuery = supabase
             .from("attendance")
             .select("*", { count: "exact", head: true })
             .eq("branch_id", branch.id)
             .gte("checked_in_at", filters.startDate.toISOString())
             .lte("checked_in_at", filters.endDate.toISOString());
+
+          // Apply service filter if specific services are selected
+          if (filters.serviceIds.length > 0) {
+            attendanceQuery = attendanceQuery.in("service_id", filters.serviceIds);
+          }
+
+          const { count: attendanceCount } = await attendanceQuery;
 
           const { count: memberCount } = await supabase
             .from("members")
@@ -264,7 +287,7 @@ function useServicesSummary() {
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["services-summary", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryKey: ["services-summary", profile?.church_id, filters.branchId, filters.serviceIds, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
@@ -286,6 +309,11 @@ function useServicesSummary() {
         .order("service_date", { ascending: false });
 
       query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      // Apply service filter if specific services are selected
+      if (filters.serviceIds.length > 0) {
+        query = query.in("id", filters.serviceIds);
+      }
 
       const { data: services } = await query;
 
@@ -402,7 +430,7 @@ export default function AttendanceOverviewPage() {
       </div>
 
       {/* Filter Bar */}
-      <AnalyticsFilterBar showServiceFilter={false} />
+      <AnalyticsFilterBar />
 
       {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
