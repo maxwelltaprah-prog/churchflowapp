@@ -739,12 +739,12 @@ export function useBranchOperations(dateRange?: DashboardDateRange) {
 }
 
 // =================== SECTION 7: GROUPS SNAPSHOT ===================
-export function useGroupsSnapshot(branchId?: string) {
+export function useGroupsSnapshot(branchId?: string, dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["groups-snapshot", profile?.church_id, branchId, accessibleBranchIds],
+    queryKey: ["groups-snapshot", profile?.church_id, branchId, accessibleBranchIds, dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
       if (!profile?.church_id) return { topGroups: [], noGroupPercent: 0 };
 
@@ -752,7 +752,30 @@ export function useGroupsSnapshot(branchId?: string) {
         return { topGroups: [], noGroupPercent: 0, noGroupCount: 0 };
       }
 
-      // Get groups with member counts
+      // Get date range
+      const defaultRange: DashboardDateRange = { startDate: startOfMonth(new Date()), endDate: new Date() };
+      const { start, end } = getDashboardDateRange(dateRange || defaultRange);
+      const startDate = format(start, "yyyy-MM-dd");
+      const endDate = format(end, "yyyy-MM-dd");
+
+      // Get all members who checked in during the date range
+      let attendanceQuery = supabase
+        .from("attendance")
+        .select("member_id")
+        .eq("church_id", profile.church_id)
+        .gte("checked_in_at", `${startDate}T00:00:00`)
+        .lte("checked_in_at", `${endDate}T23:59:59`);
+
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
+
+      const { data: attendanceData } = await attendanceQuery;
+      const attendedMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
+
+      if (attendedMemberIds.length === 0) {
+        return { topGroups: [], noGroupPercent: 0, noGroupCount: 0 };
+      }
+
+      // Get groups with member counts (only counting members who checked in)
       let groupQuery = supabase
         .from("groups")
         .select("id, name")
@@ -763,35 +786,28 @@ export function useGroupsSnapshot(branchId?: string) {
       
       const { data: groups } = await groupQuery;
 
-      const topGroups = await Promise.all((groups || []).map(async (group) => {
-        const { count } = await supabase
-          .from("member_groups")
-          .select("*", { count: "exact", head: true })
-          .eq("group_id", group.id);
+      // Get all member_groups for attended members
+      const { data: memberGroupsData } = await supabase
+        .from("member_groups")
+        .select("member_id, group_id")
+        .in("member_id", attendedMemberIds);
 
-        return { id: group.id, name: group.name, members: count || 0 };
+      // Count members per group (only those who checked in)
+      const groupMemberCounts = new Map<string, number>();
+      (memberGroupsData || []).forEach(mg => {
+        groupMemberCounts.set(mg.group_id, (groupMemberCounts.get(mg.group_id) || 0) + 1);
+      });
+
+      const topGroups = (groups || []).map(group => ({
+        id: group.id,
+        name: group.name,
+        members: groupMemberCounts.get(group.id) || 0
       }));
 
-      // Members without groups
-      let memberQuery = supabase
-        .from("members")
-        .select("id")
-        .eq("church_id", profile.church_id)
-        .eq("is_active", true);
-      
-      memberQuery = applyBranchFilter(memberQuery, "branch_id", branchId, accessibleBranchIds);
-      
-      const { data: allMembers } = await memberQuery;
-      const memberIds = (allMembers || []).map((m) => m.id);
-
-      const { data: membersWithGroups } = await supabase
-        .from("member_groups")
-        .select("member_id")
-        .in("member_id", memberIds);
-
-      const withGroups = new Set((membersWithGroups || []).map((m) => m.member_id));
-      const noGroupCount = memberIds.filter((id) => !withGroups.has(id)).length;
-      const noGroupPercent = memberIds.length ? Math.round((noGroupCount / memberIds.length) * 100) : 0;
+      // Members without groups (only from those who checked in)
+      const membersWithGroups = new Set((memberGroupsData || []).map(m => m.member_id));
+      const noGroupCount = attendedMemberIds.filter(id => !membersWithGroups.has(id)).length;
+      const noGroupPercent = attendedMemberIds.length ? Math.round((noGroupCount / attendedMemberIds.length) * 100) : 0;
 
       return {
         topGroups: topGroups.sort((a, b) => b.members - a.members).slice(0, 5),
