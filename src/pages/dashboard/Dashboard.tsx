@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { profile, isChurchAdmin } = useAuth();
   const [branchId, setBranchId] = useState<string | undefined>();
   const [serviceIds, setServiceIds] = useState<string[]>([]);
+  // Date range only controls which services are available for selection
   const [dateRange, setDateRange] = useState<DashboardDateRange>(() => ({
     startDate: startOfMonth(new Date()),
     endDate: new Date()
@@ -61,27 +62,42 @@ export default function Dashboard() {
     branchId
   );
 
+  // Auto-select the most recent service when services load and none are selected
+  useEffect(() => {
+    if (servicesInRange && servicesInRange.length > 0 && serviceIds.length === 0) {
+      // Services are ordered by date desc, so first one is most recent
+      const mostRecentService = servicesInRange[0];
+      setServiceIds([mostRecentService.id]);
+    }
+  }, [servicesInRange]);
+
   // Clear selected services when date range or branch changes if they're no longer valid
   useEffect(() => {
     if (servicesInRange && serviceIds.length > 0) {
       const validServiceIds = servicesInRange.map(s => s.id);
       const filteredIds = serviceIds.filter(id => validServiceIds.includes(id));
       if (filteredIds.length !== serviceIds.length) {
-        setServiceIds(filteredIds);
+        // If all selected services are invalid, select the most recent one
+        if (filteredIds.length === 0 && servicesInRange.length > 0) {
+          setServiceIds([servicesInRange[0].id]);
+        } else {
+          setServiceIds(filteredIds);
+        }
       }
     }
-  }, [servicesInRange, serviceIds]);
+  }, [servicesInRange]);
 
-  // All dashboard data hooks - pass dateRange and serviceIds
-  const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds, dateRange);
-  const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds, dateRange);
-  const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds, dateRange);
-  const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds, dateRange);
+  // All dashboard data hooks - pass only serviceIds (service-driven filtering)
+  // The dateRange is only used to determine which services are available
+  const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds);
+  const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds);
+  const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds);
+  const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds);
   const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
-  const { data: groups } = useGroupsSnapshot(branchId, dateRange);
-  const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds, dateRange);
-  const { data: serviceQuality } = useServiceQuality(branchId, serviceIds, dateRange);
+  const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
+  const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
+  const { data: serviceQuality } = useServiceQuality(branchId, serviceIds);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;

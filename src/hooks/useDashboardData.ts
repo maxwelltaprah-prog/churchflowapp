@@ -34,17 +34,13 @@ const getDashboardDateRange = (range: DashboardDateRange) => {
 // Branch filtering is applied inline in each query to avoid TypeScript generic issues
 
 // =================== SECTION 1: TODAY'S SNAPSHOT KPIs ===================
-export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
+// Service-driven: when serviceIds are provided, filter by those services only
+export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  
-  // Use provided date range or default to today
-  const { start, end } = dateRange 
-    ? getDashboardDateRange(dateRange)
-    : getDateRange("today");
 
   return useQuery({
-    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
+    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -52,16 +48,19 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateR
         return { totalAttendance: 0, visitorsToday: 0, firstTimersToday: 0, returningVisitorsToday: 0, lateArrivals: 0, change: 0 };
       }
 
-      // Build attendance query
+      // If no services selected, return empty
+      if (serviceIds.length === 0) {
+        return { totalAttendance: 0, visitorsToday: 0, firstTimersToday: 0, returningVisitorsToday: 0, lateArrivals: 0, change: 0 };
+      }
+
+      // Build attendance query filtered by selected services
       let query = supabase
         .from("attendance")
         .select("*, members!inner(membership_status, created_at)")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString());
+        .in("service_id", serviceIds);
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
 
       const { data: records, error } = await query;
       if (error) throw error;
@@ -79,12 +78,17 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateR
       
       let returningVisitorsToday = 0;
       if (visitorMemberIds.length > 0) {
+        // Get the earliest check-in time from current selection to check for prior attendance
+        const earliestCheckin = data.reduce((min: string, r: any) => 
+          r.checked_in_at < min ? r.checked_in_at : min, data[0]?.checked_in_at || new Date().toISOString()
+        );
+        
         const { count } = await supabase
           .from("attendance")
           .select("member_id", { count: "exact", head: true })
           .eq("church_id", profile.church_id)
           .in("member_id", visitorMemberIds)
-          .lt("checked_in_at", start.toISOString());
+          .lt("checked_in_at", earliestCheckin);
         returningVisitorsToday = count || 0;
       }
 
@@ -99,19 +103,9 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateR
         lateArrivals = data.filter((r) => new Date(r.checked_in_at) > lateThreshold).length;
       }
 
-      // Get previous period comparison
-      const prevStart = subWeeks(start, 1);
-      const prevEnd = subWeeks(end, 1);
-      let prevQuery = supabase
-        .from("attendance")
-        .select("*", { count: "exact", head: true })
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", prevStart.toISOString())
-        .lte("checked_in_at", prevEnd.toISOString());
-      prevQuery = applyBranchFilter(prevQuery, "branch_id", branchId, accessibleBranchIds);
-      
-      const { count: prevAttendance } = await prevQuery;
-      const change = prevAttendance ? Math.round(((totalAttendance - prevAttendance) / prevAttendance) * 100) : 0;
+      // Get previous service comparison (find comparable service from previous week)
+      // For now, just show 0 change since we're service-driven
+      const change = 0;
 
       return {
         totalAttendance,
@@ -128,87 +122,80 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateR
 }
 
 // =================== SECTION 2: TODAY'S FLOW (Check-in Trend) ===================
-// For single-day view: shows time-of-day distribution for the selected service(s)
-// For multi-day ranges: shows service-driven trend (per service date)
-export function useCheckinTrend(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
+// Service-driven: shows time-of-day distribution for selected service(s)
+// If multiple services on different days, shows per-service-date trend
+export function useCheckinTrend(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  
-  // Use provided date range or default to today
-  const { start, end } = dateRange 
-    ? getDashboardDateRange(dateRange)
-    : getDateRange("today");
-
-  // Check if it's a single-day range
-  const isSingleDay = start.toDateString() === end.toDateString();
 
   return useQuery({
-    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
+    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
-      if (!profile?.church_id) return { data: [], hasData: false, isTimeOfDay: isSingleDay };
+      if (!profile?.church_id) return { data: [], hasData: false, isTimeOfDay: true };
 
       if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
-        return { data: [], hasData: false, isTimeOfDay: isSingleDay };
+        return { data: [], hasData: false, isTimeOfDay: true };
       }
+
+      if (serviceIds.length === 0) {
+        return { data: [], hasData: false, isTimeOfDay: true };
+      }
+
+      // Fetch the selected services to determine if single-day or multi-day
+      const { data: selectedServices } = await supabase
+        .from("services")
+        .select("id, service_date, start_time, end_time, name")
+        .in("id", serviceIds);
+
+      if (!selectedServices?.length) {
+        return { data: [], hasData: false, isTimeOfDay: true };
+      }
+
+      // Check if all services are on the same day
+      const uniqueDates = [...new Set(selectedServices.map(s => s.service_date))];
+      const isSingleDay = uniqueDates.length === 1;
 
       // For single-day view, show time-of-day distribution
       if (isSingleDay) {
-        // First, fetch services to determine time window
-        let servicesQuery = supabase
-          .from("services")
-          .select("id, start_time, end_time")
-          .eq("church_id", profile.church_id)
-          .eq("service_date", format(start, "yyyy-MM-dd"))
-          .eq("is_active", true);
-
-        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
-        if (serviceIds.length > 0) servicesQuery = servicesQuery.in("id", serviceIds);
-
-        const { data: todayServices } = await servicesQuery;
-
         // Calculate time window based on service times
         let windowStart = 8; // Default: 8 AM
         let windowEnd = 14;  // Default: 2 PM
 
-        if (todayServices?.length) {
-          // Find earliest start time and latest end time
-          let earliestStart: number | null = null;
-          let latestEnd: number | null = null;
+        // Find earliest start time and latest end time from selected services
+        let earliestStart: number | null = null;
+        let latestEnd: number | null = null;
 
-          todayServices.forEach(s => {
-            if (s.start_time) {
-              const [h] = s.start_time.split(":").map(Number);
-              if (earliestStart === null || h < earliestStart) earliestStart = h;
-            }
-            if (s.end_time) {
-              const [h] = s.end_time.split(":").map(Number);
-              if (latestEnd === null || h > latestEnd) latestEnd = h;
-            }
-          });
+        selectedServices.forEach(s => {
+          if (s.start_time) {
+            const [h] = s.start_time.split(":").map(Number);
+            if (earliestStart === null || h < earliestStart) earliestStart = h;
+          }
+          if (s.end_time) {
+            const [h] = s.end_time.split(":").map(Number);
+            if (latestEnd === null || h > latestEnd) latestEnd = h;
+          }
+        });
 
-          // If we have service times, use them: 2 hrs before start, 1 hr after end
-          if (earliestStart !== null) {
-            windowStart = Math.max(0, earliestStart - 2);
-          }
-          if (latestEnd !== null) {
-            windowEnd = Math.min(23, latestEnd + 1);
-          } else if (earliestStart !== null) {
-            // If no end time, assume 2 hour service + 1 hour after
-            windowEnd = Math.min(23, earliestStart + 3);
-          }
+        // If we have service times, use them: 2 hrs before start, 1 hr after end
+        if (earliestStart !== null) {
+          windowStart = Math.max(0, earliestStart - 2);
+        }
+        if (latestEnd !== null) {
+          windowEnd = Math.min(23, latestEnd + 1);
+        } else if (earliestStart !== null) {
+          // If no end time, assume 2 hour service + 1 hour after
+          windowEnd = Math.min(23, earliestStart + 3);
         }
 
-        // Fetch attendance
+        // Fetch attendance for selected services
         let query = supabase
           .from("attendance")
           .select("checked_in_at")
           .eq("church_id", profile.church_id)
-          .gte("checked_in_at", start.toISOString())
-          .lte("checked_in_at", end.toISOString())
+          .in("service_id", serviceIds)
           .order("checked_in_at");
 
         query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-        if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -244,35 +231,16 @@ export function useCheckinTrend(branchId?: string, serviceIds: string[] = [], da
         return { data: chartData, hasData: (data || []).length > 0, isTimeOfDay: true, peakTime, peakCount };
       }
 
-      // For multi-day date ranges, use service-driven timeline
-      // Fetch services in range
-      let servicesQuery = supabase
-        .from("services")
-        .select("id, service_date, name, branch_id")
-        .eq("church_id", profile.church_id)
-        .gte("service_date", format(start, "yyyy-MM-dd"))
-        .lte("service_date", format(end, "yyyy-MM-dd"))
-        .eq("is_active", true)
-        .order("service_date", { ascending: true });
-
-      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
-      if (serviceIds.length > 0) servicesQuery = servicesQuery.in("id", serviceIds);
-
-      const { data: rangeServices, error: servicesError } = await servicesQuery;
-      if (servicesError) throw servicesError;
-
-      if (!rangeServices?.length) {
-        return { data: [], hasData: false, isTimeOfDay: false };
-      }
-
-      const rangeServiceIds = rangeServices.map(s => s.id);
-
-      // Fetch attendance for these services
+      // For multi-day (multiple service dates), use service-driven timeline
+      // Build a map of service dates and their attendance
+      const serviceMap = new Map(selectedServices.map(s => [s.id, s]));
+      
+      // Fetch attendance for selected services
       let attendanceQuery = supabase
         .from("attendance")
         .select("service_id")
         .eq("church_id", profile.church_id)
-        .in("service_id", rangeServiceIds);
+        .in("service_id", serviceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
@@ -280,7 +248,6 @@ export function useCheckinTrend(branchId?: string, serviceIds: string[] = [], da
       if (attendanceError) throw attendanceError;
 
       // Group attendance by service date
-      const serviceMap = new Map(rangeServices.map(s => [s.id, s]));
       const dateAttendance: Record<string, number> = {};
 
       (attendance || []).forEach(a => {
@@ -292,7 +259,7 @@ export function useCheckinTrend(branchId?: string, serviceIds: string[] = [], da
       });
 
       // Build chart data from service dates only
-      const chartData = rangeServices
+      const chartData = selectedServices
         .reduce((acc, service) => {
           const existing = acc.find(d => d.date === service.service_date);
           if (!existing) {
@@ -372,12 +339,13 @@ export function useBranchComparison(dateRange: DateRange = "today") {
 }
 
 // =================== SECTION 3: SHORT-TERM TRENDS (Service-Driven) ===================
-export function useAttendanceTrend(branchId?: string, serviceIds?: string[], dateRange?: DashboardDateRange) {
+// Service-driven: calculates trends based on selected services only
+export function useAttendanceTrend(branchId?: string, serviceIds?: string[]) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["attendance-trend", profile?.church_id, serviceIds, branchId, accessibleBranchIds, dateRange?.startDate?.toISOString(), dateRange?.endDate?.toISOString()],
+    queryKey: ["attendance-trend", profile?.church_id, serviceIds, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { trend: [], weekChange: 0, monthChange: 0, hasData: false };
 
@@ -385,39 +353,23 @@ export function useAttendanceTrend(branchId?: string, serviceIds?: string[], dat
         return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
       }
 
-      // Use the date range from filters, fallback to last 8 weeks
-      const { start, end } = dateRange 
-        ? getDashboardDateRange(dateRange)
-        : { start: format(subWeeks(new Date(), 8), "yyyy-MM-dd"), end: format(new Date(), "yyyy-MM-dd") };
-      
-      // Fetch services in the selected date range
-      let servicesQuery = supabase
+      if (!serviceIds?.length) {
+        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
+      }
+
+      // Fetch the selected services
+      const { data: services } = await supabase
         .from("services")
         .select("id, service_date, name, branch_id")
-        .eq("church_id", profile.church_id)
-        .gte("service_date", start)
-        .lte("service_date", end)
+        .in("id", serviceIds)
         .eq("is_active", true)
         .order("service_date", { ascending: true });
-
-      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
-
-      const { data: services } = await servicesQuery;
 
       if (!services?.length) {
         return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
       }
 
-      // Filter by selected service IDs if provided
-      const filteredServices = serviceIds?.length 
-        ? services.filter(s => serviceIds.includes(s.id))
-        : services;
-
-      if (!filteredServices.length) {
-        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
-      }
-
-      const filteredServiceIds = filteredServices.map(s => s.id);
+      const filteredServiceIds = services.map(s => s.id);
 
       // Fetch attendance for these services
       let attendanceQuery = supabase
@@ -431,7 +383,7 @@ export function useAttendanceTrend(branchId?: string, serviceIds?: string[], dat
       const { data: attendance } = await attendanceQuery;
 
       // Group by service date (aggregate per service date, not per calendar day)
-      const serviceMap = new Map(filteredServices.map(s => [s.id, s]));
+      const serviceMap = new Map(services.map(s => [s.id, s]));
       const dateAttendance: Record<string, { count: number; date: Date }> = {};
 
       (attendance || []).forEach((r) => {
@@ -475,17 +427,13 @@ export function useAttendanceTrend(branchId?: string, serviceIds?: string[], dat
 }
 
 // =================== SECTION 4: MEMBERS VS VISITORS ===================
-export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
+// Service-driven: filters by selected services
+export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  
-  // Use provided date range or default to today
-  const { start, end } = dateRange 
-    ? getDashboardDateRange(dateRange)
-    : getDateRange("today");
 
   return useQuery({
-    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
+    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -493,15 +441,17 @@ export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[
         return { members: 0, visitors: 0, visitorToReturning: 0, recentConversions: 0, totalNewVisitors: 0 };
       }
 
+      if (serviceIds.length === 0) {
+        return { members: 0, visitors: 0, visitorToReturning: 0, recentConversions: 0, totalNewVisitors: 0 };
+      }
+
       let query = supabase
         .from("attendance")
         .select("member_id, branch_id, members!inner(membership_status)")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString());
+        .in("service_id", serviceIds);
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
       
       const { data } = await query;
 
@@ -739,12 +689,13 @@ export function useBranchOperations(dateRange?: DashboardDateRange) {
 }
 
 // =================== SECTION 7: GROUPS SNAPSHOT ===================
-export function useGroupsSnapshot(branchId?: string, dateRange?: DashboardDateRange) {
+// Service-driven: counts only members who checked in for selected services
+export function useGroupsSnapshot(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["groups-snapshot", profile?.church_id, branchId, accessibleBranchIds, dateRange?.startDate, dateRange?.endDate],
+    queryKey: ["groups-snapshot", profile?.church_id, branchId, accessibleBranchIds, serviceIds],
     queryFn: async () => {
       if (!profile?.church_id) return { topGroups: [], noGroupPercent: 0 };
 
@@ -752,19 +703,16 @@ export function useGroupsSnapshot(branchId?: string, dateRange?: DashboardDateRa
         return { topGroups: [], noGroupPercent: 0, noGroupCount: 0 };
       }
 
-      // Get date range
-      const defaultRange: DashboardDateRange = { startDate: startOfMonth(new Date()), endDate: new Date() };
-      const { start, end } = getDashboardDateRange(dateRange || defaultRange);
-      const startDate = format(start, "yyyy-MM-dd");
-      const endDate = format(end, "yyyy-MM-dd");
+      if (serviceIds.length === 0) {
+        return { topGroups: [], noGroupPercent: 0, noGroupCount: 0 };
+      }
 
-      // Get all members who checked in during the date range
+      // Get all members who checked in for selected services
       let attendanceQuery = supabase
         .from("attendance")
         .select("member_id")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", `${startDate}T00:00:00`)
-        .lte("checked_in_at", `${endDate}T23:59:59`);
+        .in("service_id", serviceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
@@ -820,17 +768,13 @@ export function useGroupsSnapshot(branchId?: string, dateRange?: DashboardDateRa
 }
 
 // =================== SECTION 8: DEMOGRAPHICS ===================
-export function useDemographicsSnapshot(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
+// Service-driven: filters demographics by selected services
+export function useDemographicsSnapshot(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
-  // Use provided date range or default to today
-  const { start, end } = dateRange 
-    ? getDashboardDateRange(dateRange)
-    : getDateRange("today");
-
   return useQuery({
-    queryKey: ["demographics-snapshot", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
+    queryKey: ["demographics-snapshot", profile?.church_id, branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { gender: [], ageBands: [], topAreas: [] };
 
@@ -838,16 +782,18 @@ export function useDemographicsSnapshot(branchId?: string, serviceIds: string[] 
         return { gender: [], ageBands: [], topAreas: [] };
       }
 
-      // First, get unique member IDs who checked in during the date range
+      if (serviceIds.length === 0) {
+        return { gender: [], ageBands: [], topAreas: [] };
+      }
+
+      // First, get unique member IDs who checked in for selected services
       let attendanceQuery = supabase
         .from("attendance")
         .select("member_id")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString());
+        .in("service_id", serviceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
-      if (serviceIds.length > 0) attendanceQuery = attendanceQuery.in("service_id", serviceIds);
 
       const { data: attendanceData } = await attendanceQuery;
       const uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
@@ -921,17 +867,13 @@ export function useDemographicsSnapshot(branchId?: string, serviceIds: string[] 
 }
 
 // =================== SECTION 9: SERVICE QUALITY ===================
-export function useServiceQuality(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
+// Service-driven: calculates quality metrics for selected services
+export function useServiceQuality(branchId?: string, serviceIds: string[] = []) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  
-  // Use provided date range or default to this_week
-  const { start, end } = dateRange 
-    ? getDashboardDateRange(dateRange)
-    : getDateRange("this_week");
 
   return useQuery({
-    queryKey: ["service-quality", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
+    queryKey: ["service-quality", profile?.church_id, branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -939,15 +881,17 @@ export function useServiceQuality(branchId?: string, serviceIds: string[] = [], 
         return { lateRate: 0, earlyRate: 0, totalCheckins: 0 };
       }
 
+      if (serviceIds.length === 0) {
+        return { lateRate: 0, earlyRate: 0, totalCheckins: 0 };
+      }
+
       let query = supabase
         .from("attendance")
         .select("checked_in_at, service_id, branch_id, services!inner(start_time)")
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString());
+        .in("service_id", serviceIds);
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
       
       const { data } = await query;
       const records = data || [];

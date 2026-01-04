@@ -184,58 +184,14 @@ export function DashboardFilterBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* Date Range Picker */}
-        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
-              <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
-              <span className="truncate">{formatDateRangeLabel(dateRange)}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="flex gap-1 p-2 border-b">
-              <Button variant="ghost" size="sm" onClick={() => applyPreset("today")}>Today</Button>
-              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_week")}>This Week</Button>
-              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_month")}>This Month</Button>
-            </div>
-            <Calendar
-              mode="range"
-              selected={tempDateRange}
-              onSelect={handleDateSelect}
-              numberOfMonths={2}
-              defaultMonth={dateRange.startDate}
-              disabled={{ after: today }}
-            />
-          </PopoverContent>
-        </Popover>
-
-        {/* Branch Filter */}
-        {showBranchFilter && (
-          <Select 
-            value={selectedBranchId || "all"} 
-            onValueChange={(v) => onBranchChange(v === "all" ? undefined : v)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="All Branches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Multi-Select Service Filter */}
+        {/* Primary: Service Filter (most important) */}
         <Popover open={servicePickerOpen} onOpenChange={setServicePickerOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-              <Clock className="w-4 h-4 mr-2 text-muted-foreground flex-shrink-0" />
+            <Button variant="default" className="w-[220px] justify-start text-left font-normal">
+              <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="truncate">{serviceLabel}</span>
               {selectedServiceIds.length > 0 && (
-                <Badge variant="secondary" className="ml-auto">
+                <Badge variant="secondary" className="ml-auto bg-primary-foreground/20">
                   {selectedServiceIds.length}
                 </Badge>
               )}
@@ -243,7 +199,7 @@ export function DashboardFilterBar({
           </PopoverTrigger>
           <PopoverContent className="w-[320px] p-0" align="start">
             <div className="flex items-center justify-between p-3 border-b">
-              <span className="text-sm font-medium">Filter by Service</span>
+              <span className="text-sm font-medium">Select Service(s)</span>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={services.length === 0}>
                   Select All
@@ -288,6 +244,54 @@ export function DashboardFilterBar({
             </ScrollArea>
           </PopoverContent>
         </Popover>
+
+        {/* Secondary: Date Range (controls which services are available) */}
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
+              <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
+              <span className="truncate">{formatDateRangeLabel(dateRange)}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex gap-1 p-2 border-b">
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("today")}>Today</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_week")}>This Week</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_month")}>This Month</Button>
+            </div>
+            <Calendar
+              mode="range"
+              selected={tempDateRange}
+              onSelect={handleDateSelect}
+              numberOfMonths={2}
+              defaultMonth={dateRange.startDate}
+              disabled={{ after: today }}
+            />
+            <div className="p-2 border-t text-xs text-muted-foreground text-center">
+              Date range controls which services are shown above
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Branch Filter */}
+        {showBranchFilter && (
+          <Select 
+            value={selectedBranchId || "all"} 
+            onValueChange={(v) => onBranchChange(v === "all" ? undefined : v)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
 
         {/* Actions */}
         <Button variant="outline" size="icon" onClick={onRefresh} disabled={isLoading}>
