@@ -372,12 +372,12 @@ export function useBranchComparison(dateRange: DateRange = "today") {
 }
 
 // =================== SECTION 3: SHORT-TERM TRENDS (Service-Driven) ===================
-export function useAttendanceTrend(serviceId?: string, branchId?: string) {
+export function useAttendanceTrend(branchId?: string, serviceIds?: string[], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["attendance-trend", profile?.church_id, serviceId, branchId, accessibleBranchIds],
+    queryKey: ["attendance-trend", profile?.church_id, serviceIds, branchId, accessibleBranchIds, dateRange?.startDate?.toISOString(), dateRange?.endDate?.toISOString()],
     queryFn: async () => {
       if (!profile?.church_id) return { trend: [], weekChange: 0, monthChange: 0, hasData: false };
 
@@ -385,16 +385,18 @@ export function useAttendanceTrend(serviceId?: string, branchId?: string) {
         return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
       }
 
-      // Get last 8 weeks of services (service-driven timeline)
-      const weeksAgo = subWeeks(new Date(), 8);
+      // Use the date range from filters, fallback to last 8 weeks
+      const { start, end } = dateRange 
+        ? getDashboardDateRange(dateRange)
+        : { start: format(subWeeks(new Date(), 8), "yyyy-MM-dd"), end: format(new Date(), "yyyy-MM-dd") };
       
-      // Fetch services in the last 8 weeks
+      // Fetch services in the selected date range
       let servicesQuery = supabase
         .from("services")
         .select("id, service_date, name, branch_id")
         .eq("church_id", profile.church_id)
-        .gte("service_date", format(weeksAgo, "yyyy-MM-dd"))
-        .lte("service_date", format(new Date(), "yyyy-MM-dd"))
+        .gte("service_date", start)
+        .lte("service_date", end)
         .eq("is_active", true)
         .order("service_date", { ascending: true });
 
@@ -403,35 +405,33 @@ export function useAttendanceTrend(serviceId?: string, branchId?: string) {
       const { data: services } = await servicesQuery;
 
       if (!services?.length) {
-        // Still calculate MTD even if no services
-        const thisMonth = startOfMonth(new Date());
-        let mtdQuery = supabase
-          .from("attendance")
-          .select("*", { count: "exact", head: true })
-          .eq("church_id", profile.church_id)
-          .gte("checked_in_at", thisMonth.toISOString());
-        
-        mtdQuery = applyBranchFilter(mtdQuery, "branch_id", branchId, accessibleBranchIds);
-        const { count: mtdCount } = await mtdQuery;
-
-        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: mtdCount || 0, prevMtdCount: 0, hasData: false };
+        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
       }
 
-      const serviceIds = services.map(s => s.id);
+      // Filter by selected service IDs if provided
+      const filteredServices = serviceIds?.length 
+        ? services.filter(s => serviceIds.includes(s.id))
+        : services;
+
+      if (!filteredServices.length) {
+        return { trend: [], weekChange: 0, monthChange: 0, mtdCount: 0, prevMtdCount: 0, hasData: false };
+      }
+
+      const filteredServiceIds = filteredServices.map(s => s.id);
 
       // Fetch attendance for these services
       let attendanceQuery = supabase
         .from("attendance")
         .select("service_id, checked_in_at, branch_id")
         .eq("church_id", profile.church_id)
-        .in("service_id", serviceIds);
+        .in("service_id", filteredServiceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
       const { data: attendance } = await attendanceQuery;
 
       // Group by service date (aggregate per service date, not per calendar day)
-      const serviceMap = new Map(services.map(s => [s.id, s]));
+      const serviceMap = new Map(filteredServices.map(s => [s.id, s]));
       const dateAttendance: Record<string, { count: number; date: Date }> = {};
 
       (attendance || []).forEach((r) => {
@@ -454,40 +454,21 @@ export function useAttendanceTrend(serviceId?: string, branchId?: string) {
           attendance: count 
         }));
 
-      // Calculate week-over-week change
+      // Calculate week-over-week change based on trend data
       const thisWeek = trend[trend.length - 1]?.attendance || 0;
       const lastWeek = trend[trend.length - 2]?.attendance || 0;
       const weekChange = lastWeek ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : 0;
 
-      // MTD comparison
-      const thisMonth = startOfMonth(new Date());
-      const lastMonth = startOfMonth(subDays(thisMonth, 1));
-      const lastMonthEnd = endOfMonth(lastMonth);
-      const dayOfMonth = new Date().getDate();
-      const lastMonthSameDay = subDays(lastMonthEnd, lastMonthEnd.getDate() - dayOfMonth);
-
-      let mtdQuery = supabase
-        .from("attendance")
-        .select("*", { count: "exact", head: true })
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", thisMonth.toISOString());
+      // MTD count from the filtered attendance
+      const mtdCount = attendance?.length || 0;
       
-      mtdQuery = applyBranchFilter(mtdQuery, "branch_id", branchId, accessibleBranchIds);
-      const { count: mtdCount } = await mtdQuery;
+      // Calculate month-over-month by comparing first half to second half of trend if enough data
+      const halfIdx = Math.floor(trend.length / 2);
+      const firstHalfTotal = trend.slice(0, halfIdx).reduce((sum, t) => sum + t.attendance, 0);
+      const secondHalfTotal = trend.slice(halfIdx).reduce((sum, t) => sum + t.attendance, 0);
+      const monthChange = firstHalfTotal ? Math.round(((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100) : 0;
 
-      let prevMtdQuery = supabase
-        .from("attendance")
-        .select("*", { count: "exact", head: true })
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", lastMonth.toISOString())
-        .lte("checked_in_at", lastMonthSameDay.toISOString());
-      
-      prevMtdQuery = applyBranchFilter(prevMtdQuery, "branch_id", branchId, accessibleBranchIds);
-      const { count: prevMtdCount } = await prevMtdQuery;
-
-      const monthChange = prevMtdCount ? Math.round((((mtdCount || 0) - prevMtdCount) / prevMtdCount) * 100) : 0;
-
-      return { trend, weekChange, monthChange, mtdCount: mtdCount || 0, prevMtdCount: prevMtdCount || 0, hasData: trend.length > 0 };
+      return { trend, weekChange, monthChange, mtdCount, prevMtdCount: firstHalfTotal, hasData: trend.length > 0 };
     },
     enabled: !!profile?.church_id && !accessLoading
   });
