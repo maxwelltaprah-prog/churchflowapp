@@ -16,6 +16,8 @@ import { useUpdateMember } from "@/hooks/useChurchMutations";
 import { useBranches } from "@/hooks/useChurchData";
 import { useActiveGroups, useMemberGroups } from "@/hooks/useGroupsData";
 import { useSetMemberGroups } from "@/hooks/useGroupMutations";
+import { useActiveSpiritualJourneys, useMemberSpiritualJourneys } from "@/hooks/useSpiritualJourneyData";
+import { useSetMemberSpiritualJourneys } from "@/hooks/useSpiritualJourneyMutations";
 import { MemberForm } from "@/components/member/MemberForm";
 import { memberEditSchema, type MemberEditFormData } from "@/lib/member-form-schema";
 
@@ -45,8 +47,11 @@ interface EditMemberDialogProps {
 export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialogProps) {
   const updateMember = useUpdateMember();
   const setMemberGroups = useSetMemberGroups();
+  const setMemberSpiritualJourneys = useSetMemberSpiritualJourneys();
   const { data: branches } = useBranches();
   const { data: memberGroups } = useMemberGroups(member?.id || null);
+  const { data: memberSpiritualJourneys } = useMemberSpiritualJourneys(member?.id || null);
+  const { data: availableSpiritualJourneys } = useActiveSpiritualJourneys();
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
 
   // Check if member has incomplete required fields
@@ -62,6 +67,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       membership_status: "visitor",
       branch_id: "",
       group_ids: [],
+      spiritual_journey_ids: [],
       member_type: null,
       how_heard: null,
       residential_area: "",
@@ -93,6 +99,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         membership_status: member.membership_status || "visitor",
         branch_id: member.branch_id,
         group_ids: currentGroupIds,
+        spiritual_journey_ids: memberSpiritualJourneys || [],
         member_type: member.member_type || null,
         how_heard: member.how_heard || null,
         residential_area: member.residential_area || "",
@@ -103,7 +110,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         date_joined: member.date_joined || "",
       });
     }
-  }, [member, memberGroups, form]);
+  }, [member, memberGroups, memberSpiritualJourneys, form]);
 
   const onSubmit = async (data: MemberEditFormData) => {
     if (!member) return;
@@ -131,6 +138,12 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     await setMemberGroups.mutateAsync({
       memberId: member.id,
       groupIds: data.group_ids || [],
+    });
+    
+    // Update member spiritual journeys
+    await setMemberSpiritualJourneys.mutateAsync({
+      memberId: member.id,
+      journeyIds: data.spiritual_journey_ids || [],
     });
     
     onOpenChange(false);
@@ -162,6 +175,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
               form={form}
               branches={branches}
               availableGroups={availableGroups}
+              availableSpiritualJourneys={availableSpiritualJourneys}
               mode="edit"
               showAdminFields={true}
             />
@@ -170,7 +184,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMember.isPending || setMemberGroups.isPending}>
+              <Button 
+                type="submit" 
+                disabled={updateMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending}
+              >
                 {updateMember.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>

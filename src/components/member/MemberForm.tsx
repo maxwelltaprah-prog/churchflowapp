@@ -26,6 +26,7 @@ interface MemberFormProps {
   form: UseFormReturn<any>;
   branches?: { id: string; name: string }[];
   availableGroups?: { id: string; name: string }[];
+  availableSpiritualJourneys?: { id: string; name: string }[];
   mode: "add" | "edit" | "self-register";
   branchLocked?: boolean;
   showAdminFields?: boolean;
@@ -77,6 +78,7 @@ export function MemberForm({
   form,
   branches,
   availableGroups,
+  availableSpiritualJourneys,
   mode,
   branchLocked = false,
   showAdminFields = false,
@@ -362,9 +364,54 @@ export function MemberForm({
             />
           </div>
 
-          {/* Baptism Status */}
+          {/* Spiritual Journey Section */}
           <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
             <h4 className="text-sm font-medium text-foreground">Spiritual Journey</h4>
+            
+            {/* Spiritual Journey Multi-select */}
+            {availableSpiritualJourneys && availableSpiritualJourneys.length > 0 && (
+              <FormField
+                control={form.control}
+                name="spiritual_journey_ids"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Spiritual Milestones *</FormLabel>
+                    <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto bg-background">
+                      {availableSpiritualJourneys.map((journey) => (
+                        <FormField
+                          key={journey.id}
+                          control={form.control}
+                          name="spiritual_journey_ids"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(journey.id)}
+                                  onCheckedChange={(checked) => {
+                                    const currentValue = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...currentValue, journey.id]);
+                                    } else {
+                                      field.onChange(
+                                        currentValue.filter((id: string) => id !== journey.id)
+                                      );
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal cursor-pointer">
+                                {journey.name}
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             
             <FormField
               control={form.control}

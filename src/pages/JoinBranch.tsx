@@ -19,7 +19,8 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
-  Users
+  Users,
+  Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -54,6 +55,17 @@ async function fetchBranchGroups(branchId: string) {
   return data || [];
 }
 
+// Fetch active spiritual journeys for a church
+async function fetchChurchSpiritualJourneys(churchId: string) {
+  const { data } = await supabase
+    .from("spiritual_journeys")
+    .select("id, name")
+    .eq("church_id", churchId)
+    .eq("is_active", true)
+    .order("sort_order");
+  return data || [];
+}
+
 export default function JoinBranch() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -65,6 +77,7 @@ export default function JoinBranch() {
   const [showPin, setShowPin] = useState(false);
   const [optionalOpen, setOptionalOpen] = useState(false);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
+  const [availableSpiritualJourneys, setAvailableSpiritualJourneys] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [memberResult, setMemberResult] = useState<{ memberCode: string; branchName: string } | null>(null);
   const { toast } = useToast();
@@ -78,23 +91,28 @@ export default function JoinBranch() {
       date_of_birth: "",
       membership_status: "first_timer",
       group_ids: [],
+      spiritual_journey_ids: [],
       member_type: null,
       how_heard: null,
       residential_area: "",
       marital_status: null,
       occupation: null,
       email: "",
+      is_baptized: null,
       pin: "",
       confirmPin: "",
     },
   });
 
-  // Fetch groups when branch is set
+  // Fetch groups and spiritual journeys when branch is set
   useEffect(() => {
     if (branchInfo?.id) {
       fetchBranchGroups(branchInfo.id).then(setAvailableGroups);
     }
-  }, [branchInfo?.id]);
+    if (branchInfo?.church_id) {
+      fetchChurchSpiritualJourneys(branchInfo.church_id).then(setAvailableSpiritualJourneys);
+    }
+  }, [branchInfo?.id, branchInfo?.church_id]);
 
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,6 +249,15 @@ export default function JoinBranch() {
           group_id: groupId,
         }));
         await supabase.from("member_groups").insert(groupInserts);
+      }
+
+      // Add member spiritual journeys
+      if (data.spiritual_journey_ids && data.spiritual_journey_ids.length > 0 && newMember) {
+        const journeyInserts = data.spiritual_journey_ids.map((journeyId) => ({
+          member_id: newMember.id,
+          spiritual_journey_id: journeyId,
+        }));
+        await supabase.from("member_spiritual_journeys").insert(journeyInserts);
       }
 
       // Sign out - they need approval first
@@ -533,6 +560,58 @@ export default function JoinBranch() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  {/* Spiritual Journey Section (Required) */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Spiritual Journey
+                    </h3>
+
+                    {availableSpiritualJourneys.length > 0 && (
+                      <FormField
+                        control={form.control}
+                        name="spiritual_journey_ids"
+                        render={() => (
+                          <FormItem>
+                            <FormLabel>Spiritual Milestones *</FormLabel>
+                            <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto bg-background">
+                              {availableSpiritualJourneys.map((journey) => (
+                                <FormField
+                                  key={journey.id}
+                                  control={form.control}
+                                  name="spiritual_journey_ids"
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value?.includes(journey.id)}
+                                          onCheckedChange={(checked) => {
+                                            const currentValue = field.value || [];
+                                            if (checked) {
+                                              field.onChange([...currentValue, journey.id]);
+                                            } else {
+                                              field.onChange(
+                                                currentValue.filter((id) => id !== journey.id)
+                                              );
+                                            }
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="text-sm font-normal cursor-pointer">
+                                        {journey.name}
+                                      </FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
 
                   {/* Account Security Section */}

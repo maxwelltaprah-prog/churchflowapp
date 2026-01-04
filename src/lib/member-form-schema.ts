@@ -38,6 +38,9 @@ export const memberFormSchema = z.object({
   occupation: z.enum(["student", "public_sector", "private_sector", "self_employed", "unemployed", "other"]).optional().nullable(),
   email: z.string().email().optional().or(z.literal("")).nullable(),
   
+  // Spiritual Journey - required, at least one must be selected
+  spiritual_journey_ids: z.array(z.string()).min(1, "Please select at least one spiritual journey option"),
+  
   // Optional fields (Section D - Spiritual Journey)
   is_baptized: z.boolean().optional().nullable(),
   
@@ -56,6 +59,8 @@ export const memberEditSchema = memberFormSchema.extend({
     (val) => !val || validateDateOfBirth(val),
     "Please enter a valid date of birth"
   ),
+  // Spiritual journey can be empty for existing members
+  spiritual_journey_ids: z.array(z.string()).optional(),
 });
 
 // Schema for self-registration (without branch_id - it's auto-filled)
@@ -63,6 +68,8 @@ export const selfRegisterSchema = memberFormSchema.omit({ branch_id: true }).ext
   // PIN fields for self-registration
   pin: z.string().min(4, "PIN must be at least 4 digits").max(6),
   confirmPin: z.string(),
+  // Spiritual journey is required for self-registration too
+  spiritual_journey_ids: z.array(z.string()).min(1, "Please select at least one spiritual journey option"),
 }).refine((data) => data.pin === data.confirmPin, {
   message: "PINs don't match",
   path: ["confirmPin"],
