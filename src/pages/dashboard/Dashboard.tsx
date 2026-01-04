@@ -302,12 +302,12 @@ export default function Dashboard() {
       {/* SECTION 7-8: Groups & Demographics */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Groups Snapshot" icon={UsersRound} action={<Link to="/app/groups"><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+          <CardHeader className="pb-3"><SectionHeader title="Groups Snapshot" icon={UsersRound} action={<Link to={buildAnalyticsLink("groups", dateRange, branchId)}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
           <CardContent>
             {!groups?.topGroups?.length ? <EmptyState icon={UsersRound} title="No groups" description="Create groups to track ministry engagement" /> : (
               <div className="space-y-2">
-                {groups.topGroups.map((g) => <ListItem key={g.id} name={g.name} value={g.members} href={`/app/groups`} />)}
-                <div className="pt-2 text-sm text-muted-foreground">{groups.noGroupPercent}% of members have no group assigned</div>
+                {groups.topGroups.map((g) => <ListItem key={g.id} name={g.name} value={g.members} href={buildAnalyticsLink("groups", dateRange, branchId)} />)}
+                <div className="pt-2 text-sm text-muted-foreground">{groups.noGroupPercent}% of attendees have no group assigned</div>
               </div>
             )}
           </CardContent>
