@@ -496,6 +496,91 @@ export function useRejectMember() {
   });
 }
 
+// Bulk approve members
+export function useBulkApproveMember() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (memberIds: string[]) => {
+      const results = { approved: 0, failed: 0 };
+      
+      for (const memberId of memberIds) {
+        const { error } = await supabase
+          .from("members")
+          .update({ 
+            approval_status: "approved",
+            approved_at: new Date().toISOString(),
+            approved_by: user?.id
+          })
+          .eq("id", memberId)
+          .eq("approval_status", "pending");
+
+        if (error) {
+          results.failed++;
+        } else {
+          results.approved++;
+        }
+      }
+      
+      return results;
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-members"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      if (results.failed > 0) {
+        toast.info(`Approved: ${results.approved}, Failed: ${results.failed}`);
+      } else {
+        toast.success(`${results.approved} member(s) approved`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// Bulk reject members
+export function useBulkRejectMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (memberIds: string[]) => {
+      const results = { rejected: 0, failed: 0 };
+      
+      for (const memberId of memberIds) {
+        const { error } = await supabase
+          .from("members")
+          .update({ approval_status: "rejected" })
+          .eq("id", memberId)
+          .eq("approval_status", "pending");
+
+        if (error) {
+          results.failed++;
+        } else {
+          results.rejected++;
+        }
+      }
+      
+      return results;
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-members"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      if (results.failed > 0) {
+        toast.info(`Rejected: ${results.rejected}, Failed: ${results.failed}`);
+      } else {
+        toast.success(`${results.rejected} member(s) rejected`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // Create a broadcast
 export function useCreateBroadcast() {
   const queryClient = useQueryClient();
