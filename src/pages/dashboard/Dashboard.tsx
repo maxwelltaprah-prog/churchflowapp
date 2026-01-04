@@ -74,7 +74,7 @@ export default function Dashboard() {
   // All dashboard data hooks - pass dateRange and serviceIds
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds, dateRange);
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds, dateRange);
-  const { data: attendTrend } = useAttendanceTrend(serviceIds.length === 1 ? serviceIds[0] : undefined, branchId);
+  const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds, dateRange);
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds, dateRange);
   const { data: engagement } = useEngagementSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
