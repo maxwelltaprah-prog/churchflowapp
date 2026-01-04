@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, UserCheck, Clock, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, Activity, UsersRound
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useChurchData";
 import {
   useTodayKPIs, useCheckinTrend, useAttendanceTrend,
-  useMemberVisitorBreakdown, useEngagementSignals, useBranchOperations,
+  useMemberVisitorBreakdown, useBranchOperations,
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
   useFollowUpList, useDashboardServicesInDateRange
 } from "@/hooks/useDashboardData";
+import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
 import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
@@ -76,7 +77,7 @@ export default function Dashboard() {
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds, dateRange);
   const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds, dateRange);
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds, dateRange);
-  const { data: engagement } = useEngagementSignals(branchId);
+  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds, dateRange);
@@ -246,15 +247,46 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Engagement */}
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Engagement Signals" icon={Activity} /></CardHeader>
-          <CardContent className="space-y-2">
-            <ProgressBar label="Active (4 wks)" value={engagement?.active || 0} max={(engagement?.active || 0) + (engagement?.atRisk || 0) + (engagement?.inactive || 0)} color="success" />
-            <ProgressBar label="At Risk (4-8 wks)" value={engagement?.atRisk || 0} max={(engagement?.active || 0) + (engagement?.atRisk || 0) + (engagement?.inactive || 0)} color="warning" />
-            <ProgressBar label="Inactive (12+ wks)" value={engagement?.inactive || 0} max={(engagement?.active || 0) + (engagement?.atRisk || 0) + (engagement?.inactive || 0)} color="destructive" />
-          </CardContent>
-        </Card>
+        {/* Engagement Signals - Clickable */}
+        <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
+          <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full">
+            <CardHeader className="pb-3">
+              <SectionHeader title="Engagement Signals" icon={AlertTriangle} />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {engagementLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="flex items-center gap-2">
+                      <UserMinus className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-foreground">Missed 3+ Services</span>
+                    </div>
+                    <Badge variant="destructive" className="text-lg px-3">
+                      {engagement?.missedCount || 0}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-foreground">Returnees</span>
+                    </div>
+                    <Badge className="bg-green-600 hover:bg-green-700 text-lg px-3">
+                      {engagement?.returneeCount || 0}
+                    </Badge>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center text-xs text-primary font-medium pt-1">
+                View details <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Service Quality */}
         <Card>
