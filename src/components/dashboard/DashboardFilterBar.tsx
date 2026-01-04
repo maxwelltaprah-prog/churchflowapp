@@ -1,9 +1,15 @@
-import { Building2, CalendarDays, RefreshCw, QrCode, Clock } from "lucide-react";
+import { Building2, CalendarDays, RefreshCw, QrCode, Clock, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link } from "react-router-dom";
-import { format, parseISO, isToday } from "date-fns";
-import { DateRange } from "@/hooks/useDashboardData";
+import { format, parseISO, isToday, startOfMonth } from "date-fns";
+import { useState, useMemo, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface Branch {
   id: string;
@@ -15,21 +21,28 @@ interface Service {
   name: string;
   start_time?: string;
   service_date?: string;
+  branchName?: string;
   branches?: { name: string } | null;
+}
+
+export interface DashboardDateRange {
+  startDate: Date;
+  endDate: Date;
 }
 
 interface DashboardFilterBarProps {
   branches: Branch[];
   services: Service[];
   selectedBranchId?: string;
-  selectedServiceId?: string;
-  dateRange: DateRange;
+  selectedServiceIds: string[];
+  dateRange: DashboardDateRange;
   onBranchChange: (branchId: string | undefined) => void;
-  onServiceChange: (serviceId: string | undefined) => void;
-  onDateRangeChange: (range: DateRange) => void;
+  onServiceChange: (serviceIds: string[]) => void;
+  onDateRangeChange: (range: DashboardDateRange) => void;
   onRefresh: () => void;
   showBranchFilter: boolean;
   isLoading?: boolean;
+  isServicesLoading?: boolean;
 }
 
 // Helper to format service display name with differentiation
@@ -50,27 +63,118 @@ function formatServiceDisplay(service: Service): string {
   }
   
   // Add branch if available
-  if (service.branches?.name) {
-    parts.push(`(${service.branches.name.replace(" Branch", "")})`);
+  const branchName = service.branchName || service.branches?.name;
+  if (branchName) {
+    parts.push(`(${branchName.replace(" Branch", "")})`);
   }
   
   return parts.join(" ");
+}
+
+// Format date range for display
+function formatDateRangeLabel(range: DashboardDateRange): string {
+  const { startDate, endDate } = range;
+  const today = new Date();
+  const monthStart = startOfMonth(today);
+  
+  // Check for common presets
+  if (startDate.toDateString() === today.toDateString() && endDate.toDateString() === today.toDateString()) {
+    return "Today";
+  }
+  
+  return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}`;
 }
 
 export function DashboardFilterBar({
   branches,
   services,
   selectedBranchId,
-  selectedServiceId,
+  selectedServiceIds,
   dateRange,
   onBranchChange,
   onServiceChange,
   onDateRangeChange,
   onRefresh,
   showBranchFilter,
-  isLoading
+  isLoading,
+  isServicesLoading
 }: DashboardFilterBarProps) {
   const today = new Date();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: dateRange.startDate,
+    to: dateRange.endDate
+  });
+
+  // Sync temp date range when dateRange prop changes
+  useEffect(() => {
+    setTempDateRange({ from: dateRange.startDate, to: dateRange.endDate });
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  // Quick preset buttons
+  const applyPreset = (preset: "today" | "this_week" | "this_month") => {
+    const now = new Date();
+    let start: Date, end: Date;
+    
+    switch (preset) {
+      case "today":
+        start = now;
+        end = now;
+        break;
+      case "this_week":
+        start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        end = now;
+        break;
+      case "this_month":
+      default:
+        start = startOfMonth(now);
+        end = now;
+        break;
+    }
+    
+    onDateRangeChange({ startDate: start, endDate: end });
+    setDatePickerOpen(false);
+  };
+
+  const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined } | undefined) => {
+    if (range) {
+      setTempDateRange(range);
+      if (range.from && range.to) {
+        onDateRangeChange({ startDate: range.from, endDate: range.to });
+        setDatePickerOpen(false);
+      }
+    }
+  };
+
+  // Toggle service selection
+  const toggleService = (serviceId: string) => {
+    const isSelected = selectedServiceIds.includes(serviceId);
+    if (isSelected) {
+      onServiceChange(selectedServiceIds.filter(id => id !== serviceId));
+    } else {
+      onServiceChange([...selectedServiceIds, serviceId]);
+    }
+  };
+
+  const clearAllServices = () => {
+    onServiceChange([]);
+  };
+
+  const selectAllServices = () => {
+    onServiceChange(services.map(s => s.id));
+  };
+
+  // Service count label
+  const serviceLabel = useMemo(() => {
+    if (selectedServiceIds.length === 0) return "All Services";
+    if (selectedServiceIds.length === 1) {
+      const service = services.find(s => s.id === selectedServiceIds[0]);
+      return service ? service.name : "1 Service";
+    }
+    return `${selectedServiceIds.length} Services`;
+  }, [selectedServiceIds, services]);
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-6 border-b border-border">
@@ -80,18 +184,30 @@ export function DashboardFilterBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* Date Range */}
-        <Select value={dateRange} onValueChange={(v) => onDateRangeChange(v as DateRange)}>
-          <SelectTrigger className="w-[140px]">
-            <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="this_week">This Week</SelectItem>
-            <SelectItem value="this_month">This Month</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Date Range Picker */}
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
+              <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
+              <span className="truncate">{formatDateRangeLabel(dateRange)}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex gap-1 p-2 border-b">
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("today")}>Today</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_week")}>This Week</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_month")}>This Month</Button>
+            </div>
+            <Calendar
+              mode="range"
+              selected={tempDateRange}
+              onSelect={handleDateSelect}
+              numberOfMonths={2}
+              defaultMonth={dateRange.startDate}
+              disabled={{ after: today }}
+            />
+          </PopoverContent>
+        </Popover>
 
         {/* Branch Filter */}
         {showBranchFilter && (
@@ -112,28 +228,66 @@ export function DashboardFilterBar({
           </Select>
         )}
 
-        {/* Service Filter */}
-        <Select 
-          value={selectedServiceId || "all"} 
-          onValueChange={(v) => onServiceChange(v === "all" ? undefined : v)}
-        >
-          <SelectTrigger className="w-[280px]">
-            <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="All Services" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Services</SelectItem>
-            {services.length === 0 ? (
-              <SelectItem value="none" disabled>No services available</SelectItem>
-            ) : (
-              services.map((service) => (
-                <SelectItem key={service.id} value={service.id}>
-                  {formatServiceDisplay(service)}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        {/* Multi-Select Service Filter */}
+        <Popover open={servicePickerOpen} onOpenChange={setServicePickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+              <Clock className="w-4 h-4 mr-2 text-muted-foreground flex-shrink-0" />
+              <span className="truncate">{serviceLabel}</span>
+              {selectedServiceIds.length > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {selectedServiceIds.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-0" align="start">
+            <div className="flex items-center justify-between p-3 border-b">
+              <span className="text-sm font-medium">Filter by Service</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={services.length === 0}>
+                  Select All
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearAllServices} disabled={selectedServiceIds.length === 0}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <ScrollArea className="h-[280px]">
+              {isServicesLoading ? (
+                <div className="p-4 text-center text-muted-foreground text-sm">Loading services...</div>
+              ) : services.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground text-sm">No services in this period</div>
+              ) : (
+                <div className="p-2">
+                  {services.map((service) => (
+                    <div
+                      key={service.id}
+                      className={cn(
+                        "flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+                        selectedServiceIds.includes(service.id) && "bg-muted"
+                      )}
+                      onClick={() => toggleService(service.id)}
+                    >
+                      <Checkbox
+                        checked={selectedServiceIds.includes(service.id)}
+                        onCheckedChange={() => toggleService(service.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{service.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {service.service_date && format(parseISO(service.service_date), "MMM d")}
+                          {service.start_time && ` @ ${service.start_time.slice(0, 5)}`}
+                          {(service.branchName || service.branches?.name) && ` • ${(service.branchName || service.branches?.name)?.replace(" Branch", "")}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
 
         {/* Actions */}
         <Button variant="outline" size="icon" onClick={onRefresh} disabled={isLoading}>

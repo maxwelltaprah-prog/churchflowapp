@@ -6,7 +6,13 @@ import { startOfDay, endOfDay, subDays, subWeeks, startOfMonth, endOfMonth, form
 
 export type DateRange = "today" | "this_week" | "this_month";
 
-// Helper to get date range
+// New dashboard date range type with start/end dates
+export interface DashboardDateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+// Helper to get date range from preset
 const getDateRange = (range: DateRange) => {
   const today = new Date();
   switch (range) {
@@ -20,16 +26,25 @@ const getDateRange = (range: DateRange) => {
   }
 };
 
+// Helper to get dates from DashboardDateRange
+const getDashboardDateRange = (range: DashboardDateRange) => {
+  return { start: startOfDay(range.startDate), end: endOfDay(range.endDate) };
+};
+
 // Branch filtering is applied inline in each query to avoid TypeScript generic issues
 
 // =================== SECTION 1: TODAY'S SNAPSHOT KPIs ===================
-export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: DateRange = "today") {
+export function useTodayKPIs(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  const { start, end } = getDateRange(dateRange);
+  
+  // Use provided date range or default to today
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("today");
 
   return useQuery({
-    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceId, dateRange, accessibleBranchIds],
+    queryKey: ["dashboard-kpis", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -46,7 +61,7 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
         .lte("checked_in_at", end.toISOString());
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-      if (serviceId) query = query.eq("service_id", serviceId);
+      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
 
       const { data: records, error } = await query;
       if (error) throw error;
@@ -113,24 +128,31 @@ export function useTodayKPIs(branchId?: string, serviceId?: string, dateRange: D
 }
 
 // =================== SECTION 2: TODAY'S FLOW (Check-in Trend) ===================
-// For "today" view: shows time-of-day distribution for the selected service(s)
-// For other date ranges: shows service-driven trend (per service date, not continuous calendar)
-export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange: DateRange = "today") {
+// For single-day view: shows time-of-day distribution for the selected service(s)
+// For multi-day ranges: shows service-driven trend (per service date)
+export function useCheckinTrend(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  const { start, end } = getDateRange(dateRange);
+  
+  // Use provided date range or default to today
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("today");
+
+  // Check if it's a single-day range
+  const isSingleDay = start.toDateString() === end.toDateString();
 
   return useQuery({
-    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceId, dateRange, accessibleBranchIds],
+    queryKey: ["checkin-trend", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
-      if (!profile?.church_id) return { data: [], hasData: false, isTimeOfDay: dateRange === "today" };
+      if (!profile?.church_id) return { data: [], hasData: false, isTimeOfDay: isSingleDay };
 
       if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
-        return { data: [], hasData: false, isTimeOfDay: dateRange === "today" };
+        return { data: [], hasData: false, isTimeOfDay: isSingleDay };
       }
 
-      // For "today" view, show time-of-day distribution
-      if (dateRange === "today") {
+      // For single-day view, show time-of-day distribution
+      if (isSingleDay) {
         // First, fetch services to determine time window
         let servicesQuery = supabase
           .from("services")
@@ -140,7 +162,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
           .eq("is_active", true);
 
         servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
-        if (serviceId) servicesQuery = servicesQuery.eq("id", serviceId);
+        if (serviceIds.length > 0) servicesQuery = servicesQuery.in("id", serviceIds);
 
         const { data: todayServices } = await servicesQuery;
 
@@ -186,7 +208,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
           .order("checked_in_at");
 
         query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
-        if (serviceId) query = query.eq("service_id", serviceId);
+        if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -222,7 +244,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
         return { data: chartData, hasData: (data || []).length > 0, isTimeOfDay: true, peakTime, peakCount };
       }
 
-      // For other date ranges, use service-driven timeline
+      // For multi-day date ranges, use service-driven timeline
       // Fetch services in range
       let servicesQuery = supabase
         .from("services")
@@ -234,22 +256,23 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
         .order("service_date", { ascending: true });
 
       servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
+      if (serviceIds.length > 0) servicesQuery = servicesQuery.in("id", serviceIds);
 
-      const { data: services, error: servicesError } = await servicesQuery;
+      const { data: rangeServices, error: servicesError } = await servicesQuery;
       if (servicesError) throw servicesError;
 
-      if (!services?.length) {
+      if (!rangeServices?.length) {
         return { data: [], hasData: false, isTimeOfDay: false };
       }
 
-      const serviceIds = services.map(s => s.id);
+      const rangeServiceIds = rangeServices.map(s => s.id);
 
       // Fetch attendance for these services
       let attendanceQuery = supabase
         .from("attendance")
         .select("service_id")
         .eq("church_id", profile.church_id)
-        .in("service_id", serviceIds);
+        .in("service_id", rangeServiceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
@@ -257,7 +280,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
       if (attendanceError) throw attendanceError;
 
       // Group attendance by service date
-      const serviceMap = new Map(services.map(s => [s.id, s]));
+      const serviceMap = new Map(rangeServices.map(s => [s.id, s]));
       const dateAttendance: Record<string, number> = {};
 
       (attendance || []).forEach(a => {
@@ -269,7 +292,7 @@ export function useCheckinTrend(branchId?: string, serviceId?: string, dateRange
       });
 
       // Build chart data from service dates only
-      const chartData = services
+      const chartData = rangeServices
         .reduce((acc, service) => {
           const existing = acc.find(d => d.date === service.service_date);
           if (!existing) {
@@ -471,13 +494,17 @@ export function useAttendanceTrend(serviceId?: string, branchId?: string) {
 }
 
 // =================== SECTION 4: MEMBERS VS VISITORS ===================
-export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRange = "today") {
+export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  const { start, end } = getDateRange(dateRange);
+  
+  // Use provided date range or default to today
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("today");
 
   return useQuery({
-    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, dateRange, accessibleBranchIds],
+    queryKey: ["member-visitor-breakdown", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -493,6 +520,7 @@ export function useMemberVisitorBreakdown(branchId?: string, dateRange: DateRang
         .lte("checked_in_at", end.toISOString());
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
+      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
       
       const { data } = await query;
 
@@ -646,15 +674,19 @@ export function useEngagementSignals(branchId?: string) {
 }
 
 // =================== SECTION 6: BRANCH OPERATIONS ===================
-export function useBranchOperations(dateRange: DateRange = "this_week") {
+export function useBranchOperations(dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  const { start, end } = getDateRange(dateRange);
+  
+  // Use provided date range or default to this_week
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("this_week");
   const prevStart = subWeeks(start, 1);
   const prevEnd = subWeeks(end, 1);
 
   return useQuery({
-    queryKey: ["branch-operations", profile?.church_id, dateRange, accessibleBranchIds],
+    queryKey: ["branch-operations", profile?.church_id, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { leaderboard: [], crossBranch: 0 };
 
@@ -791,21 +823,23 @@ export function useGroupsSnapshot(branchId?: string) {
 }
 
 // =================== SECTION 8: DEMOGRAPHICS ===================
-export function useDemographicsSnapshot(branchId?: string, dateRange: DateRange = "today") {
+export function useDemographicsSnapshot(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
+  // Use provided date range or default to today
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("today");
+
   return useQuery({
-    queryKey: ["demographics-snapshot", profile?.church_id, branchId, dateRange, accessibleBranchIds],
+    queryKey: ["demographics-snapshot", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { gender: [], ageBands: [], topAreas: [] };
 
       if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
         return { gender: [], ageBands: [], topAreas: [] };
       }
-
-      // Calculate date range
-      const { start, end } = getDateRange(dateRange);
 
       // First, get unique member IDs who checked in during the date range
       let attendanceQuery = supabase
@@ -816,6 +850,7 @@ export function useDemographicsSnapshot(branchId?: string, dateRange: DateRange 
         .lte("checked_in_at", end.toISOString());
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
+      if (serviceIds.length > 0) attendanceQuery = attendanceQuery.in("service_id", serviceIds);
 
       const { data: attendanceData } = await attendanceQuery;
       const uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
@@ -889,13 +924,17 @@ export function useDemographicsSnapshot(branchId?: string, dateRange: DateRange 
 }
 
 // =================== SECTION 9: SERVICE QUALITY ===================
-export function useServiceQuality(branchId?: string, dateRange: DateRange = "this_week") {
+export function useServiceQuality(branchId?: string, serviceIds: string[] = [], dateRange?: DashboardDateRange) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
-  const { start, end } = getDateRange(dateRange);
+  
+  // Use provided date range or default to this_week
+  const { start, end } = dateRange 
+    ? getDashboardDateRange(dateRange)
+    : getDateRange("this_week");
 
   return useQuery({
-    queryKey: ["service-quality", profile?.church_id, branchId, dateRange, accessibleBranchIds],
+    queryKey: ["service-quality", profile?.church_id, branchId, serviceIds, start.toISOString(), end.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
@@ -911,6 +950,7 @@ export function useServiceQuality(branchId?: string, dateRange: DateRange = "thi
         .lte("checked_in_at", end.toISOString());
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
+      if (serviceIds.length > 0) query = query.in("service_id", serviceIds);
       
       const { data } = await query;
       const records = data || [];
@@ -1270,5 +1310,57 @@ export function useRecentServices(branchId?: string) {
       return data || [];
     },
     enabled: !!profile?.church_id && !accessLoading
+  });
+}
+
+// =================== DASHBOARD SERVICES IN DATE RANGE ===================
+/**
+ * Fetches services within a custom date range for the main dashboard filter
+ */
+export function useDashboardServicesInDateRange(startDate: Date, endDate: Date, branchId?: string) {
+  const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
+
+  return useQuery({
+    queryKey: [
+      "dashboard-services-in-range", 
+      profile?.church_id, 
+      format(startDate, "yyyy-MM-dd"),
+      format(endDate, "yyyy-MM-dd"),
+      branchId,
+      accessibleBranchIds
+    ],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+
+      let query = supabase
+        .from("services")
+        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .gte("service_date", format(startDate, "yyyy-MM-dd"))
+        .lte("service_date", format(endDate, "yyyy-MM-dd"))
+        .order("service_date", { ascending: false })
+        .order("start_time", { ascending: true });
+
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        service_date: s.service_date,
+        start_time: s.start_time,
+        branch_id: s.branch_id,
+        branchName: (s.branches as any)?.name || undefined,
+      }));
+    },
+    enabled: !!profile?.church_id && !accessLoading,
   });
 }

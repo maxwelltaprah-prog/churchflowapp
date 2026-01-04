@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, UserCheck, Clock, ChevronRight, Building2,
@@ -15,25 +15,27 @@ import {
   useTodayKPIs, useCheckinTrend, useAttendanceTrend,
   useMemberVisitorBreakdown, useEngagementSignals, useBranchOperations,
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
-  useFollowUpList, useTodayServices, useRecentServices, DateRange
+  useFollowUpList, useDashboardServicesInDateRange
 } from "@/hooks/useDashboardData";
-import { DashboardFilterBar } from "@/components/dashboard/DashboardFilterBar";
+import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
+import { startOfMonth, format } from "date-fns";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
 
 // Helper to build analytics URL with proper query params
 function buildAnalyticsLink(
   path: string,
-  dateRange: DateRange,
+  dateRange: DashboardDateRange,
   branchId?: string,
   segment?: string
 ): string {
   const params = new URLSearchParams();
-  if (dateRange === "today") params.set("period", "today");
-  else if (dateRange === "this_week") params.set("period", "this_week");
-  else if (dateRange === "this_month") params.set("period", "this_month");
+  // Pass dates as from/to params
+  params.set("from", format(dateRange.startDate, "yyyy-MM-dd"));
+  params.set("to", format(dateRange.endDate, "yyyy-MM-dd"));
+  params.set("period", "custom");
   if (branchId) params.set("branch", branchId);
   if (segment) params.set("segment", segment);
   const queryString = params.toString();
@@ -43,24 +45,42 @@ function buildAnalyticsLink(
 export default function Dashboard() {
   const { profile, isChurchAdmin } = useAuth();
   const [branchId, setBranchId] = useState<string | undefined>();
-  const [serviceId, setServiceId] = useState<string | undefined>();
-  const [dateRange, setDateRange] = useState<DateRange>("today");
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<DashboardDateRange>(() => ({
+    startDate: startOfMonth(new Date()),
+    endDate: new Date()
+  }));
 
   const { data: branches } = useBranches();
-  const { data: todayServices } = useTodayServices(branchId);
-  const { data: recentServices } = useRecentServices(branchId);
-  const services = [...(todayServices || []), ...(recentServices || [])].filter((s, i, a) => a.findIndex(x => x.id === s.id) === i);
+  
+  // Fetch services within the selected date range
+  const { data: servicesInRange, isLoading: servicesLoading } = useDashboardServicesInDateRange(
+    dateRange.startDate,
+    dateRange.endDate,
+    branchId
+  );
 
-  // All dashboard data hooks
-  const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceId, dateRange);
-  const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceId, dateRange);
-  const { data: attendTrend } = useAttendanceTrend(serviceId, branchId);
-  const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, dateRange);
+  // Clear selected services when date range or branch changes if they're no longer valid
+  useEffect(() => {
+    if (servicesInRange && serviceIds.length > 0) {
+      const validServiceIds = servicesInRange.map(s => s.id);
+      const filteredIds = serviceIds.filter(id => validServiceIds.includes(id));
+      if (filteredIds.length !== serviceIds.length) {
+        setServiceIds(filteredIds);
+      }
+    }
+  }, [servicesInRange, serviceIds]);
+
+  // All dashboard data hooks - pass dateRange and serviceIds
+  const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds, dateRange);
+  const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds, dateRange);
+  const { data: attendTrend } = useAttendanceTrend(serviceIds.length === 1 ? serviceIds[0] : undefined, branchId);
+  const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds, dateRange);
   const { data: engagement } = useEngagementSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId);
-  const { data: demographics } = useDemographicsSnapshot(branchId, dateRange);
-  const { data: serviceQuality } = useServiceQuality(branchId, dateRange);
+  const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds, dateRange);
+  const { data: serviceQuality } = useServiceQuality(branchId, serviceIds, dateRange);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;
@@ -70,16 +90,17 @@ export default function Dashboard() {
       {/* Filter Bar */}
       <DashboardFilterBar
         branches={branches || []}
-        services={services}
+        services={servicesInRange || []}
         selectedBranchId={branchId}
-        selectedServiceId={serviceId}
+        selectedServiceIds={serviceIds}
         dateRange={dateRange}
         onBranchChange={setBranchId}
-        onServiceChange={setServiceId}
+        onServiceChange={setServiceIds}
         onDateRangeChange={setDateRange}
         onRefresh={() => refetch()}
         showBranchFilter={showBranchFilter}
         isLoading={kpisLoading}
+        isServicesLoading={servicesLoading}
       />
 
       {/* SECTION 1: KPI Cards - with deep links to analytics */}
@@ -305,7 +326,7 @@ export default function Dashboard() {
 
       {/* New People to Follow Up */}
       <Card>
-        <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", "today", branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+        <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", dateRange, branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
         <CardContent>
           {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
