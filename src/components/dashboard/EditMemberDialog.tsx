@@ -36,6 +36,7 @@ interface EditMemberDialogProps {
     residential_area?: string | null;
     marital_status?: "single" | "married" | "divorced" | "widowed" | null;
     occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other" | null;
+    is_baptized?: boolean | null;
     admin_notes?: string | null;
     date_joined?: string | null;
   } | null;
@@ -67,6 +68,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       marital_status: null,
       occupation: null,
       email: "",
+      is_baptized: null,
       admin_notes: "",
       date_joined: "",
     },
@@ -96,6 +98,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         residential_area: member.residential_area || "",
         marital_status: member.marital_status || null,
         occupation: member.occupation || null,
+        is_baptized: member.is_baptized ?? null,
         admin_notes: member.admin_notes || "",
         date_joined: member.date_joined || "",
       });
@@ -119,6 +122,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       residential_area: data.residential_area || undefined,
       marital_status: data.marital_status || undefined,
       occupation: data.occupation || undefined,
+      is_baptized: data.is_baptized ?? undefined,
       admin_notes: data.admin_notes || undefined,
       date_joined: data.date_joined || undefined,
     });

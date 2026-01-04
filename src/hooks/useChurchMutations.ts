@@ -402,6 +402,7 @@ export function useUpdateMember() {
       residential_area?: string;
       marital_status?: "single" | "married" | "divorced" | "widowed";
       occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other";
+      is_baptized?: boolean;
       admin_notes?: string;
       date_joined?: string;
     }) => {
