@@ -11,6 +11,7 @@ export interface MissedMember {
   email: string | null;
   branch_id: string;
   branch_name?: string;
+  membership_status: string | null;
   last_checkin_date: string | null;
   consecutive_missed: number;
 }
@@ -22,6 +23,7 @@ export interface ReturneeMember {
   email: string | null;
   branch_id: string;
   branch_name?: string;
+  membership_status: string | null;
   return_date: string;
   previous_missed_count: number;
 }
@@ -87,23 +89,24 @@ export function useConsecutiveMissSignals(branchId?: string) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
       }
 
-      // 2. Get all active approved members (only members, not visitors/first-timers)
+      // 2. Get ALL active approved members in the tenant (regardless of membership_status)
+      // This evaluates everyone: members, visitors, first-timers, new converts, etc.
       let membersQuery = supabase
         .from("members")
-        .select("id, full_name, phone, email, branch_id")
+        .select("id, full_name, phone, email, branch_id, membership_status")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
-        .eq("approval_status", "approved")
-        .eq("membership_status", "member");
+        .eq("approval_status", "approved");
 
       membersQuery = applyBranchFilter(membersQuery, "branch_id", branchId, accessibleBranchIds);
 
       const { data: allMembers } = await membersQuery;
-      const memberIds = (allMembers || []).map(m => m.id);
 
-      if (memberIds.length === 0) {
+      if (!allMembers || allMembers.length === 0) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
       }
+
+      const memberIds = allMembers.map(m => m.id);
 
       // 3. Get all attendance records for these members with service dates
       // We need to map attendance to service dates (not just checked_in_at)
@@ -166,6 +169,7 @@ export function useConsecutiveMissSignals(branchId?: string) {
             phone: member.phone,
             email: member.email,
             branch_id: member.branch_id,
+            membership_status: member.membership_status,
             last_checkin_date: lastCheckinDate,
             consecutive_missed: consecutiveMissed,
           });
@@ -192,6 +196,7 @@ export function useConsecutiveMissSignals(branchId?: string) {
               phone: member.phone,
               email: member.email,
               branch_id: member.branch_id,
+              membership_status: member.membership_status,
               return_date: mostRecentServiceDate,
               previous_missed_count: previousMissed,
             });

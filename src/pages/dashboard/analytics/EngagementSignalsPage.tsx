@@ -30,9 +30,10 @@ import { toast } from "sonner";
 
 // =================== Export Functions ===================
 function exportMissedToCSV(members: MissedMember[]) {
-  const headers = ["Name", "Phone", "Email", "Branch", "Last Check-in", "Services Missed"];
+  const headers = ["Name", "Status", "Phone", "Email", "Branch", "Last Check-in", "Services Missed"];
   const rows = members.map(m => [
     m.full_name,
+    m.membership_status || "",
     m.phone || "",
     m.email || "",
     m.branch_name || "",
@@ -54,9 +55,10 @@ function exportMissedToCSV(members: MissedMember[]) {
 }
 
 function exportReturneeToCSV(members: ReturneeMember[]) {
-  const headers = ["Name", "Phone", "Email", "Branch", "Return Date", "Previous Missed Count"];
+  const headers = ["Name", "Status", "Phone", "Email", "Branch", "Return Date", "Previous Missed Count"];
   const rows = members.map(m => [
     m.full_name,
+    m.membership_status || "",
     m.phone || "",
     m.email || "",
     m.branch_name || "",
@@ -239,6 +241,7 @@ export default function EngagementSignalsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Branch</TableHead>
                         <TableHead>Last Check-in</TableHead>
@@ -250,6 +253,11 @@ export default function EngagementSignalsPage() {
                       {data.missedMembers.map((member) => (
                         <TableRow key={member.id}>
                           <TableCell className="font-medium">{member.full_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {member.membership_status?.replace("_", " ") || "—"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{member.phone || "—"}</TableCell>
                           <TableCell>{member.branch_name || "—"}</TableCell>
                           <TableCell>
@@ -331,6 +339,7 @@ export default function EngagementSignalsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Branch</TableHead>
                         <TableHead>Return Date</TableHead>
@@ -342,6 +351,11 @@ export default function EngagementSignalsPage() {
                       {data.returnees.map((member) => (
                         <TableRow key={member.id} className="bg-green-500/5">
                           <TableCell className="font-medium">{member.full_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {member.membership_status?.replace("_", " ") || "—"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{member.phone || "—"}</TableCell>
                           <TableCell>{member.branch_name || "—"}</TableCell>
                           <TableCell>
