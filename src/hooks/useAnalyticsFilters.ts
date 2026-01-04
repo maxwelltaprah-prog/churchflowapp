@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { 
   startOfDay, 
@@ -13,6 +13,10 @@ import {
   isValid
 } from "date-fns";
 import { useBranchAccess } from "./useBranchAccess";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { applyBranchFilter } from "./useBranchAccess";
 
 export type DateRangePreset = "today" | "this_week" | "this_month" | "last_7_days" | "last_30_days" | "custom";
 
@@ -21,7 +25,9 @@ export interface AnalyticsFilters {
   startDate: Date;
   endDate: Date;
   branchId: string | null; // null means "all branches"
-  serviceId: string | null; // null means "all services"
+  serviceIds: string[]; // empty array means "all services"
+  // Deprecated: use serviceIds instead
+  serviceId: string | null;
 }
 
 export interface UseAnalyticsFiltersReturn {
@@ -29,6 +35,7 @@ export interface UseAnalyticsFiltersReturn {
   setDatePreset: (preset: DateRangePreset) => void;
   setCustomDateRange: (start: Date, end: Date) => void;
   setBranchId: (branchId: string | null) => void;
+  setServiceIds: (serviceIds: string[]) => void;
   setServiceId: (serviceId: string | null) => void;
   resetFilters: () => void;
   // Helper for URL generation (for deep linking from dashboard)
@@ -47,15 +54,16 @@ function getDateRangeForPreset(preset: DateRangePreset): { start: Date; end: Dat
     case "this_week":
       return { start: startOfWeek(now, { weekStartsOn: 0 }), end: endOfWeek(now, { weekStartsOn: 0 }) };
     case "this_month":
-      return { start: startOfMonth(now), end: endOfMonth(now) };
+      // Default: start of current month to today (not end of month)
+      return { start: startOfMonth(now), end: endOfDay(now) };
     case "last_7_days":
       return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
     case "last_30_days":
       return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
     case "custom":
     default:
-      // For custom, return last 30 days as default
-      return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
+      // For custom, return start of month to today as default
+      return { start: startOfMonth(now), end: endOfDay(now) };
   }
 }
 
@@ -79,6 +87,12 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
     const customStart = parseDate(searchParams.get("from"));
     const customEnd = parseDate(searchParams.get("to"));
     const branchId = searchParams.get("branch") || null;
+    
+    // Support multiple services via comma-separated IDs
+    const servicesParam = searchParams.get("services");
+    const serviceIds = servicesParam ? servicesParam.split(",").filter(Boolean) : [];
+    
+    // Legacy single service support
     const serviceId = searchParams.get("service") || null;
     
     let dateRange: { start: Date; end: Date };
@@ -101,6 +115,7 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
       startDate: dateRange.start,
       endDate: dateRange.end,
       branchId: validBranchId,
+      serviceIds,
       serviceId,
     };
   }, [searchParams, accessibleBranchIds]);
@@ -124,20 +139,31 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
       // Don't clear custom dates when switching to custom
       updateParams({ period: preset });
     } else {
-      updateParams({ period: preset, from: null, to: null });
+      // Clear services when date range changes (they'll be re-validated)
+      updateParams({ period: preset, from: null, to: null, services: null });
     }
   }, [updateParams]);
   
   const setCustomDateRange = useCallback((start: Date, end: Date) => {
+    // Clear services when date range changes
     updateParams({
       period: "custom",
       from: format(start, "yyyy-MM-dd"),
       to: format(end, "yyyy-MM-dd"),
+      services: null,
     });
   }, [updateParams]);
   
   const setBranchId = useCallback((branchId: string | null) => {
-    updateParams({ branch: branchId, service: null }); // Reset service when branch changes
+    // Clear services when branch changes
+    updateParams({ branch: branchId, service: null, services: null });
+  }, [updateParams]);
+  
+  const setServiceIds = useCallback((serviceIds: string[]) => {
+    updateParams({ 
+      services: serviceIds.length > 0 ? serviceIds.join(",") : null,
+      service: null // Clear legacy param
+    });
   }, [updateParams]);
   
   const setServiceId = useCallback((serviceId: string | null) => {
@@ -177,6 +203,7 @@ export function useAnalyticsFilters(): UseAnalyticsFiltersReturn {
     setDatePreset,
     setCustomDateRange,
     setBranchId,
+    setServiceIds,
     setServiceId,
     resetFilters,
     buildAnalyticsUrl,
@@ -214,3 +241,52 @@ export const DATE_PRESET_OPTIONS: { value: DateRangePreset; label: string }[] = 
   { value: "last_30_days", label: "Last 30 Days" },
   { value: "custom", label: "Custom Range" },
 ];
+
+/**
+ * Hook to fetch services within the current date range
+ * Used to populate the service multi-select filter
+ */
+export function useServicesInDateRange() {
+  const { profile } = useAuth();
+  const { filters } = useAnalyticsFilters();
+  const { accessibleBranchIds } = useBranchAccess();
+
+  return useQuery({
+    queryKey: [
+      "services-in-date-range", 
+      profile?.church_id, 
+      filters.startDate.toISOString(), 
+      filters.endDate.toISOString(),
+      filters.branchId,
+      accessibleBranchIds
+    ],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+
+      let query = supabase
+        .from("services")
+        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .gte("service_date", format(filters.startDate, "yyyy-MM-dd"))
+        .lte("service_date", format(filters.endDate, "yyyy-MM-dd"))
+        .order("service_date", { ascending: false })
+        .order("start_time", { ascending: true });
+
+      query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        service_date: s.service_date,
+        start_time: s.start_time,
+        branch_id: s.branch_id,
+        branchName: (s.branches as any)?.name || "Unknown",
+      }));
+    },
+    enabled: !!profile?.church_id,
+  });
+}

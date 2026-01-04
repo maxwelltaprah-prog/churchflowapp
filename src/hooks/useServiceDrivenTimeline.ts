@@ -172,14 +172,15 @@ export function getAggregationLevel(
 export function useServiceDrivenAttendanceTrend(
   startDate: Date,
   endDate: Date,
-  branchId?: string
+  branchId?: string,
+  serviceIds?: string[]
 ) {
   const { profile } = useAuth();
   const { accessibleBranchIds } = useBranchAccess();
   const { data: churchCreatedAt } = useChurchCreatedAt();
 
   return useQuery({
-    queryKey: ["service-driven-attendance", profile?.church_id, startDate.toISOString(), endDate.toISOString(), branchId, accessibleBranchIds],
+    queryKey: ["service-driven-attendance", profile?.church_id, startDate.toISOString(), endDate.toISOString(), branchId, serviceIds, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return { data: [], hasData: false, aggregation: "daily" as const };
 
@@ -200,6 +201,11 @@ export function useServiceDrivenAttendanceTrend(
 
       servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
 
+      // Filter by specific service IDs if provided
+      if (serviceIds && serviceIds.length > 0) {
+        servicesQuery = servicesQuery.in("id", serviceIds);
+      }
+
       const { data: services } = await servicesQuery;
 
       if (!services?.length) {
@@ -211,12 +217,12 @@ export function useServiceDrivenAttendanceTrend(
       const aggregation = getAggregationLevel(daysDiff, services.length);
 
       // Fetch attendance for all services
-      const serviceIds = services.map(s => s.id);
+      const fetchedServiceIds = services.map(s => s.id);
       let attendanceQuery = supabase
         .from("attendance")
         .select("service_id, member_id, checked_in_at, members!inner(membership_status)")
         .eq("church_id", profile.church_id)
-        .in("service_id", serviceIds);
+        .in("service_id", fetchedServiceIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
