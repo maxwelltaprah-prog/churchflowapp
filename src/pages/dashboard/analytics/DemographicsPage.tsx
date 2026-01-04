@@ -88,7 +88,6 @@ const membershipLabels: Record<string, string> = {
   member: "Member",
   visitor: "Visitor",
   first_timer: "First Timer",
-  new_convert: "New Convert",
 };
 
 const maritalLabels: Record<string, string> = {

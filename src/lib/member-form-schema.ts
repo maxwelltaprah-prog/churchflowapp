@@ -24,7 +24,7 @@ export const memberFormSchema = z.object({
   date_of_birth: z.string()
     .min(1, "Date of birth is required")
     .refine(validateDateOfBirth, "Please enter a valid date of birth"),
-  membership_status: z.enum(["member", "visitor", "new_convert", "first_timer"]),
+  membership_status: z.enum(["member", "visitor", "first_timer"]),
   branch_id: z.string().min(1, "Please select a branch"),
   
   // Optional fields (Section B - Church Connection)

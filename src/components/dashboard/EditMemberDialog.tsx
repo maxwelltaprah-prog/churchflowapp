@@ -29,7 +29,7 @@ interface EditMemberDialogProps {
     email?: string | null;
     gender?: "male" | "female" | "prefer_not_to_say" | null;
     date_of_birth?: string | null;
-    membership_status?: "member" | "visitor" | "new_convert" | "first_timer" | null;
+    membership_status?: "member" | "visitor" | "first_timer" | null;
     branch_id: string;
     member_type?: "regular" | "occasional" | "worker" | null;
     how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other" | null;

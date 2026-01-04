@@ -65,14 +65,12 @@ import { toast } from "sonner";
 const statusColors: Record<string, string> = {
   member: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   visitor: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  new_convert: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   first_timer: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
 };
 
 const statusLabels: Record<string, string> = {
   member: "Member",
   visitor: "Visitor",
-  new_convert: "New Convert",
   first_timer: "First Timer",
 };
 
@@ -89,7 +87,7 @@ type MemberType = {
   phone?: string | null;
   gender?: "male" | "female" | "prefer_not_to_say" | null;
   date_of_birth?: string | null;
-  membership_status?: "member" | "visitor" | "new_convert" | "first_timer" | null;
+  membership_status?: "member" | "visitor" | "first_timer" | null;
   approval_status?: "pending" | "approved" | "rejected" | null;
   branch_id: string;
   member_code: string;
@@ -380,7 +378,7 @@ export default function MembersPage() {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="member">Members</SelectItem>
             <SelectItem value="visitor">Visitors</SelectItem>
-            <SelectItem value="new_convert">New Converts</SelectItem>
+            <SelectItem value="first_timer">First Timers</SelectItem>
           </SelectContent>
         </Select>
       </div>

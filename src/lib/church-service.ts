@@ -123,7 +123,7 @@ interface JoinBranchParams {
   fullName: string;
   phone: string;
   gender?: "male" | "female";
-  membershipStatus?: "member" | "visitor" | "new_convert";
+  membershipStatus?: "member" | "visitor" | "first_timer";
 }
 
 export async function joinBranchAsMember({ branchCode, fullName, phone, gender, membershipStatus }: JoinBranchParams) {
@@ -149,7 +149,7 @@ export async function joinBranchAsMember({ branchCode, fullName, phone, gender, 
 
   const normalizedGender = gender === "male" || gender === "female" ? gender : undefined;
   const normalizedStatus =
-    membershipStatus === "member" || membershipStatus === "visitor" || membershipStatus === "new_convert"
+    membershipStatus === "member" || membershipStatus === "visitor" || membershipStatus === "first_timer"
       ? membershipStatus
       : undefined;
 

@@ -47,8 +47,6 @@ function getStatusColor(status?: string | null): string {
       return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
     case "first_timer":
       return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
-    case "new_convert":
-      return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
     default:
       return "bg-muted text-muted-foreground border-border";
   }

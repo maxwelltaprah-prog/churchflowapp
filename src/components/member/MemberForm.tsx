@@ -41,7 +41,6 @@ const MEMBERSHIP_STATUS_OPTIONS = [
   { value: "first_timer", label: "First Timer / New" },
   { value: "visitor", label: "Visitor" },
   { value: "member", label: "Member" },
-  { value: "new_convert", label: "New Convert" },
 ];
 
 const MEMBER_TYPE_OPTIONS = [

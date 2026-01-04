@@ -272,8 +272,6 @@ export function getStatusVariant(status: string): "default" | "secondary" | "out
       return "destructive";
     case "visitor":
       return "secondary";
-    case "new_convert":
-      return "default";
     default:
       return "outline";
   }
