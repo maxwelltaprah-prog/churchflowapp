@@ -102,6 +102,9 @@ export type Database = {
           join_code: string
           location: string | null
           name: string
+          overseer_email: string | null
+          overseer_name: string | null
+          overseer_phone: string | null
           updated_at: string
         }
         Insert: {
@@ -113,6 +116,9 @@ export type Database = {
           join_code: string
           location?: string | null
           name: string
+          overseer_email?: string | null
+          overseer_name?: string | null
+          overseer_phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -124,6 +130,9 @@ export type Database = {
           join_code?: string
           location?: string | null
           name?: string
+          overseer_email?: string | null
+          overseer_name?: string | null
+          overseer_phone?: string | null
           updated_at?: string
         }
         Relationships: [

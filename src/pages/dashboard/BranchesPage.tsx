@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2, QrCode } from "lucide-react";
+import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2, QrCode, Phone, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,6 +42,9 @@ type BranchType = {
   is_active?: boolean | null;
   memberCount: number;
   todayAttendance: number;
+  overseer_name?: string | null;
+  overseer_phone?: string | null;
+  overseer_email?: string | null;
 };
 
 export default function BranchesPage() {
@@ -215,7 +218,36 @@ export default function BranchesPage() {
                         <LinkIcon className="w-4 h-4" />
                       </Button>
                     </div>
-                  </div>
+                    </div>
+
+                  {/* Overseer Info */}
+                  {(branch.overseer_name || branch.overseer_phone || branch.overseer_email) && (
+                    <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Overseer</p>
+                      {branch.overseer_name && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="w-3 h-3 text-muted-foreground" />
+                          <span>{branch.overseer_name}</span>
+                        </div>
+                      )}
+                      {branch.overseer_phone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="w-3 h-3 text-muted-foreground" />
+                          <a href={`tel:${branch.overseer_phone}`} className="hover:underline text-primary">
+                            {branch.overseer_phone}
+                          </a>
+                        </div>
+                      )}
+                      {branch.overseer_email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="w-3 h-3 text-muted-foreground" />
+                          <a href={`mailto:${branch.overseer_email}`} className="hover:underline text-primary">
+                            {branch.overseer_email}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-4">

@@ -86,6 +86,9 @@ export function useCreateBranch() {
     mutationFn: async (data: {
       name: string;
       location?: string;
+      overseer_name?: string;
+      overseer_phone?: string;
+      overseer_email?: string;
     }) => {
       if (!profile?.church_id) throw new Error("No church context");
 
@@ -107,6 +110,9 @@ export function useCreateBranch() {
           name: data.name,
           location: data.location,
           join_code: joinCode,
+          overseer_name: data.overseer_name,
+          overseer_phone: data.overseer_phone,
+          overseer_email: data.overseer_email,
         })
         .select()
         .single();
@@ -135,6 +141,9 @@ export function useUpdateBranch() {
       id: string;
       name?: string;
       location?: string;
+      overseer_name?: string;
+      overseer_phone?: string;
+      overseer_email?: string;
     }) => {
       const { id, ...updateData } = data;
       const { data: branch, error } = await supabase
