@@ -79,7 +79,7 @@ export default function Dashboard() {
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds, dateRange);
   const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
-  const { data: groups } = useGroupsSnapshot(branchId);
+  const { data: groups } = useGroupsSnapshot(branchId, dateRange);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds, dateRange);
   const { data: serviceQuality } = useServiceQuality(branchId, serviceIds, dateRange);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
