@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   Search, 
   Plus, 
@@ -53,8 +53,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMembers, useBranches, usePendingMembersCount } from "@/hooks/useChurchData";
-import { useDeactivateMember, useApproveMember, useRejectMember } from "@/hooks/useChurchMutations";
+import { useDeactivateMember, useApproveMember, useRejectMember, useBulkApproveMember, useBulkRejectMember } from "@/hooks/useChurchMutations";
 import { AddMemberDialog } from "@/components/dashboard/AddMemberDialog";
 import { MemberQRDialog } from "@/components/dashboard/MemberQRDialog";
 import { EditMemberDialog } from "@/components/dashboard/EditMemberDialog";
@@ -114,6 +115,8 @@ export default function MembersPage() {
   const [editMember, setEditMember] = useState<MemberType | null>(null);
   const [deactivateMember, setDeactivateMember] = useState<MemberType | null>(null);
   const [resetPinMember, setResetPinMember] = useState<MemberType | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"approve" | "reject" | null>(null);
 
   const { data: branches } = useBranches();
   const { data: members, isLoading } = useMembers(
@@ -124,6 +127,28 @@ export default function MembersPage() {
   const deactivateMutation = useDeactivateMember();
   const approveMutation = useApproveMember();
   const rejectMutation = useRejectMember();
+  const bulkApproveMutation = useBulkApproveMember();
+  const bulkRejectMutation = useBulkRejectMember();
+
+  // Filter to get only pending members (eligible for bulk actions)
+  const pendingMembers = useMemo(() => 
+    (members || []).filter(m => m.approval_status === "pending"),
+    [members]
+  );
+
+  const pendingMemberIds = useMemo(() => 
+    new Set(pendingMembers.map(m => m.id)),
+    [pendingMembers]
+  );
+
+  // Selected pending members count
+  const selectedPendingCount = useMemo(() => {
+    let count = 0;
+    selectedIds.forEach(id => {
+      if (pendingMemberIds.has(id)) count++;
+    });
+    return count;
+  }, [selectedIds, pendingMemberIds]);
 
   const filteredMembers = (members || []).filter((member) => {
     const matchesSearch = member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -178,17 +203,113 @@ export default function MembersPage() {
     await rejectMutation.mutateAsync(member.id);
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Select all pending members in filtered list
+      const newSelected = new Set(selectedIds);
+      filteredMembers.forEach(m => {
+        if (m.approval_status === "pending") {
+          newSelected.add(m.id);
+        }
+      });
+      setSelectedIds(newSelected);
+    } else {
+      // Deselect all in current filtered list
+      const newSelected = new Set(selectedIds);
+      filteredMembers.forEach(m => newSelected.delete(m.id));
+      setSelectedIds(newSelected);
+    }
+  };
+
+  const handleSelectOne = (memberId: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(memberId);
+    } else {
+      newSelected.delete(memberId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkAction) return;
+    
+    // Filter to only pending members
+    const eligibleIds = Array.from(selectedIds).filter(id => pendingMemberIds.has(id));
+    const skippedCount = selectedIds.size - eligibleIds.length;
+    
+    if (eligibleIds.length === 0) {
+      toast.error("No pending members selected");
+      setBulkAction(null);
+      return;
+    }
+    
+    if (bulkAction === "approve") {
+      await bulkApproveMutation.mutateAsync(eligibleIds);
+    } else {
+      await bulkRejectMutation.mutateAsync(eligibleIds);
+    }
+    
+    if (skippedCount > 0) {
+      toast.info(`${skippedCount} non-pending member(s) were skipped.`);
+    }
+    
+    setSelectedIds(new Set());
+    setBulkAction(null);
+  };
+
+  // Check if all pending members in filtered list are selected
+  const allPendingSelected = useMemo(() => {
+    const pendingInFiltered = filteredMembers.filter(m => m.approval_status === "pending");
+    if (pendingInFiltered.length === 0) return false;
+    return pendingInFiltered.every(m => selectedIds.has(m.id));
+  }, [filteredMembers, selectedIds]);
+
+  const somePendingSelected = useMemo(() => {
+    const pendingInFiltered = filteredMembers.filter(m => m.approval_status === "pending");
+    return pendingInFiltered.some(m => selectedIds.has(m.id)) && !allPendingSelected;
+  }, [filteredMembers, selectedIds, allPendingSelected]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Members</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your church members across all branches
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Members</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your church members across all branches
+            </p>
+          </div>
+          {selectedIds.size > 0 && (
+            <Badge variant="secondary" className="text-sm">
+              {selectedPendingCount > 0 ? `${selectedPendingCount} pending selected` : `${selectedIds.size} selected`}
+            </Badge>
+          )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          {selectedPendingCount > 0 && (
+            <>
+              <Button 
+                variant="outline" 
+                className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                onClick={() => setBulkAction("approve")}
+                disabled={bulkApproveMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Bulk Approve
+              </Button>
+              <Button 
+                variant="outline" 
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setBulkAction("reject")}
+                disabled={bulkRejectMutation.isPending}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Bulk Reject
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Export
@@ -286,6 +407,18 @@ export default function MembersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={allPendingSelected}
+                    ref={(el) => {
+                      if (el) {
+                        (el as HTMLButtonElement).dataset.state = somePendingSelected ? "indeterminate" : allPendingSelected ? "checked" : "unchecked";
+                      }
+                    }}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all pending"
+                  />
+                </TableHead>
                 <TableHead>Member</TableHead>
                 <TableHead className="hidden md:table-cell">Branch</TableHead>
                 <TableHead className="hidden sm:table-cell">Status</TableHead>
@@ -300,6 +433,14 @@ export default function MembersPage() {
             <TableBody>
               {filteredMembers.map((member) => (
                 <TableRow key={member.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(member.id)}
+                      onCheckedChange={(checked) => handleSelectOne(member.id, !!checked)}
+                      disabled={member.approval_status !== "pending"}
+                      aria-label={`Select ${member.full_name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -460,6 +601,34 @@ export default function MembersPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Action Confirmation */}
+      <AlertDialog open={!!bulkAction} onOpenChange={(open) => !open && setBulkAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm bulk action</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to {bulkAction} {selectedPendingCount} member(s). Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkAction}
+              className={bulkAction === "approve" 
+                ? "bg-green-600 text-white hover:bg-green-700" 
+                : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
+              disabled={bulkApproveMutation.isPending || bulkRejectMutation.isPending}
+            >
+              {(bulkApproveMutation.isPending || bulkRejectMutation.isPending) && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
