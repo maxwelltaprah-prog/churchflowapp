@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users } from "lucide-react";
-import { format } from "date-fns";
+import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { getDownloadUrl, ServiceUpload } from "@/hooks/useServiceUploads";
 
 interface ServiceData {
   id: string;
@@ -35,6 +36,12 @@ export default function SelfCheckin() {
   // Disambiguation state
   const [matchingMembers, setMatchingMembers] = useState<MemberMatch[]>([]);
   const [showDisambiguation, setShowDisambiguation] = useState(false);
+  
+  // Downloads state
+  const [showDownloads, setShowDownloads] = useState(false);
+  const [serviceUploads, setServiceUploads] = useState<ServiceUpload[]>([]);
+  const [loadingDownloads, setLoadingDownloads] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
     loadService();
@@ -73,10 +80,8 @@ export default function SelfCheckin() {
   };
 
   const handleMemberCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits, max 4
     const value = e.target.value.replace(/\D/g, "").slice(0, 4);
     setMemberCode(value);
-    // Reset disambiguation when code changes
     if (showDisambiguation) {
       setShowDisambiguation(false);
       setMatchingMembers([]);
@@ -95,7 +100,7 @@ export default function SelfCheckin() {
           action: "checkin",
           serviceId,
           memberCode: memberCode.trim(),
-          memberId: selectedMemberId, // Pass selected member if disambiguation
+          memberId: selectedMemberId,
         },
       });
 
@@ -109,7 +114,6 @@ export default function SelfCheckin() {
       const name = (data as any)?.name as string | undefined;
       const members = (data as any)?.members as MemberMatch[] | undefined;
 
-      // Handle disambiguation case
       if (status === "disambiguation_required" && members) {
         setMatchingMembers(members);
         setShowDisambiguation(true);
@@ -117,19 +121,21 @@ export default function SelfCheckin() {
         return;
       }
 
-      if (status === "checked_in") {
-        setResult({ success: true, message: "Check-in successful!", name });
+      if (status === "checked_in" || status === "already_checked_in") {
+        const isAlreadyIn = status === "already_checked_in";
+        setResult({ 
+          success: true, 
+          message: isAlreadyIn ? "You're already checked in!" : "Check-in successful!", 
+          name 
+        });
         setMemberCode("");
         setShowDisambiguation(false);
         setMatchingMembers([]);
-        toast.success("Checked in successfully!");
-        return;
-      }
-
-      if (status === "already_checked_in") {
-        setResult({ success: true, message: "You're already checked in!", name });
-        setShowDisambiguation(false);
-        setMatchingMembers([]);
+        if (!isAlreadyIn) {
+          toast.success("Checked in successfully!");
+        }
+        
+        loadServiceDownloads();
         return;
       }
 
@@ -141,6 +147,62 @@ export default function SelfCheckin() {
     } finally {
       setChecking(false);
     }
+  };
+
+  const loadServiceDownloads = async () => {
+    if (!serviceId) return;
+    
+    setLoadingDownloads(true);
+    try {
+      const { data, error } = await supabase
+        .from("service_uploads")
+        .select("*")
+        .eq("service_id", serviceId)
+        .eq("is_expired", false)
+        .gt("expires_at", new Date().toISOString());
+
+      if (!error && data && data.length > 0) {
+        setServiceUploads(data as ServiceUpload[]);
+        setShowDownloads(true);
+      }
+    } catch (err) {
+      console.error("Error loading downloads:", err);
+    } finally {
+      setLoadingDownloads(false);
+    }
+  };
+
+  const handleDownload = async (upload: ServiceUpload) => {
+    setDownloading(upload.id);
+    try {
+      const url = await getDownloadUrl(upload.storage_path);
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = upload.file_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download file");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const getTimeRemaining = (expiresAt: string) => {
+    const expiry = new Date(expiresAt);
+    const now = new Date();
+    if (expiry <= now) return null;
+    return formatDistanceToNow(expiry, { addSuffix: false });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleSelectMember = (memberId: string) => {
@@ -261,7 +323,6 @@ export default function SelfCheckin() {
                 </Button>
               </>
             ) : (
-              /* Disambiguation UI */
               <div className="space-y-4">
                 <div className="text-center p-3 bg-secondary/50 rounded-lg">
                   <Users className="w-6 h-6 mx-auto text-primary mb-2" />
@@ -320,7 +381,69 @@ export default function SelfCheckin() {
               </div>
             )}
 
-            {!showDisambiguation && (
+            {/* Service Downloads Section */}
+            {showDownloads && serviceUploads.length > 0 && (
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <Download className="w-5 h-5" />
+                  <h3 className="font-semibold">Service Downloads</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Available for 48 hours
+                </p>
+                
+                {serviceUploads.map((upload) => {
+                  const timeRemaining = getTimeRemaining(upload.expires_at);
+                  
+                  return (
+                    <div key={upload.id} className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                      {upload.upload_type === "program" ? (
+                        <FileText className="w-5 h-5 text-primary shrink-0" />
+                      ) : (
+                        <Music className="w-5 h-5 text-primary shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(upload.file_size)}</span>
+                          {timeRemaining && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {timeRemaining} left
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(upload)}
+                        disabled={downloading === upload.id}
+                      >
+                        {downloading === upload.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {loadingDownloads && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {!showDisambiguation && !result && (
               <p className="text-xs text-center text-muted-foreground">
                 Don't know your code? It's the last 4 digits of your registered phone number.
               </p>

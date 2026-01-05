@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +29,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useBranches } from "@/hooks/useChurchData";
 import { useCreateService } from "@/hooks/useChurchMutations";
+import { useUploadServiceFile } from "@/hooks/useServiceUploads";
+import { ServiceUploadFields } from "./ServiceUploadFields";
+import { Loader2 } from "lucide-react";
 
 const serviceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -48,6 +52,11 @@ interface AddServiceDialogProps {
 export function AddServiceDialog({ open, onOpenChange }: AddServiceDialogProps) {
   const { data: branches } = useBranches();
   const createService = useCreateService();
+  const uploadFile = useUploadServiceFile();
+  
+  const [programFile, setProgramFile] = useState<File | null>(null);
+  const [sermonFile, setSermonFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
@@ -61,17 +70,45 @@ export function AddServiceDialog({ open, onOpenChange }: AddServiceDialogProps) 
   });
 
   const onSubmit = async (data: ServiceFormData) => {
-    await createService.mutateAsync({
-      name: data.name,
-      description: data.description || undefined,
-      service_date: data.service_date,
-      start_time: data.start_time || undefined,
-      end_time: data.end_time || undefined,
-      branch_id: data.branch_id,
-    });
-    form.reset();
-    onOpenChange(false);
+    setIsUploading(true);
+    try {
+      // Create the service first
+      const service = await createService.mutateAsync({
+        name: data.name,
+        description: data.description || undefined,
+        service_date: data.service_date,
+        start_time: data.start_time || undefined,
+        end_time: data.end_time || undefined,
+        branch_id: data.branch_id,
+      });
+
+      // Upload files if provided
+      if (programFile) {
+        await uploadFile.mutateAsync({
+          serviceId: service.id,
+          uploadType: "program",
+          file: programFile,
+        });
+      }
+
+      if (sermonFile) {
+        await uploadFile.mutateAsync({
+          serviceId: service.id,
+          uploadType: "sermon_audio",
+          file: sermonFile,
+        });
+      }
+
+      form.reset();
+      setProgramFile(null);
+      setSermonFile(null);
+      onOpenChange(false);
+    } finally {
+      setIsUploading(false);
+    }
   };
+
+  const isPending = createService.isPending || isUploading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,12 +212,29 @@ export function AddServiceDialog({ open, onOpenChange }: AddServiceDialogProps) 
                 )}
               />
             </div>
+
+            {/* Upload Fields */}
+            <ServiceUploadFields
+              programFile={programFile}
+              sermonFile={sermonFile}
+              onProgramChange={setProgramFile}
+              onSermonChange={setSermonFile}
+              disabled={isPending}
+            />
+
             <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createService.isPending}>
-                {createService.isPending ? "Creating..." : "Create Service"}
+              <Button type="submit" disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isUploading ? "Uploading..." : "Creating..."}
+                  </>
+                ) : (
+                  "Create Service"
+                )}
               </Button>
             </div>
           </form>

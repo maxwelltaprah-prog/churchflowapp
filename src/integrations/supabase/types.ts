@@ -529,6 +529,66 @@ export type Database = {
           },
         ]
       }
+      service_uploads: {
+        Row: {
+          church_id: string
+          expires_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          is_expired: boolean
+          service_id: string
+          storage_path: string
+          upload_type: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          church_id: string
+          expires_at?: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          is_expired?: boolean
+          service_id: string
+          storage_path: string
+          upload_type: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          church_id?: string
+          expires_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          is_expired?: boolean
+          service_id?: string
+          storage_path?: string
+          upload_type?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_uploads_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_uploads_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           branch_id: string
