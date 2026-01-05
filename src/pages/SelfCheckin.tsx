@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { getDownloadUrl, ServiceUpload } from "@/hooks/useServiceUploads";
+import type { ServiceUpload } from "@/hooks/useServiceUploads";
+import { downloadFileFromUrl } from "@/lib/file-download";
 
 interface ServiceData {
   id: string;
@@ -38,10 +40,13 @@ export default function SelfCheckin() {
   const [showDisambiguation, setShowDisambiguation] = useState(false);
   
   // Downloads state
+  const downloadsRef = useRef<HTMLDivElement | null>(null);
   const [showDownloads, setShowDownloads] = useState(false);
   const [serviceUploads, setServiceUploads] = useState<ServiceUpload[]>([]);
   const [loadingDownloads, setLoadingDownloads] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [checkedInMemberId, setCheckedInMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     loadService();
@@ -128,14 +133,20 @@ export default function SelfCheckin() {
           message: isAlreadyIn ? "You're already checked in!" : "Check-in successful!", 
           name 
         });
+
+        const memberIdFromFn = (data as any)?.memberId as string | undefined;
+        setCheckedInMemberId(memberIdFromFn ?? null);
+
         setMemberCode("");
         setShowDisambiguation(false);
         setMatchingMembers([]);
         if (!isAlreadyIn) {
           toast.success("Checked in successfully!");
         }
-        
-        loadServiceDownloads();
+
+        setShowDownloads(true);
+        setServiceUploads([]);
+        loadServiceDownloads(memberIdFromFn);
         return;
       }
 
@@ -149,38 +160,102 @@ export default function SelfCheckin() {
     }
   };
 
-  const loadServiceDownloads = async () => {
+  const loadServiceDownloads = async (memberId?: string) => {
     if (!serviceId) return;
+
+    const effectiveMemberId = memberId ?? checkedInMemberId;
+    if (!effectiveMemberId) return;
     
     setLoadingDownloads(true);
     try {
       const { data, error } = await supabase.functions.invoke("self-checkin", {
-        body: { action: "get_downloads", serviceId },
+        body: { action: "get_downloads", serviceId, memberId: effectiveMemberId },
       });
 
-      if (!error && data?.uploads && data.uploads.length > 0) {
-        setServiceUploads(data.uploads as ServiceUpload[]);
+      if (error) {
+        console.error("get_downloads error", error);
+        setServiceUploads([]);
         setShowDownloads(true);
+        return;
       }
+
+      const uploads = (data as any)?.uploads as ServiceUpload[] | undefined;
+      setServiceUploads(uploads || []);
+      setShowDownloads(true);
+
+      // Make sure the downloads section is visible right after check-in
+      window.setTimeout(() => {
+        downloadsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
     } catch (err) {
       console.error("Error loading downloads:", err);
+      setServiceUploads([]);
+      setShowDownloads(true);
     } finally {
       setLoadingDownloads(false);
     }
   };
 
-  const handleDownload = async (upload: ServiceUpload) => {
-    setDownloading(upload.id);
+  const handleOpen = async (upload: ServiceUpload) => {
+    if (!serviceId || !checkedInMemberId) return;
+
+    // Open a placeholder window immediately to avoid popup blockers on mobile
+    const win = window.open("about:blank", "_blank", "noopener,noreferrer");
+
     try {
-      const url = await getDownloadUrl(upload.storage_path);
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = upload.file_name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+      const { data, error } = await supabase.functions.invoke("self-checkin", {
+        body: {
+          action: "get_download_url",
+          serviceId,
+          memberId: checkedInMemberId,
+          uploadId: upload.id,
+        },
+      });
+
+      if (error || !(data as any)?.signedUrl) {
+        win?.close();
+        toast.error("This file is not available.");
+        return;
       }
+
+      const signedUrl = (data as any).signedUrl as string;
+      if (win) win.location.href = signedUrl;
+      else window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      win?.close();
+      console.error("Open error:", err);
+      toast.error("Failed to open file");
+    }
+  };
+
+  const handleDownload = async (upload: ServiceUpload) => {
+    if (!serviceId || !checkedInMemberId) return;
+
+    setDownloading(upload.id);
+    setDownloadProgress((prev) => ({ ...prev, [upload.id]: 0 }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke("self-checkin", {
+        body: {
+          action: "get_download_url",
+          serviceId,
+          memberId: checkedInMemberId,
+          uploadId: upload.id,
+        },
+      });
+
+      if (error || !(data as any)?.signedUrl) {
+        toast.error("This file is not available.");
+        return;
+      }
+
+      const signedUrl = (data as any).signedUrl as string;
+
+      await downloadFileFromUrl(signedUrl, upload.file_name, (pct) =>
+        setDownloadProgress((prev) => ({ ...prev, [upload.id]: pct })),
+      );
+
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Failed to download file");
@@ -379,64 +454,95 @@ export default function SelfCheckin() {
             )}
 
             {/* Service Downloads Section */}
-            {showDownloads && serviceUploads.length > 0 && (
-              <div className="space-y-3 border-t pt-4">
-                <div className="flex items-center gap-2 text-primary">
-                  <Download className="w-5 h-5" />
-                  <h3 className="font-semibold">Service Downloads</h3>
+            {showDownloads && (
+              <div ref={downloadsRef} className="space-y-3 border-t pt-4">
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Download className={serviceUploads.length > 0 ? "w-5 h-5 animate-pulse" : "w-5 h-5"} />
+                    <h3 className="font-semibold">Service Downloads</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {serviceUploads.length > 0
+                      ? "Tap Open to view in your browser, or Download to save it. Available for 48 hours."
+                      : "No downloads available for this service."}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Available for 48 hours
-                </p>
-                
+
+                {loadingDownloads && (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+
+                {!loadingDownloads && serviceUploads.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    No downloads available for this service.
+                  </p>
+                )}
+
                 {serviceUploads.map((upload) => {
                   const timeRemaining = getTimeRemaining(upload.expires_at);
-                  
+
                   return (
-                    <div key={upload.id} className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                      {upload.upload_type === "program" ? (
-                        <FileText className="w-5 h-5 text-primary shrink-0" />
-                      ) : (
-                        <Music className="w-5 h-5 text-primary shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{formatFileSize(upload.file_size)}</span>
-                          {timeRemaining && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {timeRemaining} left
-                              </span>
-                            </>
-                          )}
+                    <div key={upload.id} className="rounded-lg bg-secondary/50">
+                      <div className="flex items-center gap-3 p-3">
+                        {upload.upload_type === "program" ? (
+                          <FileText className="w-5 h-5 text-primary shrink-0" />
+                        ) : (
+                          <Music className="w-5 h-5 text-primary shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">
+                            {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{formatFileSize(upload.file_size)}</span>
+                            {timeRemaining && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {timeRemaining} left
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpen(upload)}
+                            disabled={downloading === upload.id}
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownload(upload)}
+                            disabled={downloading === upload.id}
+                          >
+                            {downloading === upload.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                          </Button>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(upload)}
-                        disabled={downloading === upload.id}
-                      >
-                        {downloading === upload.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                      </Button>
+
+                      {downloading === upload.id && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <Progress value={downloadProgress[upload.id] ?? 0} />
+                          <p className="text-[11px] text-muted-foreground text-right">
+                            {downloadProgress[upload.id] ?? 0}%
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
-              </div>
-            )}
-            
-            {loadingDownloads && (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
             )}
 

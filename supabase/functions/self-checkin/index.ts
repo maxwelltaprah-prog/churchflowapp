@@ -2,7 +2,8 @@
 // Supports:
 // - action: "get_service" (serviceId)
 // - action: "checkin" (serviceId, memberCode) - memberCode is last 4 digits of phone
-// - action: "get_downloads" (serviceId) - returns unexpired uploads for the service
+// - action: "get_downloads" (serviceId, memberId) - returns unexpired uploads (only if member checked in)
+// - action: "get_download_url" (serviceId, memberId, uploadId) - returns a signed URL for download/open
 // If multiple members match, returns disambiguation list
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -12,7 +13,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "get_service" | "checkin" | "get_downloads";
+type Action = "get_service" | "checkin" | "get_downloads" | "get_download_url";
 
 interface MemberMatch {
   id: string;
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
 
       if (existing) {
         return new Response(
-          JSON.stringify({ status: "already_checked_in", name: member.full_name }),
+          JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -250,7 +251,7 @@ Deno.serve(async (req) => {
         // Duplicate (unique constraint) safety
         if (insertErr.code === "23505") {
           return new Response(
-            JSON.stringify({ status: "already_checked_in", name: member.full_name }),
+            JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
@@ -262,16 +263,41 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ status: "checked_in", name: member.full_name }),
+        JSON.stringify({ status: "checked_in", name: member.full_name, memberId: member.id }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (action === "get_downloads") {
       const serviceId: string | undefined = body?.serviceId;
-      if (!serviceId) {
-        return new Response(JSON.stringify({ error: "Missing serviceId" }), {
+      const memberId: string | undefined = body?.memberId;
+
+      if (!serviceId || !memberId) {
+        return new Response(JSON.stringify({ error: "Missing serviceId or memberId" }), {
           status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Only allow downloads listing if the member actually checked into this service
+      const { data: attendanceRow, error: attendanceErr } = await supabase
+        .from("attendance")
+        .select("id")
+        .eq("service_id", serviceId)
+        .eq("member_id", memberId)
+        .maybeSingle();
+
+      if (attendanceErr) {
+        console.error("get_downloads attendance check error", attendanceErr);
+        return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!attendanceRow) {
+        return new Response(JSON.stringify({ error: "Not checked in" }), {
+          status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -293,6 +319,85 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ uploads: uploads || [] }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "get_download_url") {
+      const serviceId: string | undefined = body?.serviceId;
+      const memberId: string | undefined = body?.memberId;
+      const uploadId: string | undefined = body?.uploadId;
+
+      if (!serviceId || !memberId || !uploadId) {
+        return new Response(JSON.stringify({ error: "Missing serviceId, memberId, or uploadId" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Ensure member checked into this service
+      const { data: attendanceRow, error: attendanceErr } = await supabase
+        .from("attendance")
+        .select("id")
+        .eq("service_id", serviceId)
+        .eq("member_id", memberId)
+        .maybeSingle();
+
+      if (attendanceErr) {
+        console.error("get_download_url attendance check error", attendanceErr);
+        return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!attendanceRow) {
+        return new Response(JSON.stringify({ error: "Not checked in" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Ensure upload exists and is still valid
+      const now = new Date().toISOString();
+      const { data: upload, error: uploadErr } = await supabase
+        .from("service_uploads")
+        .select("storage_path, expires_at, is_expired")
+        .eq("id", uploadId)
+        .eq("service_id", serviceId)
+        .eq("is_expired", false)
+        .gt("expires_at", now)
+        .maybeSingle();
+
+      if (uploadErr) {
+        console.error("get_download_url upload lookup error", uploadErr);
+        return new Response(JSON.stringify({ error: "Failed to load file" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!upload) {
+        return new Response(JSON.stringify({ error: "File not available" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: signed, error: signedErr } = await supabase.storage
+        .from("service-uploads")
+        .createSignedUrl(upload.storage_path, 3600);
+
+      if (signedErr) {
+        console.error("get_download_url signed url error", signedErr);
+        return new Response(JSON.stringify({ error: "Failed to create download link" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ signedUrl: signed?.signedUrl }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
