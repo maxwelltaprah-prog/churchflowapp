@@ -123,7 +123,7 @@ interface JoinBranchParams {
   fullName: string;
   phone: string;
   gender?: "male" | "female";
-  membershipStatus?: "member" | "visitor" | "first_timer";
+  membershipStatus?: "active" | "inactive" | "transferred";
 }
 
 export async function joinBranchAsMember({ branchCode, fullName, phone, gender, membershipStatus }: JoinBranchParams) {
@@ -149,7 +149,7 @@ export async function joinBranchAsMember({ branchCode, fullName, phone, gender, 
 
   const normalizedGender = gender === "male" || gender === "female" ? gender : undefined;
   const normalizedStatus =
-    membershipStatus === "member" || membershipStatus === "visitor" || membershipStatus === "first_timer"
+    membershipStatus === "active" || membershipStatus === "inactive" || membershipStatus === "transferred"
       ? membershipStatus
       : undefined;
 
@@ -162,7 +162,7 @@ export async function joinBranchAsMember({ branchCode, fullName, phone, gender, 
       full_name: fullName.trim(),
       phone: phone.trim(),
       gender: normalizedGender,
-      membership_status: normalizedStatus || "visitor",
+      membership_status: normalizedStatus || "active",
       member_code: memberCode,
       qr_code_token: qrToken,
     });

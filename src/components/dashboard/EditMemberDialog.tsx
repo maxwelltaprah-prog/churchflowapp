@@ -31,7 +31,7 @@ interface EditMemberDialogProps {
     email?: string | null;
     gender?: "male" | "female" | "prefer_not_to_say" | null;
     date_of_birth?: string | null;
-    membership_status?: "member" | "visitor" | "first_timer" | null;
+    membership_status?: "active" | "inactive" | "transferred" | null;
     branch_id: string;
     member_type?: "regular" | "occasional" | "worker" | null;
     how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other" | null;
@@ -64,7 +64,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       phone: "",
       gender: undefined,
       date_of_birth: "",
-      membership_status: "visitor",
+      membership_status: "active",
       branch_id: "",
       group_ids: [],
       spiritual_journey_ids: [],
@@ -75,6 +75,9 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       occupation: null,
       email: "",
       is_baptized: null,
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      emergency_contact_relationship: "",
       admin_notes: "",
       date_joined: "",
     },
@@ -96,7 +99,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         email: member.email || "",
         gender: member.gender || undefined,
         date_of_birth: member.date_of_birth || "",
-        membership_status: member.membership_status || "visitor",
+        membership_status: member.membership_status || "active",
         branch_id: member.branch_id,
         group_ids: currentGroupIds,
         spiritual_journey_ids: memberSpiritualJourneys || [],

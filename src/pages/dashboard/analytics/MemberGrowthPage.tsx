@@ -111,18 +111,18 @@ function useMemberGrowthKPIs() {
 
       // Status breakdown of new members
       const newMembersByStatus = {
-        member: newMembers.filter(m => m.membership_status === "member").length,
-        visitor: newMembers.filter(m => m.membership_status === "visitor").length,
-        first_timer: newMembers.filter(m => m.membership_status === "first_timer").length,
+        active: newMembers.filter(m => m.membership_status === "active").length,
+        inactive: newMembers.filter(m => m.membership_status === "inactive").length,
+        transferred: newMembers.filter(m => m.membership_status === "transferred").length,
       };
 
       // Total active members
       const totalActive = members.filter(m => m.is_active && m.approval_status === "approved").length;
 
-      // Conversion: members who were visitors/first-timers and became members
+      // Conversion: count of active members
       // (This is an approximation - ideally we'd track status changes)
       const convertedCount = members.filter(m => 
-        m.membership_status === "member"
+        m.membership_status === "active"
       ).length;
       const totalRegistered = members.length;
       const conversionRate = totalRegistered > 0 ? (convertedCount / totalRegistered) * 100 : 0;
@@ -339,9 +339,9 @@ export default function MemberGrowthPage() {
   const statusBreakdown = useMemo(() => {
     if (!kpis?.newMembersByStatus) return [];
     return [
-      { status: "Members", count: kpis.newMembersByStatus.member, color: CHART_COLORS.primary },
-      { status: "Visitors", count: kpis.newMembersByStatus.visitor, color: CHART_COLORS.accent },
-      { status: "First Timers", count: kpis.newMembersByStatus.first_timer, color: CHART_COLORS.warning },
+      { status: "Active", count: kpis.newMembersByStatus.active, color: CHART_COLORS.primary },
+      { status: "Inactive", count: kpis.newMembersByStatus.inactive, color: CHART_COLORS.muted },
+      { status: "Transferred", count: kpis.newMembersByStatus.transferred, color: CHART_COLORS.accent },
     ].filter(s => s.count > 0);
   }, [kpis]);
 

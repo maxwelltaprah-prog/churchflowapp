@@ -19,6 +19,7 @@ import SelfCheckin from "./pages/SelfCheckin";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 import Dashboard from "./pages/dashboard/Dashboard";
 import MembersPage from "./pages/dashboard/MembersPage";
+import MemberProfilePage from "./pages/dashboard/MemberProfilePage";
 import GroupsPage from "./pages/dashboard/GroupsPage";
 import BranchesPage from "./pages/dashboard/BranchesPage";
 import CheckinPage from "./pages/dashboard/CheckinPage";
@@ -70,6 +71,7 @@ const App = () => (
             }>
               <Route index element={<Dashboard />} />
               <Route path="members" element={<MembersPage />} />
+              <Route path="members/:memberId" element={<MemberProfilePage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="branches" element={<BranchesPage />} />
               <Route path="services" element={<ServicesPage />} />

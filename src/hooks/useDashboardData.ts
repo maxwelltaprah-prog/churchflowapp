@@ -455,54 +455,20 @@ export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[
       
       const { data } = await query;
 
-      const members = (data || []).filter((r: any) => r.members?.membership_status === "member").length;
-      const visitors = (data || []).filter((r: any) => 
-        ["visitor", "first_timer"].includes(r.members?.membership_status || "")
-      ).length;
+      const members = (data || []).filter((r: any) => r.members?.membership_status === "active").length;
+      const visitors = 0; // Visitor concept no longer exists with active/inactive/transferred status
 
-      // Visitor to returning visitor ratio (90 days)
+      // Visitor to returning visitor ratio (90 days) - simplified since visitor concept removed
       const ninetyDaysAgo = subDays(new Date(), 90);
-      let visitorQuery = supabase
-        .from("members")
-        .select("id")
-        .eq("church_id", profile.church_id)
-        .in("membership_status", ["visitor"])
-        .gte("created_at", ninetyDaysAgo.toISOString());
-      
-      if (accessibleBranchIds !== null && !branchId) {
-        visitorQuery = visitorQuery.in("branch_id", accessibleBranchIds);
-      } else if (branchId) {
-        visitorQuery = visitorQuery.eq("branch_id", branchId);
-      }
+      const returningVisitors = 0;
+      const visitorToReturning = 0;
 
-      const { data: visitorData } = await visitorQuery;
-
-      const visitorIds = (visitorData || []).map((v) => v.id);
-      let returningVisitors = 0;
-      
-      if (visitorIds.length > 0) {
-        const { data: returnData } = await supabase
-          .from("attendance")
-          .select("member_id")
-          .in("member_id", visitorIds)
-          .gte("checked_in_at", ninetyDaysAgo.toISOString());
-        
-        const multipleAttendance = (returnData || []).reduce((acc, r) => {
-          acc[r.member_id] = (acc[r.member_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        returningVisitors = Object.values(multipleAttendance).filter((c) => c >= 2).length;
-      }
-
-      const visitorToReturning = visitorIds.length ? Math.round((returningVisitors / visitorIds.length) * 100) : 0;
-
-      // Conversion to member (30-90 days)
+      // Count active members (30-90 days)
       let conversionQuery = supabase
         .from("members")
         .select("*", { count: "exact", head: true })
         .eq("church_id", profile.church_id)
-        .eq("membership_status", "member")
+        .eq("membership_status", "active")
         .gte("date_joined", ninetyDaysAgo.toISOString());
       
       if (accessibleBranchIds !== null && !branchId) {
@@ -517,7 +483,7 @@ export function useMemberVisitorBreakdown(branchId?: string, serviceIds: string[
         visitors,
         visitorToReturning,
         recentConversions: convertedCount || 0,
-        totalNewVisitors: visitorIds.length
+        totalNewVisitors: 0
       };
     },
     enabled: !!profile?.church_id && !accessLoading
@@ -1099,7 +1065,7 @@ export function useFollowUpList(branchId?: string) {
         .from("members")
         .select("id, full_name, phone, membership_status, branch_id, branches(name)")
         .in("id", memberIds)
-        .in("membership_status", ["first_timer", "visitor"]);
+        .eq("membership_status", "active");
 
       query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
 

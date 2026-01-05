@@ -89,7 +89,7 @@ export default function JoinBranch() {
       phone: "",
       gender: undefined,
       date_of_birth: "",
-      membership_status: "first_timer",
+      membership_status: "active",
       group_ids: [],
       spiritual_journey_ids: [],
       member_type: null,
@@ -551,9 +551,9 @@ export default function JoinBranch() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="first_timer">First Timer / New</SelectItem>
-                              <SelectItem value="visitor">Visitor</SelectItem>
-                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                              <SelectItem value="transferred">Transferred</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

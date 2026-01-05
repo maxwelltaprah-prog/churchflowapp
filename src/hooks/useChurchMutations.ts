@@ -15,13 +15,16 @@ export function useCreateMember() {
       email?: string;
       gender: "male" | "female" | "prefer_not_to_say";
       date_of_birth: string;
-      membership_status: "member" | "visitor" | "first_timer";
+      membership_status: "active" | "inactive" | "transferred";
       branch_id: string;
       member_type?: "regular" | "occasional" | "worker";
       how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
       residential_area?: string;
       marital_status?: "single" | "married" | "divorced" | "widowed";
       occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other";
+      emergency_contact_name?: string;
+      emergency_contact_phone?: string;
+      emergency_contact_relationship?: string;
       admin_notes?: string;
       date_joined?: string;
     }) => {
@@ -51,6 +54,9 @@ export function useCreateMember() {
         residential_area: data.residential_area,
         marital_status: data.marital_status,
         occupation: data.occupation,
+        emergency_contact_name: data.emergency_contact_name,
+        emergency_contact_phone: data.emergency_contact_phone,
+        emergency_contact_relationship: data.emergency_contact_relationship,
         admin_notes: data.admin_notes,
         date_joined: data.date_joined || new Date().toISOString().split("T")[0],
         member_code: memberCode,
@@ -395,7 +401,7 @@ export function useUpdateMember() {
       email?: string;
       gender?: "male" | "female" | "prefer_not_to_say";
       date_of_birth?: string;
-      membership_status?: "member" | "visitor" | "first_timer";
+      membership_status?: "active" | "inactive" | "transferred";
       branch_id?: string;
       member_type?: "regular" | "occasional" | "worker";
       how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
@@ -403,6 +409,9 @@ export function useUpdateMember() {
       marital_status?: "single" | "married" | "divorced" | "widowed";
       occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other";
       is_baptized?: boolean;
+      emergency_contact_name?: string;
+      emergency_contact_phone?: string;
+      emergency_contact_relationship?: string;
       admin_notes?: string;
       date_joined?: string;
     }) => {

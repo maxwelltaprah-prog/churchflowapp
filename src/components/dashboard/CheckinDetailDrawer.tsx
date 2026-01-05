@@ -41,12 +41,12 @@ function formatLabel(value: string | null | undefined): string {
 
 function getStatusColor(status?: string | null): string {
   switch (status) {
-    case "member":
+    case "active":
       return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
-    case "visitor":
+    case "inactive":
+      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+    case "transferred":
       return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
-    case "first_timer":
-      return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
     default:
       return "bg-muted text-muted-foreground border-border";
   }

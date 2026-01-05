@@ -24,7 +24,7 @@ export const memberFormSchema = z.object({
   date_of_birth: z.string()
     .min(1, "Date of birth is required")
     .refine(validateDateOfBirth, "Please enter a valid date of birth"),
-  membership_status: z.enum(["member", "visitor", "first_timer"]),
+  membership_status: z.enum(["active", "inactive", "transferred"]),
   branch_id: z.string().min(1, "Please select a branch"),
   
   // Optional fields (Section B - Church Connection)
@@ -43,6 +43,11 @@ export const memberFormSchema = z.object({
   
   // Optional fields (Section D - Spiritual Journey)
   is_baptized: z.boolean().optional().nullable(),
+  
+  // Emergency Contact fields
+  emergency_contact_name: z.string().max(100).optional().nullable(),
+  emergency_contact_phone: z.string().max(20).optional().nullable(),
+  emergency_contact_relationship: z.string().max(50).optional().nullable(),
   
   // Admin-only fields
   admin_notes: z.string().max(1000).optional().nullable(),

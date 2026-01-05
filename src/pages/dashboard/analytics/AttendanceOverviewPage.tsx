@@ -88,22 +88,17 @@ function useAttendanceKPIs() {
       const uniqueAttendeeIds = new Set(attendance.map(a => a.member_id));
       const uniqueAttendees = uniqueAttendeeIds.size;
 
-      // Members vs Visitors breakdown
+      // Active vs Inactive/Transferred breakdown
       const memberCheckins = attendance.filter(a => 
-        (a.members as any)?.membership_status === "member"
+        (a.members as any)?.membership_status === "active"
       ).length;
       const visitorCheckins = attendance.filter(a => 
-        (a.members as any)?.membership_status === "visitor" || 
-        (a.members as any)?.membership_status === "first_timer"
+        (a.members as any)?.membership_status === "inactive" || 
+        (a.members as any)?.membership_status === "transferred"
       ).length;
 
-      // First-timers count (members with first_timer status who checked in)
-      const firstTimerIds = new Set(
-        attendance
-          .filter(a => (a.members as any)?.membership_status === "first_timer")
-          .map(a => a.member_id)
-      );
-      const firstTimers = firstTimerIds.size;
+      // No "first-timers" concept in new model
+      const firstTimers = 0;
 
       // Absentees: members who missed 3+ consecutive service days
       // Get all service dates (grouped by day) to determine consecutive absences
@@ -142,14 +137,14 @@ function useAttendanceKPIs() {
         };
       }
 
-      // Get all members
+      // Get all active members
       let membersQuery = supabase
         .from("members")
         .select("id")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
         .eq("approval_status", "approved")
-        .eq("membership_status", "member");
+        .eq("membership_status", "active");
 
       membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
       
