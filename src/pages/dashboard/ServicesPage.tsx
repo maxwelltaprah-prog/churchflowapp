@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MoreHorizontal, Calendar, Clock, MapPin, Loader2, Edit, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Calendar, Clock, MapPin, Loader2, Edit, Trash2, FileText, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,12 +34,55 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useServices, useBranches } from "@/hooks/useChurchData";
 import { useDeactivateService } from "@/hooks/useChurchMutations";
 import { AddServiceDialog } from "@/components/dashboard/AddServiceDialog";
 import { EditServiceDialog } from "@/components/dashboard/EditServiceDialog";
-import { format, isToday, isTomorrow, isPast } from "date-fns";
+import { format, isToday, isTomorrow } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import type { Tables } from "@/integrations/supabase/types";
+
+// Hook to fetch all service uploads for display
+function useAllServiceUploads(serviceIds: string[]) {
+  return useQuery({
+    queryKey: ["all-service-uploads", serviceIds],
+    queryFn: async () => {
+      if (serviceIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("service_uploads")
+        .select("service_id, upload_type")
+        .in("service_id", serviceIds)
+        .eq("is_expired", false)
+        .gt("expires_at", new Date().toISOString());
+
+      if (error) throw error;
+
+      // Group by service_id
+      const uploadMap: Record<string, { hasProgram: boolean; hasSermon: boolean }> = {};
+      data?.forEach(upload => {
+        if (!uploadMap[upload.service_id]) {
+          uploadMap[upload.service_id] = { hasProgram: false, hasSermon: false };
+        }
+        if (upload.upload_type === "program") {
+          uploadMap[upload.service_id].hasProgram = true;
+        } else if (upload.upload_type === "sermon_audio") {
+          uploadMap[upload.service_id].hasSermon = true;
+        }
+      });
+
+      return uploadMap;
+    },
+    enabled: serviceIds.length > 0,
+  });
+}
 
 export default function ServicesPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -49,6 +92,10 @@ export default function ServicesPage() {
   const { data: services, isLoading } = useServices();
   const { data: branches } = useBranches();
   const deactivateService = useDeactivateService();
+
+  // Fetch upload status for all services
+  const serviceIds = services?.map(s => s.id) || [];
+  const { data: uploadStatus } = useAllServiceUploads(serviceIds);
 
   const getDateLabel = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -153,6 +200,7 @@ export default function ServicesPage() {
                   <TableHead>Date</TableHead>
                   <TableHead className="hidden md:table-cell">Time</TableHead>
                   <TableHead className="hidden sm:table-cell">Branch</TableHead>
+                  <TableHead>Uploads</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -160,6 +208,8 @@ export default function ServicesPage() {
               <TableBody>
                 {services?.map((service) => {
                   const branch = branches?.find(b => b.id === service.branch_id);
+                  const uploads = uploadStatus?.[service.id];
+                  
                   return (
                     <TableRow key={service.id}>
                       <TableCell>
@@ -196,6 +246,44 @@ export default function ServicesPage() {
                           <MapPin className="w-4 h-4 text-muted-foreground" />
                           <span>{branch?.name || "—"}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <div className="flex items-center gap-1">
+                            {uploads?.hasProgram ? (
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <div className="p-1.5 rounded bg-primary/10">
+                                    <FileText className="w-4 h-4 text-primary" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Program uploaded</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <div className="p-1.5 rounded bg-muted">
+                                <FileText className="w-4 h-4 text-muted-foreground/50" />
+                              </div>
+                            )}
+                            {uploads?.hasSermon ? (
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <div className="p-1.5 rounded bg-primary/10">
+                                    <Music className="w-4 h-4 text-primary" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Sermon audio uploaded</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <div className="p-1.5 rounded bg-muted">
+                                <Music className="w-4 h-4 text-muted-foreground/50" />
+                              </div>
+                            )}
+                          </div>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(service.service_date)}
