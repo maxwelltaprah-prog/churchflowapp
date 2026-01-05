@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Church, 
@@ -16,7 +17,8 @@ import {
   Download,
   FileText,
   Music,
-  Loader2
+  Loader2,
+  ArrowUpRight
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
@@ -24,6 +26,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { StreakDashboard } from "@/components/member/StreakDashboard";
 import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
+import { downloadFileFromUrl } from "@/lib/file-download";
 
 interface MemberData {
   id: string;
@@ -66,6 +69,7 @@ export default function MemberPortal() {
   const [visibleCount, setVisibleCount] = useState(RECORDS_PER_PAGE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
   const navigate = useNavigate();
   
   // Fetch downloads for this member
@@ -268,18 +272,43 @@ export default function MemberPortal() {
     navigate("/");
   };
 
-  const handleDownload = async (upload: MemberDownload) => {
-    setDownloading(upload.id);
+  const handleOpen = async (upload: MemberDownload) => {
+    // Open a placeholder window immediately to avoid popup blockers on mobile
+    const win = window.open("about:blank", "_blank", "noopener,noreferrer");
+
     try {
       const url = await getDownloadUrl(upload.storage_path);
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = upload.file_name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+      if (!url) {
+        win?.close();
+        toast.error("This file is no longer available.");
+        return;
       }
+
+      if (win) win.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      win?.close();
+      console.error("Open error:", error);
+      toast.error("Failed to open file");
+    }
+  };
+
+  const handleDownload = async (upload: MemberDownload) => {
+    setDownloading(upload.id);
+    setDownloadProgress((prev) => ({ ...prev, [upload.id]: 0 }));
+
+    try {
+      const url = await getDownloadUrl(upload.storage_path);
+      if (!url) {
+        toast.error("This file is no longer available.");
+        return;
+      }
+
+      await downloadFileFromUrl(url, upload.file_name, (pct) =>
+        setDownloadProgress((prev) => ({ ...prev, [upload.id]: pct })),
+      );
+
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Failed to download file");
@@ -437,37 +466,58 @@ export default function MemberPortal() {
                         {upload.service.name} • {format(new Date(upload.service.service_date), "MMM d, yyyy")}
                       </div>
                     )}
-                    <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                      {upload.upload_type === "program" ? (
-                        <FileText className="w-5 h-5 text-primary shrink-0" />
-                      ) : (
-                        <Music className="w-5 h-5 text-primary shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{formatFileSize(upload.file_size)}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {timeRemaining} left
-                          </span>
+                    <div className="rounded-lg bg-secondary/50">
+                      <div className="flex items-center gap-3 p-3">
+                        {upload.upload_type === "program" ? (
+                          <FileText className="w-5 h-5 text-primary shrink-0" />
+                        ) : (
+                          <Music className="w-5 h-5 text-primary shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">
+                            {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{formatFileSize(upload.file_size)}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {timeRemaining} left
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpen(upload)}
+                            disabled={downloading === upload.id}
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownload(upload)}
+                            disabled={downloading === upload.id}
+                          >
+                            {downloading === upload.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                          </Button>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(upload)}
-                        disabled={downloading === upload.id}
-                      >
-                        {downloading === upload.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                      </Button>
+
+                      {downloading === upload.id && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <Progress value={downloadProgress[upload.id] ?? 0} />
+                          <p className="text-[11px] text-muted-foreground text-right">
+                            {downloadProgress[upload.id] ?? 0}%
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
