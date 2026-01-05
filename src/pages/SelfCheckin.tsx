@@ -154,15 +154,12 @@ export default function SelfCheckin() {
     
     setLoadingDownloads(true);
     try {
-      const { data, error } = await supabase
-        .from("service_uploads")
-        .select("*")
-        .eq("service_id", serviceId)
-        .eq("is_expired", false)
-        .gt("expires_at", new Date().toISOString());
+      const { data, error } = await supabase.functions.invoke("self-checkin", {
+        body: { action: "get_downloads", serviceId },
+      });
 
-      if (!error && data && data.length > 0) {
-        setServiceUploads(data as ServiceUpload[]);
+      if (!error && data?.uploads && data.uploads.length > 0) {
+        setServiceUploads(data.uploads as ServiceUpload[]);
         setShowDownloads(true);
       }
     } catch (err) {

@@ -2,6 +2,7 @@
 // Supports:
 // - action: "get_service" (serviceId)
 // - action: "checkin" (serviceId, memberCode) - memberCode is last 4 digits of phone
+// - action: "get_downloads" (serviceId) - returns unexpired uploads for the service
 // If multiple members match, returns disambiguation list
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -11,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "get_service" | "checkin";
+type Action = "get_service" | "checkin" | "get_downloads";
 
 interface MemberMatch {
   id: string;
@@ -264,6 +265,37 @@ Deno.serve(async (req) => {
         JSON.stringify({ status: "checked_in", name: member.full_name }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    if (action === "get_downloads") {
+      const serviceId: string | undefined = body?.serviceId;
+      if (!serviceId) {
+        return new Response(JSON.stringify({ error: "Missing serviceId" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const now = new Date().toISOString();
+      const { data: uploads, error: uploadsErr } = await supabase
+        .from("service_uploads")
+        .select("id, upload_type, file_name, file_type, file_size, storage_path, expires_at")
+        .eq("service_id", serviceId)
+        .eq("is_expired", false)
+        .gt("expires_at", now);
+
+      if (uploadsErr) {
+        console.error("get_downloads error", uploadsErr);
+        return new Response(JSON.stringify({ error: "Failed to load downloads" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ uploads: uploads || [] }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Unsupported action" }), {
