@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Search, 
   Plus, 
@@ -14,7 +15,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  KeyRound
+  KeyRound,
+  Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,15 +65,15 @@ import { ResetPinDialog } from "@/components/dashboard/ResetPinDialog";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
-  member: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  visitor: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  first_timer: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  active: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  inactive: "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300",
+  transferred: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
 };
 
 const statusLabels: Record<string, string> = {
-  member: "Member",
-  visitor: "Visitor",
-  first_timer: "First Timer",
+  active: "Active",
+  inactive: "Inactive",
+  transferred: "Transferred",
 };
 
 const approvalColors: Record<string, string> = {
@@ -87,7 +89,7 @@ type MemberType = {
   phone?: string | null;
   gender?: "male" | "female" | "prefer_not_to_say" | null;
   date_of_birth?: string | null;
-  membership_status?: "member" | "visitor" | "first_timer" | null;
+  membership_status?: "active" | "inactive" | "transferred" | null;
   approval_status?: "pending" | "approved" | "rejected" | null;
   branch_id: string;
   member_code: string;
@@ -104,6 +106,7 @@ type MemberType = {
 };
 
 export default function MembersPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -268,8 +271,39 @@ export default function MembersPage() {
     return pendingInFiltered.some(m => selectedIds.has(m.id)) && !allPendingSelected;
   }, [filteredMembers, selectedIds, allPendingSelected]);
 
+  // Calculate status counts for summary cards
+  const statusCounts = useMemo(() => {
+    const all = members || [];
+    return {
+      total: all.length,
+      active: all.filter(m => m.membership_status === "active").length,
+      inactive: all.filter(m => m.membership_status === "inactive").length,
+      transferred: all.filter(m => m.membership_status === "transferred").length,
+    };
+  }, [members]);
+
   return (
     <div className="space-y-6">
+      {/* Summary Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+          <p className="text-sm text-muted-foreground">Total Members</p>
+          <p className="text-2xl font-bold text-foreground">{statusCounts.total}</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+          <p className="text-sm text-muted-foreground">Active</p>
+          <p className="text-2xl font-bold text-green-600">{statusCounts.active}</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+          <p className="text-sm text-muted-foreground">Inactive</p>
+          <p className="text-2xl font-bold text-gray-500">{statusCounts.inactive}</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+          <p className="text-sm text-muted-foreground">Transferred</p>
+          <p className="text-2xl font-bold text-blue-600">{statusCounts.transferred}</p>
+        </div>
+      </div>
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -376,9 +410,9 @@ export default function MembersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="member">Members</SelectItem>
-            <SelectItem value="visitor">Visitors</SelectItem>
-            <SelectItem value="first_timer">First Timers</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="transferred">Transferred</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -504,16 +538,20 @@ export default function MembersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {member.approval_status === "approved" && (
-                            <DropdownMenuItem onClick={() => setQrMember(member as MemberType)}>
-                              <QrCode className="w-4 h-4 mr-2" />
-                              View QR Code
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Member
-                          </DropdownMenuItem>
+                      {member.approval_status === "approved" && (
+                        <DropdownMenuItem onClick={() => setQrMember(member as MemberType)}>
+                          <QrCode className="w-4 h-4 mr-2" />
+                          View QR Code
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => navigate(`/app/members/${member.id}`)}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Member
+                      </DropdownMenuItem>
                           {member.approval_status === "approved" && (
                             <DropdownMenuItem onClick={() => setResetPinMember(member as MemberType)}>
                               <KeyRound className="w-4 h-4 mr-2" />

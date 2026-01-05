@@ -363,10 +363,10 @@ export function useServiceDrivenMemberGrowth(
         });
 
         const newMembers = periodMembers.filter(m => 
-          m.membership_status === "member"
+          m.membership_status === "active"
         ).length;
         const visitors = periodMembers.filter(m => 
-          m.membership_status === "visitor" || m.membership_status === "first_timer"
+          m.membership_status === "inactive" || m.membership_status === "transferred"
         ).length;
 
         return {

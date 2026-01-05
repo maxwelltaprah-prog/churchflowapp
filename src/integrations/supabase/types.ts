@@ -365,6 +365,9 @@ export type Database = {
           date_joined: string | null
           date_of_birth: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relationship: string | null
           full_name: string
           gender: Database["public"]["Enums"]["gender_type"] | null
           how_heard: Database["public"]["Enums"]["how_heard"] | null
@@ -399,6 +402,9 @@ export type Database = {
           date_joined?: string | null
           date_of_birth?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
           full_name: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           how_heard?: Database["public"]["Enums"]["how_heard"] | null
@@ -433,6 +439,9 @@ export type Database = {
           date_joined?: string | null
           date_of_birth?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           how_heard?: Database["public"]["Enums"]["how_heard"] | null
@@ -708,7 +717,7 @@ export type Database = {
         | "other"
       marital_status: "single" | "married" | "divorced" | "widowed"
       member_type: "regular" | "occasional" | "worker"
-      membership_status: "member" | "visitor" | "first_timer"
+      membership_status: "active" | "inactive" | "transferred"
       occupation_type:
         | "student"
         | "public_sector"
@@ -856,7 +865,7 @@ export const Constants = {
       ],
       marital_status: ["single", "married", "divorced", "widowed"],
       member_type: ["regular", "occasional", "worker"],
-      membership_status: ["member", "visitor", "first_timer"],
+      membership_status: ["active", "inactive", "transferred"],
       occupation_type: [
         "student",
         "public_sector",

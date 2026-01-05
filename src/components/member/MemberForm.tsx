@@ -39,9 +39,9 @@ const GENDER_OPTIONS = [
 ];
 
 const MEMBERSHIP_STATUS_OPTIONS = [
-  { value: "first_timer", label: "First Timer / New" },
-  { value: "visitor", label: "Visitor" },
-  { value: "member", label: "Member" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "transferred", label: "Transferred" },
 ];
 
 const MEMBER_TYPE_OPTIONS = [
@@ -527,6 +527,72 @@ export function MemberForm({
                     <Input 
                       type="email" 
                       placeholder="email@example.com" 
+                      className="h-12" 
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Emergency Contact Section */}
+          <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
+            <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+              <Phone className="w-4 h-4" />
+              Emergency Contact
+            </h4>
+
+            <FormField
+              control={form.control}
+              name="emergency_contact_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emergency Contact Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Contact person's name" 
+                      className="h-12" 
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="emergency_contact_phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emergency Contact Phone</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="tel"
+                      placeholder="+233 XX XXX XXXX" 
+                      className="h-12" 
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="emergency_contact_relationship"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Relationship</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="e.g., Spouse, Parent, Sibling" 
                       className="h-12" 
                       {...field}
                       value={field.value || ""}

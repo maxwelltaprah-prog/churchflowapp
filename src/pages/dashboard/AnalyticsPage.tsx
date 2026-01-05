@@ -59,9 +59,9 @@ function useFilteredAnalyticsStats() {
         return createdAt >= filters.startDate && createdAt <= filters.endDate;
       }).length || 0;
       
-      // Visitors in date range
+      // Count by status (inactive/transferred) as "other"
       const visitorsCount = membersData?.filter(m => 
-        m.membership_status === "visitor" || m.membership_status === "first_timer"
+        m.membership_status === "inactive" || m.membership_status === "transferred"
       ).length || 0;
       
       // Build attendance query with filters

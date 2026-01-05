@@ -35,12 +35,11 @@ import { format, parseISO, subWeeks, differenceInYears } from "date-fns";
 // Segment definitions
 export type MemberSegment = 
   | "all" 
-  | "visitors" 
-  | "first_timers" 
-  | "members" 
+  | "active" 
+  | "inactive" 
+  | "transferred" 
   | "absentees" 
   | "at_risk" 
-  | "returning_visitors"
   | "cross_branch";
 
 const SEGMENT_CONFIG: Record<MemberSegment, { 
@@ -50,12 +49,11 @@ const SEGMENT_CONFIG: Record<MemberSegment, {
   variant: "default" | "accent" | "success" | "warning" | "destructive";
 }> = {
   all: { label: "All Attendees", description: "Everyone who checked in", icon: Users, variant: "default" },
-  visitors: { label: "Visitors", description: "Members with visitor status", icon: UserPlus, variant: "accent" },
-  first_timers: { label: "First-Timers", description: "First time at church", icon: UserCheck, variant: "accent" },
-  members: { label: "Members", description: "Full church members", icon: Users, variant: "success" },
+  active: { label: "Active", description: "Active members", icon: Users, variant: "success" },
+  inactive: { label: "Inactive", description: "Inactive members", icon: UserMinus, variant: "warning" },
+  transferred: { label: "Transferred", description: "Transferred members", icon: UserCheck, variant: "accent" },
   absentees: { label: "Absentees", description: "Missed 3+ consecutive service days", icon: UserMinus, variant: "destructive" },
   at_risk: { label: "At Risk", description: "4-8 weeks without attendance", icon: Clock, variant: "warning" },
-  returning_visitors: { label: "Returning Visitors", description: "Visitors who came back", icon: RefreshCw, variant: "accent" },
   cross_branch: { label: "Cross-Branch", description: "Checked in at different branch", icon: Users, variant: "default" },
 };
 
@@ -116,7 +114,7 @@ function useSegmentedMembers(segment: MemberSegment) {
           .eq("church_id", profile.church_id)
           .eq("is_active", true)
           .eq("approval_status", "approved")
-          .eq("membership_status", "member");
+          .eq("membership_status", "active");
 
         membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
@@ -194,7 +192,7 @@ function useSegmentedMembers(segment: MemberSegment) {
           .eq("church_id", profile.church_id)
           .eq("is_active", true)
           .eq("approval_status", "approved")
-          .eq("membership_status", "member");
+          .eq("membership_status", "active");
 
         membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
@@ -262,31 +260,6 @@ function useSegmentedMembers(segment: MemberSegment) {
         });
 
         results = Object.values(memberMap);
-      } else if (segment === "returning_visitors") {
-        // Visitors who have attended more than once
-        let query = supabase
-          .from("attendance")
-          .select("member_id, checked_in_at, members!inner(id, full_name, phone, email, membership_status, gender, date_of_birth, branch_id, created_at)")
-          .eq("church_id", profile.church_id)
-          .in("members.membership_status", ["visitor", "first_timer"])
-          .gte("checked_in_at", filters.startDate.toISOString())
-          .lte("checked_in_at", filters.endDate.toISOString());
-
-        query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-
-        const { data } = await query;
-        
-        const memberMap: Record<string, MemberResult & { checkin_count: number }> = {};
-        (data || []).forEach(a => {
-          const member = a.members as any;
-          if (!memberMap[member.id]) {
-            memberMap[member.id] = { ...member, checkin_count: 0, last_checkin: a.checked_in_at };
-          }
-          memberMap[member.id].checkin_count++;
-        });
-
-        // Only include those with 2+ check-ins
-        results = Object.values(memberMap).filter(m => m.checkin_count >= 2);
       } else {
         // Standard segments based on attendance + membership status
         let query = supabase
@@ -297,12 +270,12 @@ function useSegmentedMembers(segment: MemberSegment) {
           .lte("checked_in_at", filters.endDate.toISOString());
 
         // Apply membership status filter
-        if (segment === "visitors") {
-          query = query.eq("members.membership_status", "visitor");
-        } else if (segment === "first_timers") {
-          query = query.eq("members.membership_status", "first_timer");
-        } else if (segment === "members") {
-          query = query.eq("members.membership_status", "member");
+        if (segment === "active") {
+          query = query.eq("members.membership_status", "active");
+        } else if (segment === "inactive") {
+          query = query.eq("members.membership_status", "inactive");
+        } else if (segment === "transferred") {
+          query = query.eq("members.membership_status", "transferred");
         }
 
         query = applyBranchFilter(query, "branch_id", filters.branchId || undefined, accessibleBranchIds);
@@ -466,7 +439,7 @@ export default function MemberDrilldownPage() {
                     <TableHead>Gender</TableHead>
                     <TableHead>Age</TableHead>
                     <TableHead>Branch</TableHead>
-                    {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "returning_visitors") && (
+                    {(segment === "all" || segment === "active" || segment === "inactive" || segment === "transferred") && (
                       <TableHead className="text-right">Check-ins</TableHead>
                     )}
                     {(segment === "absentees" || segment === "at_risk") && (
@@ -493,7 +466,7 @@ export default function MemberDrilldownPage() {
                         <TableCell className="capitalize">{member.gender || "—"}</TableCell>
                         <TableCell>{age !== null ? age : "—"}</TableCell>
                         <TableCell>{member.branch_name || "—"}</TableCell>
-                        {(segment === "all" || segment === "members" || segment === "visitors" || segment === "first_timers" || segment === "returning_visitors") && (
+                        {(segment === "all" || segment === "active" || segment === "inactive" || segment === "transferred") && (
                           <TableCell className="text-right">{member.checkin_count || 0}</TableCell>
                         )}
                         {(segment === "absentees" || segment === "at_risk") && (

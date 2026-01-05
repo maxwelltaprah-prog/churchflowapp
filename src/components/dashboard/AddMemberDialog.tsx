@@ -41,7 +41,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       phone: "",
       gender: undefined, // Required - will show validation error if not selected
       date_of_birth: "",
-      membership_status: "first_timer",
+      membership_status: "active",
       branch_id: "",
       group_ids: [],
       spiritual_journey_ids: [],
@@ -52,6 +52,9 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       occupation: null,
       email: "",
       is_baptized: null,
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      emergency_contact_relationship: "",
       admin_notes: "",
       date_joined: new Date().toISOString().split("T")[0],
     },
@@ -77,6 +80,9 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
       residential_area: data.residential_area || undefined,
       marital_status: data.marital_status || undefined,
       occupation: data.occupation || undefined,
+      emergency_contact_name: data.emergency_contact_name || undefined,
+      emergency_contact_phone: data.emergency_contact_phone || undefined,
+      emergency_contact_relationship: data.emergency_contact_relationship || undefined,
       admin_notes: data.admin_notes || undefined,
       date_joined: data.date_joined || undefined,
     });
