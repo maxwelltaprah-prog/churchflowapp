@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Form,
   FormControl,
@@ -112,15 +113,16 @@ export function AddServiceDialog({ open, onOpenChange }: AddServiceDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New Service</DialogTitle>
           <DialogDescription>
             Schedule a new service for check-ins.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-4">
             <FormField
               control={form.control}
               name="name"
@@ -237,8 +239,9 @@ export function AddServiceDialog({ open, onOpenChange }: AddServiceDialogProps) 
                 )}
               </Button>
             </div>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
