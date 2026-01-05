@@ -649,6 +649,264 @@ export type Database = {
           },
         ]
       }
+      sms_campaigns: {
+        Row: {
+          audience_group_ids: string[] | null
+          audience_member_ids: string[] | null
+          audience_type: string
+          church_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          credits_deducted: number
+          failed_count: number | null
+          id: string
+          message_body: string
+          recipient_count: number
+          segments: number
+          sent_count: number | null
+          status: string
+          use_first_name: boolean
+        }
+        Insert: {
+          audience_group_ids?: string[] | null
+          audience_member_ids?: string[] | null
+          audience_type: string
+          church_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          credits_deducted?: number
+          failed_count?: number | null
+          id?: string
+          message_body: string
+          recipient_count?: number
+          segments?: number
+          sent_count?: number | null
+          status?: string
+          use_first_name?: boolean
+        }
+        Update: {
+          audience_group_ids?: string[] | null
+          audience_member_ids?: string[] | null
+          audience_type?: string
+          church_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          credits_deducted?: number
+          failed_count?: number | null
+          id?: string
+          message_body?: string
+          recipient_count?: number
+          segments?: number
+          sent_count?: number | null
+          status?: string
+          use_first_name?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_campaigns_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_credit_purchases: {
+        Row: {
+          admin_user_id: string
+          amount_paid: number
+          church_id: string
+          created_at: string
+          credits_purchased: number
+          currency: string
+          hubtel_checkout_id: string | null
+          hubtel_reference: string | null
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          amount_paid: number
+          church_id: string
+          created_at?: string
+          credits_purchased: number
+          currency?: string
+          hubtel_checkout_id?: string | null
+          hubtel_reference?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          amount_paid?: number
+          church_id?: string
+          created_at?: string
+          credits_purchased?: number
+          currency?: string
+          hubtel_checkout_id?: string | null
+          hubtel_reference?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_credit_purchases_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_jobs: {
+        Row: {
+          campaign_id: string
+          church_id: string
+          created_at: string
+          id: string
+          last_error: string | null
+          member_id: string | null
+          member_name: string | null
+          personalized_message: string | null
+          phone_number: string
+          provider_message_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          church_id: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          member_id?: string | null
+          member_name?: string | null
+          personalized_message?: string | null
+          phone_number: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          church_id?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          member_id?: string | null
+          member_name?: string | null
+          personalized_message?: string | null
+          phone_number?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sms_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_jobs_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_jobs_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_templates: {
+        Row: {
+          body: string
+          church_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          church_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          church_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_templates_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_wallets: {
+        Row: {
+          balance_credits: number
+          church_id: string
+          created_at: string
+          id: string
+          low_balance_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          balance_credits?: number
+          church_id: string
+          created_at?: string
+          id?: string
+          low_balance_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          balance_credits?: number
+          church_id?: string
+          created_at?: string
+          id?: string
+          low_balance_threshold?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_wallets_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: true
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spiritual_journeys: {
         Row: {
           church_id: string
