@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.cleanup-expired-uploads]
 verify_jwt = false
+
+[functions.send-sms-campaign]
+verify_jwt = true
+
+[functions.manage-sms-wallet]
+verify_jwt = true

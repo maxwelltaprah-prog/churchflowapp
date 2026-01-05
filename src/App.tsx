@@ -38,6 +38,8 @@ import EngagementSignalsPage from "./pages/dashboard/analytics/EngagementSignals
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
 import SpiritualJourneyPage from "./pages/dashboard/SpiritualJourneyPage";
+import SMSDashboardPage from "./pages/dashboard/SMSDashboardPage";
+import SendSMSPage from "./pages/dashboard/SendSMSPage";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +89,8 @@ const App = () => (
               
               <Route path="analytics/drilldown" element={<MemberDrilldownPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
+              <Route path="sms" element={<SMSDashboardPage />} />
+              <Route path="sms/send" element={<SendSMSPage />} />
               <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
