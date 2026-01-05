@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Encode credentials for Hubtel Basic Auth
+function getHubtelAuthHeader(): string {
+  const clientId = Deno.env.get("HUBTEL_CLIENT_ID")!;
+  const clientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET")!;
+  const credentials = `${clientId}:${clientSecret}`;
+  return `Basic ${btoa(credentials)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -14,11 +22,12 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const smsApiKey = Deno.env.get("SMSONLINEGH_API_KEY");
-    const smsSenderId = Deno.env.get("SMSONLINEGH_SENDER_ID");
+    const hubtelClientId = Deno.env.get("HUBTEL_CLIENT_ID");
+    const hubtelClientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET");
+    const hubtelSenderId = Deno.env.get("HUBTEL_SENDER_ID");
 
-    if (!smsApiKey || !smsSenderId) {
-      throw new Error("SMS API credentials not configured");
+    if (!hubtelClientId || !hubtelClientSecret || !hubtelSenderId) {
+      throw new Error("Hubtel API credentials not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -169,7 +178,7 @@ serve(async (req) => {
 
     if (jobsError) throw jobsError;
 
-    // 6. Send messages in batches
+    // 6. Send messages in batches via Hubtel SMS API
     const BATCH_SIZE = 50;
     let sentCount = 0;
     let failedCount = 0;
@@ -186,45 +195,41 @@ serve(async (req) => {
           }
           phone = phone.replace(/^\+/, "");
 
-          // Send via SMSOnlineGH API
+          // Send via Hubtel SMS API
           const smsResponse = await fetch(
-            `https://api.smsonlinegh.com/v4/message/sms/send?key=${smsApiKey}`,
+            `https://smsc.hubtel.com/v1/messages/send`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                "Authorization": getHubtelAuthHeader(),
               },
               body: JSON.stringify({
-                messages: [
-                  {
-                    text: job.personalized_message,
-                    type: 0,
-                    sender: smsSenderId,
-                    destinations: [phone],
-                  },
-                ],
+                From: hubtelSenderId,
+                To: phone,
+                Content: job.personalized_message,
               }),
             }
           );
 
           const smsResult = await smsResponse.json();
-          console.log("SMS API Response:", JSON.stringify(smsResult));
+          console.log("Hubtel SMS Response:", JSON.stringify(smsResult));
 
-          if (smsResult.status === 200 || smsResult.handshake?.label === "HSHK_OK") {
+          if (smsResponse.ok && (smsResult.Status === 0 || smsResult.MessageId)) {
             // Update job as sent
             await supabase
               .from("sms_jobs")
               .update({
                 status: "sent",
                 sent_at: new Date().toISOString(),
-                provider_message_id: smsResult.data?.[0]?.uid || null,
+                provider_message_id: smsResult.MessageId || null,
               })
               .eq("campaign_id", campaign.id)
               .eq("phone_number", job.phone_number);
 
             return { success: true };
           } else {
-            throw new Error(smsResult.message || "SMS sending failed");
+            throw new Error(smsResult.Message || smsResult.message || "SMS sending failed");
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";

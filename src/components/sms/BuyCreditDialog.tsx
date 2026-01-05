@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Loader2 } from "lucide-react";
+import { CreditCard, Loader2, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface BuyCreditDialogProps {
   open: boolean;
@@ -29,7 +28,6 @@ const CREDIT_PACKAGES = [
 
 export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
   const { profile, user } = useAuth();
-  const queryClient = useQueryClient();
   const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0] | null>(null);
   const [customCredits, setCustomCredits] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -52,46 +50,34 @@ export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
     setIsProcessing(true);
 
     try {
-      // Create purchase record
-      const { data: purchase, error: purchaseError } = await supabase
-        .from("sms_credit_purchases")
-        .insert({
-          church_id: profile.church_id,
-          admin_user_id: user.id,
-          credits_purchased: credits,
-          amount_paid: price,
-          currency: "GHS",
-          status: "pending",
-        })
-        .select()
-        .single();
+      // Get the current page URL for return
+      const returnUrl = window.location.origin + "/app/sms";
 
-      if (purchaseError) throw purchaseError;
-
-      // For now, simulate instant credit (in production, integrate with payment gateway)
-      // This would normally redirect to a payment page
-      const { error: walletError } = await supabase.functions.invoke("manage-sms-wallet", {
+      // Initiate payment via Hubtel
+      const { data, error } = await supabase.functions.invoke("initiate-sms-payment", {
         body: {
-          action: "add_credits",
           churchId: profile.church_id,
+          userId: user.id,
           credits: credits,
-          purchaseId: purchase.id,
+          amount: price,
+          returnUrl: returnUrl,
+          customerPhone: user.phone || "",
+          customerName: profile.full_name || user.email,
         },
       });
 
-      if (walletError) throw walletError;
+      if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ["sms-wallet"] });
-      queryClient.invalidateQueries({ queryKey: ["sms-credit-purchases"] });
-
-      toast.success(`Successfully added ${credits} SMS credits!`);
-      onOpenChange(false);
-      setSelectedPackage(null);
-      setCustomCredits("");
+      if (data?.checkoutUrl) {
+        toast.success("Redirecting to payment...");
+        // Open Hubtel checkout in same window
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error("No checkout URL received");
+      }
     } catch (error: any) {
       console.error("Purchase error:", error);
-      toast.error(error.message || "Failed to process purchase");
-    } finally {
+      toast.error(error.message || "Failed to initiate payment");
       setIsProcessing(false);
     }
   };
@@ -105,7 +91,7 @@ export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
             Buy SMS Credits
           </DialogTitle>
           <DialogDescription>
-            Choose a package or enter a custom amount
+            Choose a package or enter a custom amount. Payment via Hubtel.
           </DialogDescription>
         </DialogHeader>
 
@@ -174,6 +160,11 @@ export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
               </div>
             </div>
           )}
+
+          {/* Payment notice */}
+          <p className="text-xs text-muted-foreground text-center">
+            You'll be redirected to Hubtel to complete payment via Mobile Money or Card
+          </p>
         </div>
 
         <div className="flex justify-end gap-3">
@@ -190,7 +181,10 @@ export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
                 Processing...
               </>
             ) : (
-              "Buy Now"
+              <>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Pay with Hubtel
+              </>
             )}
           </Button>
         </div>
