@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useBranches } from "@/hooks/useChurchData";
 import { useUpdateService } from "@/hooks/useChurchMutations";
+import { useServiceUploads, useUploadServiceFile, useDeleteServiceUpload } from "@/hooks/useServiceUploads";
+import { ServiceUploadFields } from "./ServiceUploadFields";
+import { Loader2, FileText, Music, Trash2, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
 const serviceSchema = z.object({
@@ -51,6 +55,13 @@ interface EditServiceDialogProps {
 export function EditServiceDialog({ open, onOpenChange, service }: EditServiceDialogProps) {
   const { data: branches } = useBranches();
   const updateService = useUpdateService();
+  const { data: existingUploads, isLoading: uploadsLoading } = useServiceUploads(service?.id);
+  const uploadFile = useUploadServiceFile();
+  const deleteUpload = useDeleteServiceUpload();
+  
+  const [programFile, setProgramFile] = useState<File | null>(null);
+  const [sermonFile, setSermonFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
@@ -75,31 +86,82 @@ export function EditServiceDialog({ open, onOpenChange, service }: EditServiceDi
         end_time: service.end_time || "",
         branch_id: service.branch_id,
       });
+      // Reset file states when dialog opens with a new service
+      setProgramFile(null);
+      setSermonFile(null);
     }
   }, [service, form]);
+
+  const existingProgram = existingUploads?.find(u => u.upload_type === "program");
+  const existingSermon = existingUploads?.find(u => u.upload_type === "sermon_audio");
+
+  const getTimeRemaining = (expiresAt: string) => {
+    const expiry = new Date(expiresAt);
+    const now = new Date();
+    if (expiry <= now) return null;
+    return formatDistanceToNow(expiry, { addSuffix: false });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const onSubmit = async (data: ServiceFormData) => {
     if (!service) return;
     
-    await updateService.mutateAsync({
-      id: service.id,
-      name: data.name,
-      description: data.description || undefined,
-      service_date: data.service_date,
-      start_time: data.start_time || undefined,
-      end_time: data.end_time || undefined,
-      branch_id: data.branch_id,
-    });
-    onOpenChange(false);
+    setIsUploading(true);
+    try {
+      await updateService.mutateAsync({
+        id: service.id,
+        name: data.name,
+        description: data.description || undefined,
+        service_date: data.service_date,
+        start_time: data.start_time || undefined,
+        end_time: data.end_time || undefined,
+        branch_id: data.branch_id,
+      });
+
+      // Upload new files if provided
+      if (programFile) {
+        await uploadFile.mutateAsync({
+          serviceId: service.id,
+          uploadType: "program",
+          file: programFile,
+        });
+      }
+
+      if (sermonFile) {
+        await uploadFile.mutateAsync({
+          serviceId: service.id,
+          uploadType: "sermon_audio",
+          file: sermonFile,
+        });
+      }
+
+      setProgramFile(null);
+      setSermonFile(null);
+      onOpenChange(false);
+    } finally {
+      setIsUploading(false);
+    }
   };
+
+  const handleDeleteUpload = async (uploadId: string, storagePath: string) => {
+    if (!service) return;
+    await deleteUpload.mutateAsync({ uploadId, storagePath, serviceId: service.id });
+  };
+
+  const isPending = updateService.isPending || isUploading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Service</DialogTitle>
           <DialogDescription>
-            Update the service details.
+            Update the service details and manage uploads.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -195,12 +257,90 @@ export function EditServiceDialog({ open, onOpenChange, service }: EditServiceDi
                 )}
               />
             </div>
+
+            {/* Existing Uploads Section */}
+            {(existingProgram || existingSermon) && (
+              <div className="space-y-3 border-t pt-4">
+                <h4 className="font-medium text-sm text-foreground">Current Uploads</h4>
+                
+                {existingProgram && (
+                  <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-lg">
+                    <FileText className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Church Program</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatFileSize(existingProgram.file_size)}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getTimeRemaining(existingProgram.expires_at) || "Expired"} left
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteUpload(existingProgram.id, existingProgram.storage_path)}
+                      disabled={deleteUpload.isPending}
+                    >
+                      {deleteUpload.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                )}
+                
+                {existingSermon && (
+                  <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-lg">
+                    <Music className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Sermon Audio</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatFileSize(existingSermon.file_size)}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getTimeRemaining(existingSermon.expires_at) || "Expired"} left
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteUpload(existingSermon.id, existingSermon.storage_path)}
+                      disabled={deleteUpload.isPending}
+                    >
+                      {deleteUpload.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* New Upload Fields */}
+            <ServiceUploadFields
+              programFile={programFile}
+              sermonFile={sermonFile}
+              onProgramChange={setProgramFile}
+              onSermonChange={setSermonFile}
+              disabled={isPending}
+            />
+
             <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateService.isPending}>
-                {updateService.isPending ? "Saving..." : "Save Changes"}
+              <Button type="submit" disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isUploading ? "Uploading..." : "Saving..."}
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </div>
           </form>
