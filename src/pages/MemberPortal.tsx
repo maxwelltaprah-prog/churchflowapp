@@ -12,13 +12,18 @@ import {
   Clock,
   MapPin,
   History,
-  Calendar
+  Calendar,
+  Download,
+  FileText,
+  Music,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { StreakDashboard } from "@/components/member/StreakDashboard";
+import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
 
 interface MemberData {
   id: string;
@@ -60,7 +65,11 @@ export default function MemberPortal() {
   const [copied, setCopied] = useState(false);
   const [visibleCount, setVisibleCount] = useState(RECORDS_PER_PAGE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  // Fetch downloads for this member
+  const { data: memberDownloads, isLoading: downloadsLoading } = useMemberServiceDownloads(member?.id);
 
   useEffect(() => {
     fetchMemberData();
@@ -259,6 +268,39 @@ export default function MemberPortal() {
     navigate("/");
   };
 
+  const handleDownload = async (upload: MemberDownload) => {
+    setDownloading(upload.id);
+    try {
+      const url = await getDownloadUrl(upload.storage_path);
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = upload.file_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download file");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const getTimeRemaining = (expiresAt: string) => {
+    const expiry = new Date(expiresAt);
+    const now = new Date();
+    if (expiry <= now) return null;
+    return formatDistanceToNow(expiry, { addSuffix: false });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -370,6 +412,69 @@ export default function MemberPortal() {
           stats={stats} 
           attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]} 
         />
+
+        {/* Service Downloads */}
+        {memberDownloads && memberDownloads.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Service Downloads
+              </CardTitle>
+              <CardDescription>
+                Download materials from services you attended (available for 48 hours)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {memberDownloads.map((upload) => {
+                const timeRemaining = getTimeRemaining(upload.expires_at);
+                if (!timeRemaining) return null;
+
+                return (
+                  <div key={upload.id} className="space-y-2">
+                    {upload.service && (
+                      <div className="text-sm text-muted-foreground">
+                        {upload.service.name} • {format(new Date(upload.service.service_date), "MMM d, yyyy")}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                      {upload.upload_type === "program" ? (
+                        <FileText className="w-5 h-5 text-primary shrink-0" />
+                      ) : (
+                        <Music className="w-5 h-5 text-primary shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(upload.file_size)}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {timeRemaining} left
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(upload)}
+                        disabled={downloading === upload.id}
+                      >
+                        {downloading === upload.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Attendance History */}
         <Card>
