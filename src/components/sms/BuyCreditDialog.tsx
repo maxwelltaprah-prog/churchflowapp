@@ -1,0 +1,200 @@
+import { useState } from "react";
+import { CreditCard, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+
+interface BuyCreditDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const CREDIT_PACKAGES = [
+  { credits: 100, price: 10, label: "100 SMS" },
+  { credits: 500, price: 45, label: "500 SMS" },
+  { credits: 1000, price: 80, label: "1,000 SMS" },
+  { credits: 5000, price: 350, label: "5,000 SMS" },
+];
+
+export function BuyCreditDialog({ open, onOpenChange }: BuyCreditDialogProps) {
+  const { profile, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0] | null>(null);
+  const [customCredits, setCustomCredits] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handlePurchase = async () => {
+    if (!profile?.church_id || !user?.id) {
+      toast.error("You must be logged in");
+      return;
+    }
+
+    const credits = selectedPackage?.credits || parseInt(customCredits);
+    if (!credits || credits < 10) {
+      toast.error("Minimum purchase is 10 credits");
+      return;
+    }
+
+    // Price calculation: 0.10 GHS per credit
+    const price = selectedPackage?.price || Math.ceil(credits * 0.10);
+
+    setIsProcessing(true);
+
+    try {
+      // Create purchase record
+      const { data: purchase, error: purchaseError } = await supabase
+        .from("sms_credit_purchases")
+        .insert({
+          church_id: profile.church_id,
+          admin_user_id: user.id,
+          credits_purchased: credits,
+          amount_paid: price,
+          currency: "GHS",
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (purchaseError) throw purchaseError;
+
+      // For now, simulate instant credit (in production, integrate with payment gateway)
+      // This would normally redirect to a payment page
+      const { error: walletError } = await supabase.functions.invoke("manage-sms-wallet", {
+        body: {
+          action: "add_credits",
+          churchId: profile.church_id,
+          credits: credits,
+          purchaseId: purchase.id,
+        },
+      });
+
+      if (walletError) throw walletError;
+
+      queryClient.invalidateQueries({ queryKey: ["sms-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["sms-credit-purchases"] });
+
+      toast.success(`Successfully added ${credits} SMS credits!`);
+      onOpenChange(false);
+      setSelectedPackage(null);
+      setCustomCredits("");
+    } catch (error: any) {
+      console.error("Purchase error:", error);
+      toast.error(error.message || "Failed to process purchase");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[450px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Buy SMS Credits
+          </DialogTitle>
+          <DialogDescription>
+            Choose a package or enter a custom amount
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Credit Packages */}
+          <div className="grid grid-cols-2 gap-3">
+            {CREDIT_PACKAGES.map((pkg) => (
+              <button
+                key={pkg.credits}
+                onClick={() => {
+                  setSelectedPackage(pkg);
+                  setCustomCredits("");
+                }}
+                className={`p-4 border rounded-lg text-left transition-colors ${
+                  selectedPackage?.credits === pkg.credits
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/50"
+                }`}
+              >
+                <div className="font-semibold">{pkg.label}</div>
+                <div className="text-lg font-bold text-primary">GHS {pkg.price}</div>
+                <div className="text-xs text-muted-foreground">
+                  GHS {(pkg.price / pkg.credits).toFixed(3)}/SMS
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Amount */}
+          <div className="space-y-2">
+            <Label>Or enter custom amount</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Number of credits"
+                value={customCredits}
+                onChange={(e) => {
+                  setCustomCredits(e.target.value);
+                  setSelectedPackage(null);
+                }}
+                min={10}
+              />
+              {customCredits && (
+                <div className="flex items-center px-3 bg-muted rounded-md text-sm whitespace-nowrap">
+                  GHS {Math.ceil(parseInt(customCredits) * 0.10)}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Minimum 10 credits</p>
+          </div>
+
+          {/* Summary */}
+          {(selectedPackage || customCredits) && (
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <div className="flex justify-between">
+                <span>Credits:</span>
+                <span className="font-medium">
+                  {selectedPackage?.credits || customCredits}
+                </span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span>Total:</span>
+                <span className="font-bold text-primary">
+                  GHS {selectedPackage?.price || Math.ceil(parseInt(customCredits || "0") * 0.10)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePurchase}
+            disabled={isProcessing || (!selectedPackage && !customCredits)}
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Buy Now"
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
