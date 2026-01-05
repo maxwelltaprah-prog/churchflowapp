@@ -88,7 +88,20 @@ serve(async (req) => {
       }
     );
 
-    const checkoutResult = await checkoutResponse.json();
+    // Get raw response text first to handle empty responses
+    const responseText = await checkoutResponse.text();
+    console.log("Hubtel raw response:", responseText, "Status:", checkoutResponse.status);
+
+    let checkoutResult: any = {};
+    if (responseText) {
+      try {
+        checkoutResult = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse Hubtel response:", parseError);
+        throw new Error(`Hubtel API returned invalid response: ${responseText.substring(0, 200)}`);
+      }
+    }
+
     console.log("Hubtel checkout response:", JSON.stringify(checkoutResult));
 
     if (!checkoutResponse.ok) {
@@ -98,7 +111,7 @@ serve(async (req) => {
         .update({ status: "failed" })
         .eq("id", purchase.id);
 
-      throw new Error(checkoutResult.message || checkoutResult.Message || "Failed to create checkout");
+      throw new Error(checkoutResult.message || checkoutResult.Message || `Hubtel API error (${checkoutResponse.status})`);
     }
 
     // Update purchase with checkout ID
