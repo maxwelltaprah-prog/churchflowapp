@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Calendar, Info, MapPin } from "lucide-react";
+import { Phone, Calendar, Info, MapPin, ClipboardPlus } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,18 +93,12 @@ export default function AddFollowupPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Add Follow-up</h1>
-          <p className="text-muted-foreground">
-            Record a follow-up interaction with {visitor.first_name} {visitor.last_name}
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate(`/app/visitors/${visitorId}`)} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Visitor
-        </Button>
-      </div>
+      <PageHeader
+        title="Add Follow-up"
+        description={`Record a follow-up interaction with ${visitor.first_name} ${visitor.last_name}`}
+        icon={ClipboardPlus}
+        backTo={`/app/visitors/${visitorId}`}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Follow-up Form */}

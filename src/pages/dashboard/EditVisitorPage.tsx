@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { Edit } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -109,16 +110,12 @@ export default function EditVisitorPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Edit Visitor</h1>
-          <p className="text-muted-foreground">Update visitor information</p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate(`/app/visitors/${visitorId}`)} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Visitor
-        </Button>
-      </div>
+      <PageHeader
+        title="Edit Visitor"
+        description="Update visitor information"
+        icon={Edit}
+        backTo={`/app/visitors/${visitorId}`}
+      />
 
       {/* Form */}
       <Form {...form}>

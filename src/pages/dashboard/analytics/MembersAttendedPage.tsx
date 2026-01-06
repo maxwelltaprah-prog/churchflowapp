@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronRight, UserCheck, Download, Phone } from "lucide-react";
+import { UserCheck, Download, Phone, ChevronRight } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -140,25 +141,13 @@ export default function MembersAttendedPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with context */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app" className="hover:text-foreground transition-colors">Dashboard</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Members Attended</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <UserCheck className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Members Attended</h1>
-            <p className="text-muted-foreground">
-              Unique members who checked in • {branchName}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <PageHeader
+        title="Members Attended"
+        description={`Unique members who checked in • ${branchName}`}
+        icon={UserCheck}
+        backTo="/app/analytics/attendance"
+      />
 
       {/* Summary Card */}
       <Card>

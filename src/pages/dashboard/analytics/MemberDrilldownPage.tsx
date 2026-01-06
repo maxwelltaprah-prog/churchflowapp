@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ChevronRight,
   Users,
   UserPlus,
   UserCheck,
@@ -23,6 +22,7 @@ import {
   Download,
   Phone,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -324,39 +324,13 @@ export default function MemberDrilldownPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with context */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Member Drilldown</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${
-            segmentConfig.variant === "accent" ? "bg-accent/10" :
-            segmentConfig.variant === "success" ? "bg-green-500/10" :
-            segmentConfig.variant === "warning" ? "bg-amber-500/10" :
-            segmentConfig.variant === "destructive" ? "bg-red-500/10" :
-            "bg-primary/10"
-          }`}>
-            <Icon className={`w-6 h-6 ${
-              segmentConfig.variant === "accent" ? "text-accent" :
-              segmentConfig.variant === "success" ? "text-green-600" :
-              segmentConfig.variant === "warning" ? "text-amber-600" :
-              segmentConfig.variant === "destructive" ? "text-red-600" :
-              "text-primary"
-            }`} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {segmentConfig.label} — {periodLabel}
-            </h1>
-            <p className="text-muted-foreground">
-              {segmentConfig.description} • {branchName}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <PageHeader
+        title={`${segmentConfig.label} — ${periodLabel}`}
+        description={`${segmentConfig.description} • ${branchName}`}
+        icon={Users}
+        backTo="/app/analytics/attendance"
+      />
 
       {/* Filter Bar */}
       <AnalyticsFilterBar showServiceFilter={false} />
