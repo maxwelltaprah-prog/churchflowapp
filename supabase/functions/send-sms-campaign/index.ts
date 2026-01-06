@@ -14,10 +14,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const smsApiKey = Deno.env.get("SMSONLINEGH_API_KEY");
+    const smsApiKey = Deno.env.get("BULKSMSGH_API_KEY");
 
     if (!smsApiKey) {
-      throw new Error("SMS API key not configured");
+      throw new Error("BulkSMSGH API key not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -162,7 +162,7 @@ serve(async (req) => {
 
     if (jobsError) throw jobsError;
 
-    // Send messages via SMSOnlineGH API
+    // Send messages via BulkSMSGH API
     const BATCH_SIZE = 50;
     let sentCount = 0;
     let failedCount = 0;
@@ -172,51 +172,53 @@ serve(async (req) => {
       
       const sendPromises = batch.map(async (job) => {
         try {
-          // Format phone number - SMSOnlineGH expects format like 233XXXXXXXXX
-          let phone = job.phone_number.replace(/\s+/g, "").replace(/^0/, "233");
-          if (!phone.startsWith("233") && !phone.startsWith("+")) {
+          // Format phone number - BulkSMSGH expects format like 233XXXXXXXXX or 0XXXXXXXXX
+          let phone = job.phone_number.replace(/\s+/g, "");
+          // Remove leading + if present
+          phone = phone.replace(/^\+/, "");
+          // If starts with 0, convert to 233 format
+          if (phone.startsWith("0")) {
+            phone = "233" + phone.substring(1);
+          }
+          // If doesn't start with 233, add it
+          if (!phone.startsWith("233")) {
             phone = "233" + phone;
           }
-          phone = phone.replace(/^\+/, "");
 
-          // Build SMSOnlineGH API URL with delivery callback
-          const callbackUrl = `${supabaseUrl}/functions/v1/sms-delivery-callback`;
-          
-          const smsUrl = new URL("https://api.smsonlinegh.com/v4/message/sms/send");
+          // Build BulkSMSGH API URL
+          const smsUrl = new URL("https://clientlogin.bulksmsgh.com/smsapi");
           smsUrl.searchParams.append("key", smsApiKey);
-          smsUrl.searchParams.append("text", job.personalized_message);
-          smsUrl.searchParams.append("type", "0");
-          smsUrl.searchParams.append("sender", smsSenderId);
           smsUrl.searchParams.append("to", phone);
-          smsUrl.searchParams.append("dlr", "1"); // Request delivery report
-          smsUrl.searchParams.append("dlr_url", callbackUrl); // Callback URL for delivery status
+          smsUrl.searchParams.append("msg", job.personalized_message);
+          smsUrl.searchParams.append("sender_id", smsSenderId);
 
-          console.log(`Sending SMS to ${phone} with DLR callback`);
+          console.log(`Sending SMS to ${phone} via BulkSMSGH`);
 
           const smsResponse = await fetch(smsUrl.toString(), {
             method: "GET",
           });
 
-          const smsResult = await smsResponse.json();
-          console.log("SMSOnlineGH Response:", JSON.stringify(smsResult));
+          const responseText = await smsResponse.text();
+          console.log("BulkSMSGH Response:", responseText);
 
-          if (smsResponse.ok && smsResult.handshake?.label === "HSHK_OK") {
-            const messageData = smsResult.data?.[0];
-            
+          // BulkSMSGH returns "1000" or similar success codes, or error messages
+          // Success typically returns a numeric code like "1000", "1001", etc.
+          const isSuccess = smsResponse.ok && /^\d+$/.test(responseText.trim()) && parseInt(responseText.trim()) >= 1000;
+
+          if (isSuccess) {
             await supabase
               .from("sms_jobs")
               .update({
                 status: "sent",
                 sent_at: new Date().toISOString(),
-                provider_message_id: messageData?.id || null,
+                provider_message_id: responseText.trim(),
               })
               .eq("campaign_id", campaign.id)
               .eq("phone_number", job.phone_number);
 
             return { success: true };
           } else {
-            const errorMsg = smsResult.handshake?.label || smsResult.message || "SMS sending failed";
-            throw new Error(errorMsg);
+            throw new Error(responseText || "SMS sending failed");
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
