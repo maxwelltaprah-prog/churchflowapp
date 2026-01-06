@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, User, Building2, Bell, Shield, Loader2 } from "lucide-react";
+import { Settings, User, Building2, Bell, Shield, Loader2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,6 +45,9 @@ export default function SettingsPage() {
   const [requireApproval, setRequireApproval] = useState(false);
   const [allowCrossBranchCheckin, setAllowCrossBranchCheckin] = useState(true);
 
+  // SMS settings state
+  const [smsSenderId, setSmsSenderId] = useState("");
+
   // Notification settings state
   const [notifyNewMembers, setNotifyNewMembers] = useState(true);
   const [dailySummary, setDailySummary] = useState(true);
@@ -60,12 +63,23 @@ export default function SettingsPage() {
         allow_self_registration?: boolean;
         require_approval?: boolean;
         allow_cross_branch_checkin?: boolean;
+        sms_sender_id?: string;
       } | null;
       
       if (settings) {
         setAllowSelfRegistration(settings.allow_self_registration ?? true);
         setRequireApproval(settings.require_approval ?? false);
         setAllowCrossBranchCheckin(settings.allow_cross_branch_checkin ?? true);
+        setSmsSenderId(settings.sms_sender_id || "");
+      }
+      
+      // Default SMS sender ID from church name if not set
+      if (!settings?.sms_sender_id && church.name) {
+        const defaultSenderId = church.name
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .replace(/\s+/g, "")
+          .substring(0, 11);
+        setSmsSenderId(defaultSenderId);
       }
     }
   }, [church]);
@@ -118,6 +132,14 @@ export default function SettingsPage() {
     });
   };
 
+  const handleSaveSMSSettings = async () => {
+    await updateChurchSettings.mutateAsync({
+      settings: {
+        sms_sender_id: smsSenderId.replace(/[^a-zA-Z0-9]/g, "").substring(0, 11),
+      },
+    });
+  };
+
   const handleSaveNotifications = () => {
     // For now, just show a success message
     // In a real app, these would be stored in user preferences
@@ -143,9 +165,10 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted/50">
+        <TabsList className="grid w-full max-w-lg grid-cols-4 bg-muted/50">
           <TabsTrigger value="general" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">General</TabsTrigger>
           <TabsTrigger value="registration" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Registration</TabsTrigger>
+          <TabsTrigger value="sms" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">SMS</TabsTrigger>
           <TabsTrigger value="notifications" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Notifications</TabsTrigger>
         </TabsList>
 
@@ -347,6 +370,55 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     "Save Settings"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* SMS Settings */}
+        <TabsContent value="sms" className="space-y-6">
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-500/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                </div>
+                SMS Settings
+              </CardTitle>
+              <CardDescription>
+                Configure your SMS sender identity
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="smsSenderId">SMS Sender ID</Label>
+                <Input 
+                  id="smsSenderId" 
+                  value={smsSenderId}
+                  onChange={(e) => setSmsSenderId(e.target.value.replace(/[^a-zA-Z0-9]/g, "").substring(0, 11))}
+                  maxLength={11}
+                  placeholder="e.g. MyChurch"
+                />
+                <p className="text-sm text-muted-foreground">
+                  This name will appear as the sender on recipients' phones. Max 11 alphanumeric characters.
+                  <br />
+                  <span className="text-amber-600">Note: This sender ID must be registered with your SMS provider.</span>
+                </p>
+              </div>
+              <div className="pt-4">
+                <Button 
+                  onClick={handleSaveSMSSettings}
+                  disabled={updateChurchSettings.isPending}
+                >
+                  {updateChurchSettings.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save SMS Settings"
                   )}
                 </Button>
               </div>
