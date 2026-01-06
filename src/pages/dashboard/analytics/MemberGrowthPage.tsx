@@ -529,17 +529,7 @@ export default function MemberGrowthPage() {
               <Skeleton className="h-[280px] w-full" />
             ) : hasTrendData ? (
               <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="membersGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="conversionsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_COLORS.success} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={CHART_COLORS.success} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} />
                   <YAxis tick={{ fontSize: 12 }} tickLine={false} allowDecimals={false} />
@@ -552,23 +542,25 @@ export default function MemberGrowthPage() {
                     labelFormatter={(_, payload) => payload[0]?.payload?.fullDate || ""}
                   />
                   <Legend />
-                  <Area
-                    type="monotone"
+                  <Line
+                    type="linear"
                     dataKey="members"
                     name="New Members"
                     stroke={CHART_COLORS.primary}
-                    fill="url(#membersGrad)"
                     strokeWidth={2}
+                    dot={{ fill: CHART_COLORS.primary, strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
                   />
-                  <Area
-                    type="monotone"
+                  <Line
+                    type="linear"
                     dataKey="conversions"
                     name="Converted Visitors"
                     stroke={CHART_COLORS.success}
-                    fill="url(#conversionsGrad)"
                     strokeWidth={2}
+                    dot={{ fill: CHART_COLORS.success, strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
                   />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
