@@ -693,6 +693,7 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: series.color, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{ position: "top", fontSize: 10, fill: series.color }}
                   />
                 ))}
               </LineChart>
@@ -745,6 +746,7 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: CHART_COLORS.primary, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{ position: "top", fontSize: 10, fill: CHART_COLORS.primary }}
                   />
                   <Line
                     type="linear"
@@ -754,6 +756,7 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: CHART_COLORS.success, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{ position: "top", fontSize: 10, fill: CHART_COLORS.success, dy: -10 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
