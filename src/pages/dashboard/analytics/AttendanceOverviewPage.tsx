@@ -1,9 +1,16 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -33,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useBranchAccess, applyBranchFilter } from "@/hooks/useBranchAccess";
 import { useBranches } from "@/hooks/useChurchData";
+import { useActiveGroups } from "@/hooks/useGroupsData";
 import {
   LineChart,
   Line,
@@ -393,6 +401,80 @@ function useServicesSummary() {
   });
 }
 
+// =================== Group Attendance Trend Hook ===================
+function useGroupAttendanceTrend(groupId: string | null) {
+  const { profile } = useAuth();
+  const { filters } = useAnalyticsFilters();
+  const { accessibleBranchIds } = useBranchAccess();
+
+  return useQuery({
+    queryKey: ["group-attendance-trend", profile?.church_id, groupId, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.branchId, filters.serviceIds, accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id || !groupId) return [];
+
+      // Get services in the filter period
+      let servicesQuery = supabase
+        .from("services")
+        .select("id, service_date, name")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .gte("service_date", format(filters.startDate, "yyyy-MM-dd"))
+        .lte("service_date", format(filters.endDate, "yyyy-MM-dd"))
+        .order("service_date", { ascending: true });
+
+      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      if (filters.serviceIds.length > 0) {
+        servicesQuery = servicesQuery.in("id", filters.serviceIds);
+      }
+
+      const { data: services } = await servicesQuery;
+      if (!services?.length) return [];
+
+      // Get members in this group
+      const { data: groupMembers } = await supabase
+        .from("member_groups")
+        .select("member_id")
+        .eq("group_id", groupId);
+
+      const memberIds = (groupMembers || []).map(gm => gm.member_id);
+      if (memberIds.length === 0) return [];
+
+      // Get attendance for these members in the services
+      const serviceIds = services.map(s => s.id);
+      let attendanceQuery = supabase
+        .from("attendance")
+        .select("service_id, member_id")
+        .eq("church_id", profile.church_id)
+        .in("service_id", serviceIds)
+        .in("member_id", memberIds);
+
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: attendance } = await attendanceQuery;
+
+      // Group attendance by service
+      const attendanceByService = new Map<string, Set<string>>();
+      (attendance || []).forEach(a => {
+        if (!attendanceByService.has(a.service_id)) {
+          attendanceByService.set(a.service_id, new Set());
+        }
+        attendanceByService.get(a.service_id)!.add(a.member_id);
+      });
+
+      // Build trend data
+      return services.map(service => ({
+        date: format(parseISO(service.service_date), "MMM d"),
+        fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
+        serviceName: service.name,
+        attendance: attendanceByService.get(service.id)?.size || 0,
+        totalMembers: memberIds.length,
+      }));
+    },
+    enabled: !!profile?.church_id && !!groupId,
+  });
+}
+
 // =================== KPI Card Component ===================
 interface KPICardProps {
   title: string;
@@ -461,6 +543,19 @@ export default function AttendanceOverviewPage() {
   const { data: branchData, isLoading: branchLoading } = useBranchComparisonData();
   const { data: services, isLoading: servicesLoading } = useServicesSummary();
   const { data: branches } = useBranches();
+  const { data: groups } = useActiveGroups();
+  
+  // Group attendance state
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  
+  // Set default group when groups load
+  useMemo(() => {
+    if (groups?.length && !selectedGroupId) {
+      setSelectedGroupId(groups[0].id);
+    }
+  }, [groups, selectedGroupId]);
+  
+  const { data: groupTrendData, isLoading: groupTrendLoading } = useGroupAttendanceTrend(selectedGroupId);
 
   const trendData = trendResult?.data || [];
   const hasTrendData = trendResult?.hasData || false;
@@ -804,6 +899,91 @@ export default function AttendanceOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Group Attendance Card - Full Width */}
+      {groups && groups.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <UsersRound className="w-4 h-4 text-primary" />
+                  Group Attendance Trend
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Attendance of group members per service
+                </CardDescription>
+              </div>
+              <Select
+                value={selectedGroupId || ""}
+                onValueChange={(value) => setSelectedGroupId(value)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select a group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {groupTrendLoading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : groupTrendData && groupTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={groupTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
+                    formatter={(value: number, name: string, props: any) => {
+                      const total = props.payload?.totalMembers || 0;
+                      return [`${value} / ${total} members`, "Attendance"];
+                    }}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="attendance"
+                    name="Attendance"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground">
+                <UsersRound className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No attendance data for this group</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Branch Comparison Section */}
       <div className={`grid gap-6 ${showBranchChart ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
