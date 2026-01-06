@@ -401,16 +401,16 @@ function useServicesSummary() {
   });
 }
 
-// =================== Group Attendance Trend Hook ===================
-function useGroupAttendanceTrend(groupId: string | null) {
+// =================== Multi-Group Attendance Trend Hook ===================
+function useMultiGroupAttendanceTrend(groupIds: string[]) {
   const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["group-attendance-trend", profile?.church_id, groupId, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.branchId, filters.serviceIds, accessibleBranchIds],
+    queryKey: ["multi-group-attendance-trend", profile?.church_id, groupIds, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.branchId, filters.serviceIds, accessibleBranchIds],
     queryFn: async () => {
-      if (!profile?.church_id || !groupId) return [];
+      if (!profile?.church_id || groupIds.length === 0) return { data: [], groups: [] };
 
       // Get services in the filter period
       let servicesQuery = supabase
@@ -429,49 +429,83 @@ function useGroupAttendanceTrend(groupId: string | null) {
       }
 
       const { data: services } = await servicesQuery;
-      if (!services?.length) return [];
+      if (!services?.length) return { data: [], groups: [] };
 
-      // Get members in this group
-      const { data: groupMembers } = await supabase
+      // Get group names
+      const { data: groupsData } = await supabase
+        .from("groups")
+        .select("id, name")
+        .in("id", groupIds);
+
+      const groupNameMap = new Map((groupsData || []).map(g => [g.id, g.name]));
+
+      // Get members for all selected groups
+      const { data: allGroupMembers } = await supabase
         .from("member_groups")
-        .select("member_id")
-        .eq("group_id", groupId);
+        .select("member_id, group_id")
+        .in("group_id", groupIds);
 
-      const memberIds = (groupMembers || []).map(gm => gm.member_id);
-      if (memberIds.length === 0) return [];
+      // Group members by group
+      const membersByGroup = new Map<string, string[]>();
+      groupIds.forEach(gid => membersByGroup.set(gid, []));
+      (allGroupMembers || []).forEach(gm => {
+        const members = membersByGroup.get(gm.group_id);
+        if (members) members.push(gm.member_id);
+      });
 
-      // Get attendance for these members in the services
+      // Get all member IDs across all groups
+      const allMemberIds = [...new Set((allGroupMembers || []).map(gm => gm.member_id))];
+      if (allMemberIds.length === 0) return { data: [], groups: groupIds.map(id => ({ id, name: groupNameMap.get(id) || "Unknown" })) };
+
+      // Get attendance for all members in the services
       const serviceIds = services.map(s => s.id);
       let attendanceQuery = supabase
         .from("attendance")
         .select("service_id, member_id")
         .eq("church_id", profile.church_id)
         .in("service_id", serviceIds)
-        .in("member_id", memberIds);
+        .in("member_id", allMemberIds);
 
       attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
       const { data: attendance } = await attendanceQuery;
 
-      // Group attendance by service
-      const attendanceByService = new Map<string, Set<string>>();
+      // Group attendance by service and member
+      const attendanceByServiceMember = new Map<string, Set<string>>();
       (attendance || []).forEach(a => {
-        if (!attendanceByService.has(a.service_id)) {
-          attendanceByService.set(a.service_id, new Set());
+        if (!attendanceByServiceMember.has(a.service_id)) {
+          attendanceByServiceMember.set(a.service_id, new Set());
         }
-        attendanceByService.get(a.service_id)!.add(a.member_id);
+        attendanceByServiceMember.get(a.service_id)!.add(a.member_id);
       });
 
-      // Build trend data
-      return services.map(service => ({
-        date: format(parseISO(service.service_date), "MMM d"),
-        fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
-        serviceName: service.name,
-        attendance: attendanceByService.get(service.id)?.size || 0,
-        totalMembers: memberIds.length,
-      }));
+      // Build trend data with attendance for each group
+      const trendData = services.map(service => {
+        const serviceAttendees = attendanceByServiceMember.get(service.id) || new Set();
+        
+        const dataPoint: any = {
+          date: format(parseISO(service.service_date), "MMM d"),
+          fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
+          serviceName: service.name,
+        };
+
+        // Add attendance count for each group
+        groupIds.forEach(groupId => {
+          const groupMembers = membersByGroup.get(groupId) || [];
+          const attendedCount = groupMembers.filter(mid => serviceAttendees.has(mid)).length;
+          dataPoint[groupId] = attendedCount;
+          dataPoint[`${groupId}_total`] = groupMembers.length;
+        });
+
+        return dataPoint;
+      });
+
+      return {
+        data: trendData,
+        groups: groupIds.map(id => ({ id, name: groupNameMap.get(id) || "Unknown" })),
+      };
     },
-    enabled: !!profile?.church_id && !!groupId,
+    enabled: !!profile?.church_id && groupIds.length > 0,
   });
 }
 
@@ -545,17 +579,18 @@ export default function AttendanceOverviewPage() {
   const { data: branches } = useBranches();
   const { data: groups } = useActiveGroups();
   
-  // Group attendance state
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  // Group attendance state - now supports multiple selection
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [comparisonMode, setComparisonMode] = useState(false);
   
   // Set default group when groups load
   useMemo(() => {
-    if (groups?.length && !selectedGroupId) {
-      setSelectedGroupId(groups[0].id);
+    if (groups?.length && selectedGroupIds.length === 0) {
+      setSelectedGroupIds([groups[0].id]);
     }
-  }, [groups, selectedGroupId]);
+  }, [groups, selectedGroupIds.length]);
   
-  const { data: groupTrendData, isLoading: groupTrendLoading } = useGroupAttendanceTrend(selectedGroupId);
+  const { data: groupTrendResult, isLoading: groupTrendLoading } = useMultiGroupAttendanceTrend(selectedGroupIds);
 
   const trendData = trendResult?.data || [];
   const hasTrendData = trendResult?.hasData || false;
@@ -904,39 +939,81 @@ export default function AttendanceOverviewPage() {
       {groups && groups.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <UsersRound className="w-4 h-4 text-primary" />
                   Group Attendance Trend
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Attendance of group members per service
+                  {comparisonMode ? "Compare attendance across groups" : "Attendance of group members per service"}
                 </CardDescription>
               </div>
-              <Select
-                value={selectedGroupId || ""}
-                onValueChange={(value) => setSelectedGroupId(value)}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Select a group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={comparisonMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setComparisonMode(!comparisonMode);
+                      if (!comparisonMode && selectedGroupIds.length === 1 && groups.length > 1) {
+                        // Add second group when enabling comparison
+                        setSelectedGroupIds([selectedGroupIds[0], groups.find(g => g.id !== selectedGroupIds[0])?.id || groups[1].id]);
+                      }
+                    }}
+                  >
+                    Compare Groups
+                  </Button>
+                </div>
+                {comparisonMode ? (
+                  <div className="flex flex-wrap gap-2">
+                    {groups.slice(0, 5).map((group, index) => (
+                      <Button
+                        key={group.id}
+                        variant={selectedGroupIds.includes(group.id) ? "default" : "outline"}
+                        size="sm"
+                        className="text-xs"
+                        style={selectedGroupIds.includes(group.id) ? { backgroundColor: COLORS[selectedGroupIds.indexOf(group.id) % COLORS.length] } : {}}
+                        onClick={() => {
+                          if (selectedGroupIds.includes(group.id)) {
+                            if (selectedGroupIds.length > 1) {
+                              setSelectedGroupIds(selectedGroupIds.filter(id => id !== group.id));
+                            }
+                          } else {
+                            setSelectedGroupIds([...selectedGroupIds, group.id]);
+                          }
+                        }}
+                      >
+                        {group.name}
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedGroupIds[0] || ""}
+                    onValueChange={(value) => setSelectedGroupIds([value])}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select a group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             {groupTrendLoading ? (
               <Skeleton className="h-[250px] w-full" />
-            ) : groupTrendData && groupTrendData.length > 0 ? (
+            ) : groupTrendResult?.data && groupTrendResult.data.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={groupTrendData}>
+                <LineChart data={groupTrendResult.data}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="date"
@@ -959,26 +1036,26 @@ export default function AttendanceOverviewPage() {
                       fontSize: "12px",
                     }}
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
-                    formatter={(value: number, name: string, props: any) => {
-                      const total = props.payload?.totalMembers || 0;
-                      return [`${value} / ${total} members`, "Attendance"];
-                    }}
                   />
-                  <Line
-                    type="linear"
-                    dataKey="attendance"
-                    name="Attendance"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
+                  {comparisonMode && <Legend />}
+                  {groupTrendResult.groups.map((group, index) => (
+                    <Line
+                      key={group.id}
+                      type="linear"
+                      dataKey={group.id}
+                      name={group.name}
+                      stroke={COLORS[index % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground">
                 <UsersRound className="w-10 h-10 mb-2 opacity-20" />
-                <p className="text-sm">No attendance data for this group</p>
+                <p className="text-sm">No attendance data for selected group(s)</p>
               </div>
             )}
           </CardContent>
