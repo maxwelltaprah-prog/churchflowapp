@@ -476,7 +476,7 @@ export default function AttendanceOverviewPage() {
           description="No attendance in period"
           isLoading={kpisLoading}
           variant="destructive"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=absentees`}
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}${filters.serviceIds.length > 0 ? `&services=${filters.serviceIds.join(",")}` : ""}&segment=absentees`}
         />
       </div>
 
