@@ -33,8 +33,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useBranchAccess, applyBranchFilter } from "@/hooks/useBranchAccess";
 import { useBranches } from "@/hooks/useChurchData";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   BarChart,
   Bar,
   XAxis,
@@ -480,88 +480,251 @@ export default function AttendanceOverviewPage() {
         />
       </div>
 
-      {/* Charts Row */}
-      <div className={`grid gap-6 ${showBranchChart ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
-        {/* Attendance Trend Chart */}
-        <Card className={showBranchChart ? "" : "lg:col-span-2"}>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              Attendance Trend
+      {/* Attendance Trend Charts - 4 Cards */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {/* Total Check-ins Trend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-primary" />
+              Total Check-ins Trend
             </CardTitle>
-            <CardDescription>
-              Attendance by service date for {periodLabel.toLowerCase()}
+            <CardDescription className="text-xs">
+              All check-ins per service
             </CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
-              <Skeleton className="h-[280px] w-full" />
+              <Skeleton className="h-[200px] w-full" />
             ) : hasTrendData && trendData.some(d => d.total > 0) ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="membersGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="visitorsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     allowDecimals={false}
+                    width={30}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
+                      fontSize: "12px",
                     }}
-                    labelFormatter={(_, payload) => payload[0]?.payload?.fullDate || ""}
+                    labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
-                  <Legend />
-                  <Area
+                  <Line
                     type="monotone"
-                    dataKey="members"
-                    name="Members"
+                    dataKey="total"
+                    name="Total"
                     stroke="hsl(var(--primary))"
                     strokeWidth={2}
-                    fill="url(#membersGradient)"
-                    stackId="1"
+                    dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="visitors"
-                    name="Visitors"
-                    stroke="hsl(var(--accent))"
-                    strokeWidth={2}
-                    fill="url(#visitorsGradient)"
-                    stackId="1"
-                  />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
-                <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No services recorded for this period</p>
-                <p className="text-sm">Create services and record check-ins to see trends</p>
+              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No data</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Branch Comparison or Member/Visitor Breakdown */}
+        {/* Member Check-ins Trend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UsersRound className="w-4 h-4 text-green-600" />
+              Member Check-ins Trend
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Active member attendance per service
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : hasTrendData && trendData.some(d => d.members > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="members"
+                    name="Members"
+                    stroke="hsl(142 76% 36%)"
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No data</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Visitor Check-ins Trend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-amber-600" />
+              Visitor Check-ins Trend
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Visitor attendance per service
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : hasTrendData ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="visitors"
+                    name="Visitors"
+                    stroke="hsl(38 92% 50%)"
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(38 92% 50%)", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No data</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Absentees Trend */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserMinus className="w-4 h-4 text-red-600" />
+              Absentees Trend
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Members absent per service
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : hasTrendData ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="absentees"
+                    name="Absentees"
+                    stroke="hsl(var(--destructive))"
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No data</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Branch Comparison Section */}
+      <div className={`grid gap-6 ${showBranchChart ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
         {showBranchChart ? (
           <Card>
             <CardHeader>
