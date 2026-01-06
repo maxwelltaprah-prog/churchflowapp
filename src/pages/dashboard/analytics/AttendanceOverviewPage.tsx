@@ -777,6 +777,13 @@ export default function AttendanceOverviewPage() {
                     strokeWidth={2}
                     dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: "hsl(var(--primary))",
+                      dy: -8,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -837,6 +844,13 @@ export default function AttendanceOverviewPage() {
                     strokeWidth={2}
                     dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: "hsl(142 76% 36%)",
+                      dy: -8,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -898,6 +912,13 @@ export default function AttendanceOverviewPage() {
                     strokeWidth={2}
                     dot={{ fill: "hsl(38 92% 50%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: "hsl(38 92% 50%)",
+                      dy: -8,
+                    }}
                   />
                   <Line
                     type="linear"
@@ -907,6 +928,13 @@ export default function AttendanceOverviewPage() {
                     strokeWidth={2}
                     dot={{ fill: "hsl(280 65% 60%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: "hsl(280 65% 60%)",
+                      dy: -18,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -967,6 +995,13 @@ export default function AttendanceOverviewPage() {
                     strokeWidth={2}
                     dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: "hsl(var(--destructive))",
+                      dy: -8,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -1093,6 +1128,13 @@ export default function AttendanceOverviewPage() {
                       strokeWidth={2}
                       dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 4 }}
                       activeDot={{ r: 6 }}
+                      label={{
+                        position: "top",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        fill: COLORS[index % COLORS.length],
+                        dy: -8 - (index * 10),
+                      }}
                     />
                   ))}
                 </LineChart>
@@ -1160,6 +1202,14 @@ export default function AttendanceOverviewPage() {
                   strokeWidth={2}
                   dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
+                  label={{
+                    position: "top",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    fill: "hsl(142 76% 36%)",
+                    dy: -8,
+                    formatter: (value: number) => `${value}%`,
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -1221,6 +1271,13 @@ export default function AttendanceOverviewPage() {
                   strokeWidth={2}
                   dot={{ fill: "hsl(221 83% 53%)", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
+                  label={{
+                    position: "top",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    fill: "hsl(221 83% 53%)",
+                    dy: -8,
+                  }}
                 />
                 <Line
                   type="linear"
@@ -1230,6 +1287,13 @@ export default function AttendanceOverviewPage() {
                   strokeWidth={2}
                   dot={{ fill: "hsl(330 81% 60%)", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
+                  label={{
+                    position: "top",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    fill: "hsl(330 81% 60%)",
+                    dy: -18,
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>

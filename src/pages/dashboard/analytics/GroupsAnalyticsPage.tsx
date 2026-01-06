@@ -739,7 +739,13 @@ export default function GroupsAnalyticsPage() {
                         strokeWidth={2}
                         dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 5 }}
                         activeDot={{ r: 7 }}
-                        label={{ position: "top", fontSize: 11, fill: "hsl(142 76% 36%)" }}
+                        label={{
+                          position: "top",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          fill: "hsl(142 76% 36%)",
+                          dy: -8,
+                        }}
                       />
                     </LineChart>
                   </ResponsiveContainer>

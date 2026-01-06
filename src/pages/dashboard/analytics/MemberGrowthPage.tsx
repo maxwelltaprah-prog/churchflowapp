@@ -678,7 +678,7 @@ export default function MemberGrowthPage() {
                   labelFormatter={(_, payload) => payload[0]?.payload?.fullMonth || ""}
                 />
                 <Legend />
-                {TREND_SERIES.filter(s => selectedSeries.includes(s.key)).map((series) => (
+                {TREND_SERIES.filter(s => selectedSeries.includes(s.key)).map((series, index) => (
                   <Line
                     key={series.key}
                     type="linear"
@@ -688,7 +688,13 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: series.color, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
-                    label={{ position: "top", fontSize: 10, fill: series.color }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: series.color,
+                      dy: -8 - (index * 10),
+                    }}
                   />
                 ))}
               </LineChart>
@@ -741,7 +747,13 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: CHART_COLORS.primary, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
-                    label={{ position: "top", fontSize: 10, fill: CHART_COLORS.primary }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: CHART_COLORS.primary,
+                      dy: -8,
+                    }}
                   />
                   <Line
                     type="linear"
@@ -751,7 +763,13 @@ export default function MemberGrowthPage() {
                     strokeWidth={2}
                     dot={{ fill: CHART_COLORS.success, strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
-                    label={{ position: "top", fontSize: 10, fill: CHART_COLORS.success, dy: -10 }}
+                    label={{
+                      position: "top",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fill: CHART_COLORS.success,
+                      dy: -18,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
