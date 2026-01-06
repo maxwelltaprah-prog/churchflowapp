@@ -12,6 +12,7 @@ import SetupChurch from "./pages/SetupChurch";
 import JoinBranch from "./pages/JoinBranch";
 import NotFound from "./pages/NotFound";
 import MemberLogin from "./pages/MemberLogin";
+import CreateMemberPin from "./pages/CreateMemberPin";
 import MemberPortal from "./pages/MemberPortal";
 import SelfCheckin from "./pages/SelfCheckin";
 
@@ -68,7 +69,9 @@ const App = () => (
             <Route path="/setup-church" element={<SetupChurch />} />
             
             {/* Member Routes */}
+            <Route path="/member-login" element={<MemberLogin />} />
             <Route path="/member/login" element={<MemberLogin />} />
+            <Route path="/create-pin" element={<CreateMemberPin />} />
             <Route path="/member" element={<MemberPortal />} />
             
             {/* Self Check-in (Public) */}
