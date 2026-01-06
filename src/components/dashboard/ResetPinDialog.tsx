@@ -105,8 +105,8 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
             <div>
               <p className="font-medium text-yellow-800 dark:text-yellow-200">No Account Found</p>
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                This member was added by an admin and doesn't have a login account. 
-                They need to register through the "Join Branch" flow to create an account.
+                This member was added by an admin and doesn't have a login account yet. 
+                Ask them to visit the <span className="font-medium">Member Login</span> page and click <span className="font-medium">"Create PIN"</span> to set up their account.
               </p>
             </div>
           </div>

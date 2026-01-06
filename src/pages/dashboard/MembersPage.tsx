@@ -579,12 +579,6 @@ export default function MembersPage() {
                               Reset PIN
                             </DropdownMenuItem>
                           )}
-                          {member.approval_status === "approved" && (
-                            <DropdownMenuItem onClick={() => setResetPinMember(member as MemberType)}>
-                              <KeyRound className="w-4 h-4 mr-2" />
-                              Reset PIN
-                            </DropdownMenuItem>
-                          )}
                           {member.approval_status === "pending" && (
                             <>
                               <DropdownMenuItem onClick={() => handleApprove(member as MemberType)}>
