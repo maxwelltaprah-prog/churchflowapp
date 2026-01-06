@@ -263,33 +263,33 @@ function useAcquisitionTrend() {
   });
 }
 
-// =================== Retention Metrics Hook ===================
+// =================== Visitor Retention Metrics Hook ===================
 function useRetentionMetrics() {
   const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["retention-metrics", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryKey: ["visitor-retention-metrics", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
-      // Get members created in the selected period
-      let newMembersQuery = supabase
-        .from("members")
-        .select("id, created_at")
+      // Get visitors registered in the selected period
+      let visitorsQuery = supabase
+        .from("visitors")
+        .select("id, first_visit_date")
         .eq("church_id", profile.church_id)
-        .gte("created_at", filters.startDate.toISOString())
-        .lte("created_at", filters.endDate.toISOString());
+        .gte("first_visit_date", format(filters.startDate, "yyyy-MM-dd"))
+        .lte("first_visit_date", format(filters.endDate, "yyyy-MM-dd"));
 
-      newMembersQuery = applyBranchFilter(newMembersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
-      const { data: newMembers } = await newMembersQuery;
-      const newMemberIds = (newMembers || []).map(m => m.id);
+      const { data: visitors } = await visitorsQuery;
+      const visitorIds = (visitors || []).map(v => v.id);
 
-      if (newMemberIds.length === 0) {
+      if (visitorIds.length === 0) {
         return {
-          totalNew: 0,
+          totalVisitors: 0,
           returnedOnce: 0,
           returnedMultiple: 0,
           returnRate: 0,
@@ -297,32 +297,32 @@ function useRetentionMetrics() {
         };
       }
 
-      // Get attendance for these new members
-      let attendanceQuery = supabase
-        .from("attendance")
-        .select("member_id")
+      // Get check-ins for these visitors
+      let checkinsQuery = supabase
+        .from("visitor_checkins")
+        .select("visitor_id")
         .eq("church_id", profile.church_id)
-        .in("member_id", newMemberIds);
+        .in("visitor_id", visitorIds);
 
-      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      const { data: checkins } = await checkinsQuery;
 
-      const { data: attendance } = await attendanceQuery;
-
-      // Count attendance per member
-      const attendanceCounts: Record<string, number> = {};
-      (attendance || []).forEach(a => {
-        attendanceCounts[a.member_id] = (attendanceCounts[a.member_id] || 0) + 1;
+      // Count check-ins per visitor
+      const checkinCounts: Record<string, number> = {};
+      (checkins || []).forEach(c => {
+        checkinCounts[c.visitor_id] = (checkinCounts[c.visitor_id] || 0) + 1;
       });
 
-      const returnedOnce = Object.values(attendanceCounts).filter(c => c >= 1).length;
-      const returnedMultiple = Object.values(attendanceCounts).filter(c => c >= 2).length;
+      // Returned at least once (1+ check-ins after first visit)
+      const returnedOnce = Object.values(checkinCounts).filter(c => c >= 2).length;
+      // Returned multiple times (3+ check-ins = first visit + 2 returns)
+      const returnedMultiple = Object.values(checkinCounts).filter(c => c >= 3).length;
 
       return {
-        totalNew: newMemberIds.length,
+        totalVisitors: visitorIds.length,
         returnedOnce,
         returnedMultiple,
-        returnRate: Math.round((returnedOnce / newMemberIds.length) * 100),
-        engagementRate: Math.round((returnedMultiple / newMemberIds.length) * 100),
+        returnRate: Math.round((returnedOnce / visitorIds.length) * 100),
+        engagementRate: Math.round((returnedMultiple / visitorIds.length) * 100),
       };
     },
     enabled: !!profile?.church_id,
@@ -502,10 +502,10 @@ export default function MemberGrowthPage() {
           variant="success"
         />
         <KPICard
-          title="Return Rate"
+          title="Visitor Return Rate"
           value={`${retention?.returnRate || 0}%`}
           icon={UserCheck}
-          description="New members who returned"
+          description={`${retention?.returnedOnce || 0} of ${retention?.totalVisitors || 0} visitors returned`}
           isLoading={retentionLoading}
           variant="warning"
         />
@@ -622,15 +622,15 @@ export default function MemberGrowthPage() {
 
       {/* Retention & Breakdown Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Retention Metrics */}
+        {/* Visitor Retention Metrics */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-green-600" />
-              Retention Metrics
+              Visitor Retention
             </CardTitle>
             <CardDescription>
-              How well new members are being retained
+              How well visitors are being retained
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -639,15 +639,15 @@ export default function MemberGrowthPage() {
                 <Skeleton className="h-20 w-full" />
                 <Skeleton className="h-20 w-full" />
               </div>
-            ) : retention && retention.totalNew > 0 ? (
+            ) : retention && retention.totalVisitors > 0 ? (
               <div className="space-y-4">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">New Members Analyzed</span>
-                    <span className="text-2xl font-bold">{retention.totalNew}</span>
+                    <span className="text-sm font-medium">Visitors Analyzed</span>
+                    <span className="text-2xl font-bold">{retention.totalVisitors}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Members registered in {periodLabel.toLowerCase()}
+                    Visitors registered in {periodLabel.toLowerCase()}
                   </p>
                 </div>
 
@@ -676,17 +676,17 @@ export default function MemberGrowthPage() {
                     <span className="text-sm font-medium">Never Returned</span>
                   </div>
                   <p className="text-2xl font-bold text-amber-600">
-                    {retention.totalNew - retention.returnedOnce}
+                    {retention.totalVisitors - retention.returnedOnce}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {Math.round(((retention.totalNew - retention.returnedOnce) / retention.totalNew) * 100)}% drop-off rate
+                    {Math.round(((retention.totalVisitors - retention.returnedOnce) / retention.totalVisitors) * 100)}% drop-off rate
                   </p>
                 </div>
               </div>
             ) : (
               <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
                 <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No new members in this period</p>
+                <p>No visitors in this period</p>
               </div>
             )}
           </CardContent>
