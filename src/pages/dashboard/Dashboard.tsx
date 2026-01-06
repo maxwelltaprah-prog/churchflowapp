@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, Clock, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift, CalendarHeart
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useDashboardData";
 import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
 import { useBirthdayData } from "@/hooks/useBirthdayData";
+import { useAnniversaryData } from "@/hooks/useAnniversaryData";
 import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
@@ -100,6 +101,7 @@ export default function Dashboard() {
   const { data: serviceQuality } = useServiceQuality(branchId, serviceIds);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
   const { data: birthdays, isLoading: birthdaysLoading } = useBirthdayData(branchId);
+  const { data: anniversaries, isLoading: anniversariesLoading } = useAnniversaryData(branchId);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;
 
@@ -243,98 +245,194 @@ export default function Dashboard() {
 
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Special Updates - Birthdays */}
+        {/* Special Updates - Birthdays & Anniversaries */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <SectionHeader title="Special Updates" icon={Gift} />
           </CardHeader>
           <CardContent className="space-y-4">
-            {birthdaysLoading ? (
+            {(birthdaysLoading || anniversariesLoading) ? (
               <div className="space-y-2">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
             ) : (
               <>
-                {/* Past Week Birthdays */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Cake className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium text-muted-foreground">Past Week</span>
-                    {(birthdays?.pastWeek?.length || 0) > 0 && (
-                      <Badge variant="secondary" className="ml-auto">{birthdays?.pastWeek?.length}</Badge>
-                    )}
+                {/* Birthdays Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Cake className="w-4 h-4 text-pink-500" />
+                    <span className="text-sm font-semibold">Birthdays</span>
                   </div>
-                  {!birthdays?.pastWeek?.length ? (
-                    <p className="text-xs text-muted-foreground pl-6">No birthdays in the past week</p>
-                  ) : (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {birthdays.pastWeek.slice(0, 5).map((member) => (
-                        <Link
-                          key={member.id}
-                          to={`/app/members/${member.id}`}
-                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              {member.photo_url ? (
-                                <img src={member.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                              ) : (
-                                <Cake className="w-4 h-4 text-primary" />
-                              )}
-                            </div>
-                            <span className="text-sm font-medium truncate">{member.full_name}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {format(parseISO(member.birthday_date), "MMM d")}
-                          </span>
-                        </Link>
-                      ))}
+                  
+                  {/* Past Week Birthdays */}
+                  <div className="pl-2 border-l-2 border-muted">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Past Week</span>
+                      {(birthdays?.pastWeek?.length || 0) > 0 && (
+                        <Badge variant="secondary" className="text-xs h-5">{birthdays?.pastWeek?.length}</Badge>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                {/* Upcoming Birthdays */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Gift className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Upcoming</span>
-                    {(birthdays?.upcoming?.length || 0) > 0 && (
-                      <Badge className="ml-auto bg-primary">{birthdays?.upcoming?.length}</Badge>
-                    )}
-                  </div>
-                  {!birthdays?.upcoming?.length ? (
-                    <p className="text-xs text-muted-foreground pl-6">No upcoming birthdays this week</p>
-                  ) : (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {birthdays.upcoming.slice(0, 5).map((member) => (
-                        <Link
-                          key={member.id}
-                          to={`/app/members/${member.id}`}
-                          className="flex items-center justify-between p-2 rounded-lg bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              {member.photo_url ? (
-                                <img src={member.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                              ) : (
-                                <Gift className="w-4 h-4 text-primary" />
-                              )}
+                    {!birthdays?.pastWeek?.length ? (
+                      <p className="text-xs text-muted-foreground">None</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                        {birthdays.pastWeek.slice(0, 3).map((member) => (
+                          <Link
+                            key={member.id}
+                            to={`/app/members/${member.id}`}
+                            className="flex items-center justify-between p-1.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0">
+                                {member.photo_url ? (
+                                  <img src={member.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <Cake className="w-3 h-3 text-pink-500" />
+                                )}
+                              </div>
+                              <span className="text-xs font-medium truncate">{member.full_name}</span>
                             </div>
-                            <span className="text-sm font-medium truncate">{member.full_name}</span>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {isToday(parseISO(member.birthday_date)) && (
-                              <Badge className="bg-green-600 text-xs">Today!</Badge>
-                            )}
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
                               {format(parseISO(member.birthday_date), "MMM d")}
                             </span>
-                          </div>
-                        </Link>
-                      ))}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upcoming Birthdays */}
+                  <div className="pl-2 border-l-2 border-pink-300">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-medium text-foreground">Upcoming</span>
+                      {(birthdays?.upcoming?.length || 0) > 0 && (
+                        <Badge className="bg-pink-500 text-xs h-5">{birthdays?.upcoming?.length}</Badge>
+                      )}
                     </div>
-                  )}
+                    {!birthdays?.upcoming?.length ? (
+                      <p className="text-xs text-muted-foreground">None this week</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                        {birthdays.upcoming.slice(0, 3).map((member) => (
+                          <Link
+                            key={member.id}
+                            to={`/app/members/${member.id}`}
+                            className="flex items-center justify-between p-1.5 rounded-md bg-pink-50 hover:bg-pink-100 border border-pink-200 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0">
+                                {member.photo_url ? (
+                                  <img src={member.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <Cake className="w-3 h-3 text-pink-500" />
+                                )}
+                              </div>
+                              <span className="text-xs font-medium truncate">{member.full_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {isToday(parseISO(member.birthday_date)) && (
+                                <Badge className="bg-green-600 text-[10px] h-4 px-1">Today!</Badge>
+                              )}
+                              <span className="text-[10px] text-muted-foreground">
+                                {format(parseISO(member.birthday_date), "MMM d")}
+                              </span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border" />
+
+                {/* Anniversaries Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CalendarHeart className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-semibold">Anniversaries</span>
+                  </div>
+                  
+                  {/* Past Week Anniversaries */}
+                  <div className="pl-2 border-l-2 border-muted">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Past Week</span>
+                      {(anniversaries?.pastWeek?.length || 0) > 0 && (
+                        <Badge variant="secondary" className="text-xs h-5">{anniversaries?.pastWeek?.length}</Badge>
+                      )}
+                    </div>
+                    {!anniversaries?.pastWeek?.length ? (
+                      <p className="text-xs text-muted-foreground">None</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                        {anniversaries.pastWeek.slice(0, 3).map((member) => (
+                          <Link
+                            key={member.id}
+                            to={`/app/members/${member.id}`}
+                            className="flex items-center justify-between p-1.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                {member.photo_url ? (
+                                  <img src={member.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <CalendarHeart className="w-3 h-3 text-amber-500" />
+                                )}
+                              </div>
+                              <span className="text-xs font-medium truncate">{member.full_name}</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                              {member.years} yr{member.years !== 1 ? 's' : ''}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upcoming Anniversaries */}
+                  <div className="pl-2 border-l-2 border-amber-300">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-medium text-foreground">Upcoming</span>
+                      {(anniversaries?.upcoming?.length || 0) > 0 && (
+                        <Badge className="bg-amber-500 text-xs h-5">{anniversaries?.upcoming?.length}</Badge>
+                      )}
+                    </div>
+                    {!anniversaries?.upcoming?.length ? (
+                      <p className="text-xs text-muted-foreground">None this week</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                        {anniversaries.upcoming.slice(0, 3).map((member) => (
+                          <Link
+                            key={member.id}
+                            to={`/app/members/${member.id}`}
+                            className="flex items-center justify-between p-1.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                {member.photo_url ? (
+                                  <img src={member.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <CalendarHeart className="w-3 h-3 text-amber-500" />
+                                )}
+                              </div>
+                              <span className="text-xs font-medium truncate">{member.full_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {isToday(parseISO(member.anniversary_date)) && (
+                                <Badge className="bg-green-600 text-[10px] h-4 px-1">Today!</Badge>
+                              )}
+                              <span className="text-[10px] text-muted-foreground">
+                                {member.years} yr{member.years !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
