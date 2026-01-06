@@ -129,46 +129,61 @@ function useDemographicsData() {
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
+  // Determine if user has applied a filter (service selected or non-default date range)
+  const isFiltered = filters.serviceIds.length > 0 || filters.serviceId !== null;
+
   return useQuery({
-    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.serviceIds, filters.serviceId, accessibleBranchIds, isFiltered],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
-      // Get unique member IDs who attended during the date range
-      let attendanceQuery = supabase
-        .from("attendance")
-        .select("member_id")
-        .eq("church_id", profile.church_id)
-        .gte("checked_in_at", filters.startDate.toISOString())
-        .lte("checked_in_at", filters.endDate.toISOString());
+      let uniqueMemberIds: string[] = [];
 
-      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      if (isFiltered) {
+        // Filter by attendance when a specific service/date is selected
+        let attendanceQuery = supabase
+          .from("attendance")
+          .select("member_id")
+          .eq("church_id", profile.church_id)
+          .gte("checked_in_at", filters.startDate.toISOString())
+          .lte("checked_in_at", filters.endDate.toISOString());
 
-      const { data: attendanceData } = await attendanceQuery;
-      const uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
+        attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
-      if (uniqueMemberIds.length === 0) {
-        return {
-          members: [],
-          totalAttendees: 0,
-          genderDistribution: [],
-          ageDistribution: [],
-          membershipDistribution: [],
-          maritalDistribution: [],
-          areaDistribution: [],
-          occupationDistribution: [],
-          spiritualJourneyDistribution: [],
-        };
+        const { data: attendanceData } = await attendanceQuery;
+        uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
+
+        if (uniqueMemberIds.length === 0) {
+          return {
+            members: [],
+            totalAttendees: 0,
+            genderDistribution: [],
+            ageDistribution: [],
+            membershipDistribution: [],
+            maritalDistribution: [],
+            areaDistribution: [],
+            occupationDistribution: [],
+            spiritualJourneyDistribution: [],
+          };
+        }
       }
 
-      // Fetch member demographics for attendees
+      // Fetch member demographics - all members if unfiltered, or only attendees if filtered
       let membersQuery = supabase
         .from("members")
         .select("id, full_name, phone, gender, date_of_birth, membership_status, marital_status, occupation, residential_area, area_zone, branch_id")
         .eq("church_id", profile.church_id)
-        .in("id", uniqueMemberIds);
+        .eq("is_active", true);
+
+      if (isFiltered) {
+        membersQuery = membersQuery.in("id", uniqueMemberIds);
+      } else {
+        // Default: all members, apply branch filter
+        membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      }
 
       const { data: members } = await membersQuery;
+      uniqueMemberIds = (members || []).map(m => m.id);
       const memberData = (members || []) as MemberDemographic[];
 
       // Calculate age from DOB
