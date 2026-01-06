@@ -44,13 +44,16 @@ export interface ConsecutiveMissSignals {
  * - Multiple services on the same day count as ONE occurrence
  * - A member is "missed 3+" if they have no check-in on the last 3+ service days
  * - A "returnee" is someone who was in missed-3+ category but checked in on the most recent service day
+ * 
+ * @param branchId - Optional branch filter
+ * @param serviceIds - Optional array of service IDs to scope the evaluation to specific services
  */
-export function useConsecutiveMissSignals(branchId?: string) {
+export function useConsecutiveMissSignals(branchId?: string, serviceIds?: string[]) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, accessibleBranchIds],
+    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, accessibleBranchIds, serviceIds],
     queryFn: async (): Promise<ConsecutiveMissSignals> => {
       if (!profile?.church_id) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
@@ -61,6 +64,7 @@ export function useConsecutiveMissSignals(branchId?: string) {
       }
 
       // 1. Get all service dates (unique calendar dates) ordered descending
+      // If serviceIds are provided, only consider those services for determining service days
       let servicesQuery = supabase
         .from("services")
         .select("id, service_date, branch_id")
@@ -68,7 +72,13 @@ export function useConsecutiveMissSignals(branchId?: string) {
         .eq("is_active", true)
         .order("service_date", { ascending: false });
 
-      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
+      // If specific services are selected, filter to only those
+      if (serviceIds && serviceIds.length > 0) {
+        servicesQuery = servicesQuery.in("id", serviceIds);
+      } else {
+        // Otherwise, apply branch filter for general view
+        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
+      }
 
       const { data: servicesData } = await servicesQuery;
 
