@@ -119,13 +119,31 @@ function useMemberGrowthKPIs() {
       // Total active members
       const totalActive = members.filter(m => m.is_active && m.approval_status === "approved").length;
 
-      // Conversion: count of active members
-      // (This is an approximation - ideally we'd track status changes)
-      const convertedCount = members.filter(m => 
-        m.membership_status === "active"
-      ).length;
-      const totalRegistered = members.length;
-      const conversionRate = totalRegistered > 0 ? (convertedCount / totalRegistered) * 100 : 0;
+      // Visitor Conversion: count visitors converted to members in the date range
+      let visitorsQuery = supabase
+        .from("visitors")
+        .select("id, status, created_at, updated_at")
+        .eq("church_id", profile.church_id);
+
+      visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: allVisitors } = await visitorsQuery;
+      const visitors = allVisitors || [];
+
+      // Visitors registered in the date range
+      const visitorsInPeriod = visitors.filter(v => {
+        const createdAt = new Date(v.created_at);
+        return createdAt >= filters.startDate && createdAt <= filters.endDate;
+      });
+
+      // Converted visitors (status = 'converted') from the period
+      const convertedVisitors = visitorsInPeriod.filter(v => v.status === "converted");
+      
+      // Conversion rate: converted visitors / total visitors registered in period
+      const totalVisitorsInPeriod = visitorsInPeriod.length;
+      const conversionRate = totalVisitorsInPeriod > 0 
+        ? (convertedVisitors.length / totalVisitorsInPeriod) * 100 
+        : 0;
 
       return {
         newMembers: newMembers.length,
@@ -134,7 +152,8 @@ function useMemberGrowthKPIs() {
         totalActive,
         newMembersByStatus,
         conversionRate: Math.round(conversionRate),
-        totalRegistered,
+        convertedCount: convertedVisitors.length,
+        totalVisitorsInPeriod,
       };
     },
     enabled: !!profile?.church_id,
@@ -386,7 +405,7 @@ export default function MemberGrowthPage() {
           title="Conversion Rate"
           value={`${kpis?.conversionRate || 0}%`}
           icon={RefreshCw}
-          description="Visitors → Members"
+          description={`${kpis?.convertedCount || 0} of ${kpis?.totalVisitorsInPeriod || 0} visitors converted`}
           isLoading={kpisLoading}
           variant="success"
         />
