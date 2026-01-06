@@ -15,40 +15,50 @@ export default function AnalyticsPage() {
       description: "Service attendance patterns and trends",
       icon: BarChart3,
       href: "/app/analytics/attendance",
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      borderColor: "border-l-primary",
+      bgGradient: "from-primary/5",
+      iconBg: "bg-primary/10",
+      iconColor: "text-primary",
     },
     {
       title: "Demographics",
       description: "Age, gender, and membership breakdown",
       icon: Users,
       href: "/app/analytics/demographics",
-      color: "text-accent",
-      bgColor: "bg-accent/10",
+      borderColor: "border-l-amber-500",
+      bgGradient: "from-amber-500/5",
+      iconBg: "bg-amber-500/10",
+      iconColor: "text-amber-600",
     },
     {
       title: "Member Growth",
       description: "Acquisition and retention trends",
       icon: TrendingUp,
       href: "/app/analytics/members",
-      color: "text-amber-600",
-      bgColor: "bg-amber-500/10",
+      borderColor: "border-l-emerald-500",
+      bgGradient: "from-emerald-500/5",
+      iconBg: "bg-emerald-500/10",
+      iconColor: "text-emerald-600",
     },
     {
       title: "Groups & Ministries",
       description: "Group participation and engagement",
       icon: Users,
       href: "/app/analytics/groups",
-      color: "text-purple-600",
-      bgColor: "bg-purple-500/10",
+      borderColor: "border-l-violet-500",
+      bgGradient: "from-violet-500/5",
+      iconBg: "bg-violet-500/10",
+      iconColor: "text-violet-600",
     },
     {
       title: "Service Quality",
       description: "Operational metrics and data completeness",
       icon: Activity,
       href: "/app/analytics/quality",
-      color: "text-green-600",
-      bgColor: "bg-green-500/10",
+      borderColor: "border-l-sky-500",
+      bgGradient: "from-sky-500/5",
+      iconBg: "bg-sky-500/10",
+      iconColor: "text-sky-600",
     },
   ];
 
@@ -67,15 +77,15 @@ export default function AnalyticsPage() {
         {analyticsModules.map((module) => (
           <Card 
             key={module.title} 
-            className="group hover:border-primary/50 transition-colors cursor-pointer"
+            className={`group border-l-4 ${module.borderColor} bg-gradient-to-r ${module.bgGradient} to-transparent hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
           >
             <Link to={module.href}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div className={`p-2 rounded-lg ${module.bgColor}`}>
-                    <module.icon className={`h-5 w-5 ${module.color}`} />
+                  <div className={`p-2.5 rounded-xl ${module.iconBg}`}>
+                    <module.icon className={`h-5 w-5 ${module.iconColor}`} />
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </div>
                 <CardTitle className="text-base mt-3">{module.title}</CardTitle>
                 <CardDescription>{module.description}</CardDescription>

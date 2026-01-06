@@ -64,7 +64,7 @@ export default function BroadcastsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Total Broadcasts</CardDescription>
             <CardTitle className="text-3xl">{broadcasts?.length || 0}</CardTitle>
@@ -73,7 +73,7 @@ export default function BroadcastsPage() {
             <p className="text-sm text-muted-foreground">All time</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>This Month</CardDescription>
             <CardTitle className="text-3xl">
@@ -88,7 +88,7 @@ export default function BroadcastsPage() {
             <p className="text-sm text-muted-foreground">Messages sent</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Branches Reached</CardDescription>
             <CardTitle className="text-3xl">{branches?.length || 0}</CardTitle>

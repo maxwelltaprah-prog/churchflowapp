@@ -76,10 +76,43 @@ export default function SpiritualJourneyPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Total Options</CardDescription>
+            <CardTitle className="text-3xl">{journeys?.length || 0}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Spiritual milestones</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Active</CardDescription>
+            <CardTitle className="text-3xl">{journeys?.filter(j => j.is_active).length || 0}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Available for selection</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Inactive</CardDescription>
+            <CardTitle className="text-3xl">{journeys?.filter(j => !j.is_active).length || 0}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Hidden from members</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
             Journey Options
           </CardTitle>
           <CardDescription>
@@ -111,7 +144,10 @@ export default function SpiritualJourneyPage() {
                       {journey.description || "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={journey.is_active ? "default" : "secondary"}>
+                      <Badge 
+                        variant={journey.is_active ? "default" : "secondary"}
+                        className={journey.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : ""}
+                      >
                         {journey.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>

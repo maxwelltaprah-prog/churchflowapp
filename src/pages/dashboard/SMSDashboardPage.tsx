@@ -49,10 +49,12 @@ export default function SMSDashboardPage() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Credit Balance */}
-        <Card>
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Credit Balance</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <CreditCard className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             {walletLoading ? (
@@ -77,10 +79,12 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Total Campaigns */}
-        <Card>
+        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-violet-500/10">
+              <MessageSquare className="h-4 w-4 text-violet-600" />
+            </div>
           </CardHeader>
           <CardContent>
             {campaignsLoading ? (
@@ -93,32 +97,36 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Messages Sent */}
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <div className="p-2 rounded-lg bg-emerald-500/10">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            </div>
           </CardHeader>
           <CardContent>
             {campaignsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-green-600">{totalSent}</div>
+              <div className="text-2xl font-bold text-emerald-600">{totalSent}</div>
             )}
             <p className="text-xs text-muted-foreground">Successfully delivered</p>
           </CardContent>
         </Card>
 
         {/* Failed Messages */}
-        <Card>
+        <Card className="border-l-4 border-l-rose-500 bg-gradient-to-r from-rose-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Failed</CardTitle>
-            <XCircle className="h-4 w-4 text-destructive" />
+            <div className="p-2 rounded-lg bg-rose-500/10">
+              <XCircle className="h-4 w-4 text-rose-600" />
+            </div>
           </CardHeader>
           <CardContent>
             {campaignsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-destructive">{totalFailed}</div>
+              <div className="text-2xl font-bold text-rose-600">{totalFailed}</div>
             )}
             <p className="text-xs text-muted-foreground">Failed to send</p>
           </CardContent>
