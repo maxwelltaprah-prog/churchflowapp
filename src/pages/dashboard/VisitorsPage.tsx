@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2 } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -136,14 +136,13 @@ export default function VisitorsPage() {
     setTempDateRange({ from: dateRange.startDate, to: dateRange.endDate });
   }, [dateRange.startDate, dateRange.endDate]);
 
-  // Filter services by date range
-  const servicesInRange = useMemo(() => {
+  // Use all services for the service filter (sorted by date descending)
+  const servicesForFilter = useMemo(() => {
     if (!allServices) return [];
-    return allServices.filter((service) => {
-      const serviceDate = parseISO(service.service_date);
-      return isWithinInterval(serviceDate, { start: dateRange.startDate, end: dateRange.endDate });
-    });
-  }, [allServices, dateRange]);
+    return [...allServices].sort((a, b) => 
+      new Date(b.service_date).getTime() - new Date(a.service_date).getTime()
+    );
+  }, [allServices]);
 
   // Extract available periods (month-year combinations) based on date range
   const availablePeriods = useMemo(() => {
@@ -226,17 +225,17 @@ export default function VisitorsPage() {
   };
 
   const clearAllServices = () => setSelectedServiceIds([]);
-  const selectAllServices = () => setSelectedServiceIds(servicesInRange.map(s => s.id));
+  const selectAllServices = () => setSelectedServiceIds(servicesForFilter.map(s => s.id));
 
   // Service label for button
   const serviceLabel = useMemo(() => {
     if (selectedServiceIds.length === 0) return "All Services";
     if (selectedServiceIds.length === 1) {
-      const service = servicesInRange.find(s => s.id === selectedServiceIds[0]);
+      const service = servicesForFilter.find(s => s.id === selectedServiceIds[0]);
       return service ? service.name : "1 Service";
     }
     return `${selectedServiceIds.length} Services`;
-  }, [selectedServiceIds, servicesInRange]);
+  }, [selectedServiceIds, servicesForFilter]);
 
   // Handle period selection (start and end)
   const handlePeriodClick = (periodKey: string) => {
@@ -296,7 +295,7 @@ export default function VisitorsPage() {
     switch (filterType) {
       case "service":
         if (selectedServiceIds.length > 0) {
-          const serviceDates = servicesInRange
+          const serviceDates = servicesForFilter
             .filter(s => selectedServiceIds.includes(s.id))
             .map(s => s.service_date);
           result = result.filter(v => serviceDates.includes(v.first_visit_date));
@@ -331,7 +330,7 @@ export default function VisitorsPage() {
     }
 
     return result;
-  }, [visitors, filterType, selectedServiceIds, selectedStartPeriod, selectedEndPeriod, servicesInRange, availablePeriods]);
+  }, [visitors, filterType, selectedServiceIds, selectedStartPeriod, selectedEndPeriod, servicesForFilter, availablePeriods]);
 
   // Apply search filter
   const filteredVisitors = useMemo(() => {
@@ -353,6 +352,42 @@ export default function VisitorsPage() {
     setSelectedServiceIds([]);
     setSelectedStartPeriod(null);
     setSelectedEndPeriod(null);
+  };
+
+  // Export visitors to CSV
+  const exportToCSV = () => {
+    if (!filteredVisitors || filteredVisitors.length === 0) return;
+
+    const headers = ["First Name", "Last Name", "Phone", "Email", "Gender", "Date of Birth", "First Visit Date", "How Heard", "Status", "Branch", "Address"];
+    
+    const rows = filteredVisitors.map(visitor => [
+      visitor.first_name,
+      visitor.last_name,
+      visitor.phone,
+      visitor.email || "",
+      visitor.gender || "",
+      visitor.date_of_birth || "",
+      visitor.first_visit_date,
+      howHeardLabels[visitor.how_heard] || visitor.how_heard,
+      statusConfig[visitor.status]?.label || visitor.status,
+      visitor.branches?.name || "",
+      visitor.address || ""
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `visitors_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -493,7 +528,7 @@ export default function VisitorsPage() {
               <div className="flex items-center justify-between p-3 border-b">
                 <span className="text-sm font-medium">Select Service(s)</span>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={servicesInRange.length === 0}>
+                  <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={servicesForFilter.length === 0}>
                     Select All
                   </Button>
                   <Button variant="ghost" size="sm" onClick={clearAllServices} disabled={selectedServiceIds.length === 0}>
@@ -502,11 +537,11 @@ export default function VisitorsPage() {
                 </div>
               </div>
               <ScrollArea className="h-[280px]">
-                {servicesInRange.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">No services in this period</div>
+                {servicesForFilter.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm">No services available</div>
                 ) : (
                   <div className="p-2">
-                    {servicesInRange.map((service) => (
+                    {servicesForFilter.map((service) => (
                       <div
                         key={service.id}
                         className={cn(
@@ -579,6 +614,18 @@ export default function VisitorsPage() {
             </PopoverContent>
           </Popover>
         )}
+
+        {/* Export Button */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={exportToCSV} 
+          disabled={!filteredVisitors || filteredVisitors.length === 0}
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </Button>
 
         {/* Refresh Button */}
         <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading}>
