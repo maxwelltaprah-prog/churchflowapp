@@ -93,7 +93,7 @@ export default function SelfCheckin() {
   };
 
   const handleMemberCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+    const value = e.target.value.replace(/\D/g, "").slice(0, 15);
     setMemberCode(value);
     if (showDisambiguation) {
       setShowDisambiguation(false);
@@ -102,7 +102,7 @@ export default function SelfCheckin() {
   };
 
   const handleMemberCheckin = async (selectedMemberId?: string) => {
-    if (memberCode.length !== 4 || !serviceId) return;
+    if (memberCode.length < 9 || !serviceId) return;
 
     setChecking(true);
     setResult(null);
@@ -449,20 +449,20 @@ export default function SelfCheckin() {
               
               <TabsContent value="member" className="space-y-4 mt-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  Enter the last 4 digits of your phone number
+                  Enter your phone number
                 </p>
                 {!showDisambiguation ? (
                   <>
                     <div className="space-y-2">
                       <Input
-                        placeholder="Last 4 digits"
+                        placeholder="Enter your phone number"
                         value={memberCode}
                         onChange={handleMemberCodeChange}
-                        onKeyDown={(e) => e.key === "Enter" && memberCode.length === 4 && handleMemberCheckin()}
-                        className="text-center text-2xl font-mono tracking-[0.5em] h-14"
+                        onKeyDown={(e) => e.key === "Enter" && memberCode.length >= 9 && handleMemberCheckin()}
+                        className="text-center text-xl font-mono tracking-wide h-14"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        maxLength={4}
+                        maxLength={15}
                         disabled={checking}
                       />
                     </div>
@@ -471,7 +471,7 @@ export default function SelfCheckin() {
                       className="w-full" 
                       size="lg"
                       onClick={() => handleMemberCheckin()}
-                      disabled={memberCode.length !== 4 || checking}
+                      disabled={memberCode.length < 9 || checking}
                     >
                       {checking ? (
                         <>

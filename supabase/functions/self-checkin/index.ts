@@ -1,7 +1,7 @@
 // Self check-in public function (no login required)
 // Supports:
 // - action: "get_service" (serviceId)
-// - action: "checkin" (serviceId, memberCode) - memberCode is last 4 digits of phone
+// - action: "checkin" (serviceId, memberCode) - memberCode is full phone number
 // - action: "visitor_checkin" (serviceId, phone) - phone is full phone number for visitors
 // - action: "get_downloads" (serviceId, memberId OR visitorId) - returns unexpired uploads (only if checked in)
 // - action: "get_download_url" (serviceId, memberId OR visitorId, uploadId) - returns a signed URL for download/open
@@ -106,11 +106,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      const memberCode = memberCodeRaw.trim();
+      const memberCode = memberCodeRaw.trim().replace(/\D/g, "");
 
-      // Validate memberCode is exactly 4 digits
-      if (!/^\d{4}$/.test(memberCode)) {
-        return new Response(JSON.stringify({ error: "Member code must be exactly 4 digits" }), {
+      // Validate memberCode is a valid phone number (at least 9 digits)
+      if (memberCode.length < 9) {
+        return new Response(JSON.stringify({ error: "Please enter your full phone number" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -154,14 +154,13 @@ Deno.serve(async (req) => {
         }
         member = memberById;
       } else {
-        // Find members whose phone ends with these 4 digits within this church
+        // Find members by phone number (exact match or partial match)
         const { data: matchingMembers, error: memberErr } = await supabase
           .from("members")
           .select("id, full_name, phone, branch_id, is_active, approval_status")
           .eq("church_id", service.church_id)
           .eq("is_active", true)
-          .eq("approval_status", "approved")
-          .like("phone", `%${memberCode}`);
+          .eq("approval_status", "approved");
 
         if (memberErr) {
           console.error("member lookup error", memberErr);
@@ -171,16 +170,24 @@ Deno.serve(async (req) => {
           });
         }
 
-        if (!matchingMembers || matchingMembers.length === 0) {
-          return new Response(JSON.stringify({ error: "Member not found. Please check your code." }), {
+        // Filter for phone number match
+        const filteredMembers = matchingMembers?.filter(m => {
+          const memberPhone = m.phone?.replace(/\D/g, "") || "";
+          return memberPhone === memberCode || 
+                 memberPhone.endsWith(memberCode) || 
+                 memberCode.endsWith(memberPhone);
+        }) || [];
+
+        if (filteredMembers.length === 0) {
+          return new Response(JSON.stringify({ error: "Member not found. Please check your phone number." }), {
             status: 404,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
         // If multiple members match, return disambiguation
-        if (matchingMembers.length > 1) {
-          const members: MemberMatch[] = matchingMembers.map(m => ({
+        if (filteredMembers.length > 1) {
+          const members: MemberMatch[] = filteredMembers.map(m => ({
             id: m.id,
             full_name: m.full_name,
           }));
@@ -192,7 +199,7 @@ Deno.serve(async (req) => {
         }
 
         // Single match
-        member = matchingMembers[0];
+        member = filteredMembers[0];
       }
 
       if (!member) {

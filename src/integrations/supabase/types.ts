@@ -1230,6 +1230,10 @@ export type Database = {
         Returns: string
       }
       generate_member_code: { Args: { _church_slug: string }; Returns: string }
+      generate_sequential_member_code: {
+        Args: { _church_id: string }
+        Returns: string
+      }
       get_user_church_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
