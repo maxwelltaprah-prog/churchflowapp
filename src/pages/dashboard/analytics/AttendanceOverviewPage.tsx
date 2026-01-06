@@ -1214,13 +1214,9 @@ export default function AttendanceOverviewPage() {
                   labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   formatter={(value: number, name: string, props: any) => {
                     const data = props.payload;
-                    if (name === "Early Rate") {
-                      return [`${value}% (${data.earlyCount}/${data.totalCheckins})`, name];
-                    }
-                    return [`${value}% (${data.lateCount}/${data.totalCheckins})`, name];
+                    return [`${value}% (${data.earlyCount}/${data.totalCheckins})`, name];
                   }}
                 />
-                <Legend />
                 <Line
                   type="linear"
                   dataKey="earlyRate"
@@ -1228,15 +1224,6 @@ export default function AttendanceOverviewPage() {
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
                   dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  type="linear"
-                  dataKey="lateRate"
-                  name="Late Rate"
-                  stroke="hsl(var(--destructive))"
-                  strokeWidth={2}
-                  dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
                 />
               </LineChart>
