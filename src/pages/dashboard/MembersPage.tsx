@@ -509,6 +509,27 @@ export default function MembersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      {/* Quick action buttons */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/app/members/${member.id}`)}
+                        title="View Profile"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditMember(member as MemberType)}
+                        title="Edit Member"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      
+                      {/* Approve/Reject buttons for pending */}
                       {member.approval_status === "pending" && (
                         <>
                           <Button
@@ -517,6 +538,7 @@ export default function MembersPage() {
                             className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
                             onClick={() => handleApprove(member as MemberType)}
                             disabled={approveMutation.isPending}
+                            title="Approve"
                           >
                             <CheckCircle2 className="w-4 h-4" />
                           </Button>
@@ -526,11 +548,14 @@ export default function MembersPage() {
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
                             onClick={() => handleReject(member as MemberType)}
                             disabled={rejectMutation.isPending}
+                            title="Reject"
                           >
                             <XCircle className="w-4 h-4" />
                           </Button>
                         </>
                       )}
+                      
+                      {/* More actions dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -544,14 +569,12 @@ export default function MembersPage() {
                           View QR Code
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => navigate(`/app/members/${member.id}`)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setEditMember(member as MemberType)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Member
-                      </DropdownMenuItem>
+                          {member.approval_status === "approved" && (
+                            <DropdownMenuItem onClick={() => setResetPinMember(member as MemberType)}>
+                              <KeyRound className="w-4 h-4 mr-2" />
+                              Reset PIN
+                            </DropdownMenuItem>
+                          )}
                           {member.approval_status === "approved" && (
                             <DropdownMenuItem onClick={() => setResetPinMember(member as MemberType)}>
                               <KeyRound className="w-4 h-4 mr-2" />
