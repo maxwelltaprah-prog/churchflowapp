@@ -56,8 +56,9 @@ import {
   PieChart,
   Pie,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, addMinutes, parse, isBefore } from "date-fns";
 import { useServiceDrivenAttendanceTrend } from "@/hooks/useServiceDrivenTimeline";
+import { Clock } from "lucide-react";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)"];
 
@@ -509,6 +510,114 @@ function useMultiGroupAttendanceTrend(groupIds: string[]) {
   });
 }
 
+// =================== Early Arrival Rate Trend Hook ===================
+function useEarlyArrivalRateTrend() {
+  const { profile } = useAuth();
+  const { filters } = useAnalyticsFilters();
+  const { accessibleBranchIds } = useBranchAccess();
+
+  return useQuery({
+    queryKey: ["early-arrival-rate-trend", profile?.church_id, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.branchId, filters.serviceIds, accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+
+      // Get services in the filter period
+      let servicesQuery = supabase
+        .from("services")
+        .select("id, service_date, name, start_time")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .gte("service_date", format(filters.startDate, "yyyy-MM-dd"))
+        .lte("service_date", format(filters.endDate, "yyyy-MM-dd"))
+        .order("service_date", { ascending: true });
+
+      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      if (filters.serviceIds.length > 0) {
+        servicesQuery = servicesQuery.in("id", filters.serviceIds);
+      }
+
+      const { data: services } = await servicesQuery;
+      if (!services?.length) return [];
+
+      const serviceIds = services.map(s => s.id);
+
+      // Get all attendance for these services
+      let attendanceQuery = supabase
+        .from("attendance")
+        .select("id, service_id, checked_in_at")
+        .eq("church_id", profile.church_id)
+        .in("service_id", serviceIds);
+
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: attendance } = await attendanceQuery;
+
+      // Group attendance by service
+      const attendanceByService = new Map<string, { checkedInAt: string }[]>();
+      (attendance || []).forEach(a => {
+        if (!attendanceByService.has(a.service_id)) {
+          attendanceByService.set(a.service_id, []);
+        }
+        attendanceByService.get(a.service_id)!.push({ checkedInAt: a.checked_in_at });
+      });
+
+      // Calculate early arrival rate for each service
+      const trendData = services.map(service => {
+        const serviceAttendance = attendanceByService.get(service.id) || [];
+        const totalCheckins = serviceAttendance.length;
+        
+        if (totalCheckins === 0 || !service.start_time) {
+          return {
+            date: format(parseISO(service.service_date), "MMM d"),
+            fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
+            serviceName: service.name,
+            earlyRate: 0,
+            lateRate: 0,
+            earlyCount: 0,
+            lateCount: 0,
+            totalCheckins: 0,
+          };
+        }
+
+        // Parse service start time and add 30 minute grace period
+        const serviceDateTime = parse(
+          `${service.service_date} ${service.start_time}`,
+          "yyyy-MM-dd HH:mm:ss",
+          new Date()
+        );
+        const gracePeriodEnd = addMinutes(serviceDateTime, 30);
+
+        let earlyCount = 0;
+        let lateCount = 0;
+
+        serviceAttendance.forEach(a => {
+          const checkinTime = parseISO(a.checkedInAt);
+          if (isBefore(checkinTime, gracePeriodEnd)) {
+            earlyCount++;
+          } else {
+            lateCount++;
+          }
+        });
+
+        return {
+          date: format(parseISO(service.service_date), "MMM d"),
+          fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
+          serviceName: service.name,
+          earlyRate: Math.round((earlyCount / totalCheckins) * 100),
+          lateRate: Math.round((lateCount / totalCheckins) * 100),
+          earlyCount,
+          lateCount,
+          totalCheckins,
+        };
+      });
+
+      return trendData;
+    },
+    enabled: !!profile?.church_id,
+  });
+}
+
 // =================== KPI Card Component ===================
 interface KPICardProps {
   title: string;
@@ -591,6 +700,7 @@ export default function AttendanceOverviewPage() {
   }, [groups, selectedGroupIds.length]);
   
   const { data: groupTrendResult, isLoading: groupTrendLoading } = useMultiGroupAttendanceTrend(selectedGroupIds);
+  const { data: earlyArrivalData, isLoading: earlyArrivalLoading } = useEarlyArrivalRateTrend();
 
   const trendData = trendResult?.data || [];
   const hasTrendData = trendResult?.hasData || false;
@@ -1061,6 +1171,84 @@ export default function AttendanceOverviewPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Early Arrival Rate Trend - Full Width */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="w-4 h-4 text-green-600" />
+            Early Arrival Rate Trend
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Percentage of check-ins arriving before start time + 30 min grace period
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {earlyArrivalLoading ? (
+            <Skeleton className="h-[250px] w-full" />
+          ) : earlyArrivalData && earlyArrivalData.length > 0 && earlyArrivalData.some(d => d.totalCheckins > 0) ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={earlyArrivalData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                  labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
+                  formatter={(value: number, name: string, props: any) => {
+                    const data = props.payload;
+                    if (name === "Early Rate") {
+                      return [`${value}% (${data.earlyCount}/${data.totalCheckins})`, name];
+                    }
+                    return [`${value}% (${data.lateCount}/${data.totalCheckins})`, name];
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="linear"
+                  dataKey="earlyRate"
+                  name="Early Rate"
+                  stroke="hsl(142 76% 36%)"
+                  strokeWidth={2}
+                  dot={{ fill: "hsl(142 76% 36%)", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  type="linear"
+                  dataKey="lateRate"
+                  name="Late Rate"
+                  stroke="hsl(var(--destructive))"
+                  strokeWidth={2}
+                  dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground">
+              <Clock className="w-10 h-10 mb-2 opacity-20" />
+              <p className="text-sm">No check-in data with timing available</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Branch Comparison Section */}
       <div className={`grid gap-6 ${showBranchChart ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
