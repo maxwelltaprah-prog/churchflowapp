@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Users, User, Search, AlertCircle } from "lucide-react";
+import { ArrowLeft, MessageSquare, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,21 +18,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSMSWallet, useSMSTemplates, useMembersWithPhone } from "@/hooks/useSMSData";
-import { useSendSMSCampaign, useInitializeSMSWallet } from "@/hooks/useSMSMutations";
+import { useMembersWithPhone } from "@/hooks/useSMSData";
+import { useSendSMSCampaign } from "@/hooks/useSMSMutations";
 import { useGroups } from "@/hooks/useGroupsData";
-import { BuyCreditDialog } from "@/components/sms/BuyCreditDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SendSMSPage() {
   const navigate = useNavigate();
   
   // Data hooks
-  const { data: wallet, isLoading: walletLoading } = useSMSWallet();
-  const { data: templates } = useSMSTemplates();
   const { data: members, isLoading: membersLoading } = useMembersWithPhone();
   const { data: groups } = useGroups();
-  const initializeWallet = useInitializeSMSWallet();
   const sendCampaign = useSendSMSCampaign();
 
   // State
@@ -47,18 +36,9 @@ export default function SendSMSPage() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [useFirstName, setUseFirstName] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showBuyCredit, setShowBuyCredit] = useState(false);
-
-  // Initialize wallet if needed
-  useEffect(() => {
-    if (!walletLoading && !wallet) {
-      initializeWallet.mutate();
-    }
-  }, [wallet, walletLoading]);
 
   // Filter members based on search
   const filteredMembers = useMemo(() => {
@@ -77,33 +57,11 @@ export default function SendSMSPage() {
     if (audienceTab === "all") {
       return members?.length || 0;
     } else if (audienceTab === "group") {
-      // Count unique members in selected groups
-      return selectedGroupIds.length > 0 ? "calculating..." : 0;
+      return selectedGroupIds.length > 0 ? "Selected groups" : 0;
     } else {
       return selectedMemberIds.length;
     }
   }, [audienceTab, members, selectedGroupIds, selectedMemberIds]);
-
-  // Calculate segments and credits
-  const segments = useMemo(() => Math.ceil(message.length / 160) || 1, [message]);
-  const creditsNeeded = useMemo(() => {
-    const count = typeof recipientCount === "number" ? recipientCount : 0;
-    return segments * count;
-  }, [segments, recipientCount]);
-
-  const isLowBalance = wallet && wallet.balance_credits < wallet.low_balance_threshold;
-  const hasInsufficientCredits = wallet && wallet.balance_credits < creditsNeeded;
-
-  // Handle template selection
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    if (templateId && templateId !== "custom") {
-      const template = templates?.find((t) => t.id === templateId);
-      if (template) {
-        setMessage(template.body);
-      }
-    }
-  };
 
   // Handle group selection
   const toggleGroup = (groupId: string) => {
@@ -142,23 +100,20 @@ export default function SendSMSPage() {
       audienceGroupIds: audienceTab === "group" ? selectedGroupIds : undefined,
       audienceMemberIds: audienceTab === "individual" ? selectedMemberIds : undefined,
       messageBody: message,
-      useFirstName,
+      subject,
       recipientCount: actualRecipientCount,
-      segments,
-      creditsNeeded,
     });
 
     // Reset form
+    setSubject("");
     setMessage("");
     setSelectedGroupIds([]);
     setSelectedMemberIds([]);
-    setSelectedTemplate("");
   };
 
   const canSend =
     message.length >= 10 &&
     message.length <= 1000 &&
-    !hasInsufficientCredits &&
     (audienceTab === "all" ||
       (audienceTab === "group" && selectedGroupIds.length > 0) ||
       (audienceTab === "individual" && selectedMemberIds.length > 0));
@@ -172,34 +127,10 @@ export default function SendSMSPage() {
           <p className="text-muted-foreground">Send bulk SMS to your congregation</p>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Credit Balance Card */}
-          <Card className="bg-card border">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Credit Balance</p>
-                {walletLoading ? (
-                  <Skeleton className="h-6 w-16" />
-                ) : (
-                  <p className="text-lg font-bold">{wallet?.balance_credits ?? 0} SMS</p>
-                )}
-              </div>
-              {isLowBalance && (
-                <Badge variant="destructive" className="text-xs">
-                  Low Balance
-                </Badge>
-              )}
-              <Button size="sm" variant="outline" onClick={() => setShowBuyCredit(true)}>
-                Buy Credit
-              </Button>
-            </CardContent>
-          </Card>
-          
-          <Button variant="outline" onClick={() => navigate("/app/sms")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to SMS Dashboard
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => navigate("/app/sms")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to SMS Dashboard
+        </Button>
       </div>
 
       {/* Main Content - Two Column Layout */}
@@ -320,11 +251,6 @@ export default function SendSMSPage() {
                           <p className="font-medium truncate">{member.full_name}</p>
                           <p className="text-sm text-muted-foreground">{member.phone}</p>
                         </div>
-                        {member.member_type && (
-                          <Badge variant="outline" className="capitalize">
-                            {member.member_type}
-                          </Badge>
-                        )}
                       </div>
                     ))
                   ) : (
@@ -347,86 +273,41 @@ export default function SendSMSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Template Select */}
+            {/* Subject */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Message Templates</label>
-              <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template or write your own" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="custom">Write custom message</SelectItem>
-                  {templates?.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Subject (Optional)</label>
+              <Input
+                placeholder="Enter subject..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                maxLength={100}
+              />
             </div>
 
             {/* Message Textarea */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Message Content</label>
+              <label className="text-sm font-medium">Message</label>
               <Textarea
-                placeholder="Type your message here... Use {first_name} to personalize."
+                placeholder="Type your message here..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="min-h-[150px] resize-none"
+                className="min-h-[200px] resize-none"
                 maxLength={1000}
               />
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>{message.length} characters</span>
-                <span>Max 1000 characters • {segments} segment(s)</span>
+                <span>{message.length} / 1000 characters</span>
               </div>
             </div>
 
-            {/* Personalization Toggle */}
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <Checkbox
-                id="use-first-name"
-                checked={useFirstName}
-                onCheckedChange={(checked) => setUseFirstName(!!checked)}
-              />
-              <label htmlFor="use-first-name" className="text-sm cursor-pointer flex-1">
-                Use <code className="bg-muted px-1 rounded">{"{first_name}"}</code> to personalize
-              </label>
-            </div>
-
-            {/* Cost Summary */}
+            {/* Summary */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Recipients:</span>
-                <span className="font-medium">{typeof recipientCount === "number" ? recipientCount : "—"}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Segments per message:</span>
-                <span className="font-medium">{segments}</span>
-              </div>
-              <div className="flex justify-between text-sm border-t pt-2">
-                <span>Credits needed:</span>
-                <span className="font-bold">{creditsNeeded}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Your balance:</span>
-                <span className={hasInsufficientCredits ? "text-destructive font-bold" : "font-medium"}>
-                  {wallet?.balance_credits ?? 0}
+                <span className="font-medium">
+                  {typeof recipientCount === "number" ? recipientCount : recipientCount}
                 </span>
               </div>
             </div>
-
-            {/* Insufficient Credits Warning */}
-            {hasInsufficientCredits && (
-              <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">
-                  Insufficient credits. You need {creditsNeeded - (wallet?.balance_credits ?? 0)} more.
-                </span>
-                <Button size="sm" variant="destructive" onClick={() => setShowBuyCredit(true)} className="ml-auto">
-                  Buy Credit
-                </Button>
-              </div>
-            )}
 
             {/* Send Button */}
             <Button
@@ -445,21 +326,18 @@ export default function SendSMSPage() {
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm SMS Campaign</AlertDialogTitle>
+            <AlertDialogTitle>Confirm SMS Send</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to send <strong>{typeof recipientCount === "number" ? recipientCount : selectedMemberIds.length}</strong> SMS messages.
-              This will deduct <strong>{creditsNeeded} credits</strong> from your balance.
+              Are you sure you want to send this SMS to{" "}
+              {typeof recipientCount === "number" ? recipientCount : "selected"} recipients?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSend}>Send Now</AlertDialogAction>
+            <AlertDialogAction onClick={handleSend}>Send SMS</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Buy Credit Dialog */}
-      <BuyCreditDialog open={showBuyCredit} onOpenChange={setShowBuyCredit} />
     </div>
   );
 }

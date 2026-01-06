@@ -1,36 +1,25 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import {
   MessageSquare,
   Send,
-  CreditCard,
-  TrendingUp,
   CheckCircle,
   XCircle,
-  Clock,
-  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSMSWallet, useSMSCampaigns, useSMSCreditPurchases } from "@/hooks/useSMSData";
-import { BuyCreditDialog } from "@/components/sms/BuyCreditDialog";
+import { useSMSCampaigns } from "@/hooks/useSMSData";
 
 export default function SMSDashboardPage() {
   const navigate = useNavigate();
-  const { data: wallet, isLoading: walletLoading } = useSMSWallet();
   const { data: campaigns, isLoading: campaignsLoading } = useSMSCampaigns();
-  const { data: purchases } = useSMSCreditPurchases();
-  const [showBuyCredit, setShowBuyCredit] = useState(false);
 
   // Calculate stats
   const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) ?? 0;
   const totalFailed = campaigns?.reduce((sum, c) => sum + (c.failed_count || 0), 0) ?? 0;
   const totalCampaigns = campaigns?.length ?? 0;
-
-  const isLowBalance = wallet && wallet.balance_credits < wallet.low_balance_threshold;
 
   return (
     <div className="space-y-6">
@@ -38,7 +27,7 @@ export default function SMSDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">SMS Dashboard</h1>
-          <p className="text-muted-foreground">Manage your SMS campaigns and credits</p>
+          <p className="text-muted-foreground">Manage your SMS campaigns</p>
         </div>
         <Button onClick={() => navigate("/app/sms/send")}>
           <Send className="h-4 w-4 mr-2" />
@@ -47,37 +36,7 @@ export default function SMSDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Credit Balance */}
-        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Credit Balance</CardTitle>
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <CreditCard className="h-5 w-5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {walletLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold">{wallet?.balance_credits ?? 0}</span>
-                <span className="text-muted-foreground">SMS</span>
-                {isLowBalance && (
-                  <Badge variant="destructive" className="ml-auto">Low</Badge>
-                )}
-              </div>
-            )}
-            <Button
-              variant="link"
-              className="p-0 h-auto text-primary"
-              onClick={() => setShowBuyCredit(true)}
-            >
-              Buy more credits
-            </Button>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Total Campaigns */}
         <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -204,9 +163,6 @@ export default function SMSDashboardPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Buy Credit Dialog */}
-      <BuyCreditDialog open={showBuyCredit} onOpenChange={setShowBuyCredit} />
     </div>
   );
 }

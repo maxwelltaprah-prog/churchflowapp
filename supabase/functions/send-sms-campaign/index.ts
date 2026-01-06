@@ -15,14 +15,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const smsApiKey = Deno.env.get("SMSONLINEGH_API_KEY");
-    const smsSenderId = Deno.env.get("SMSONLINEGH_SENDER_ID");
+    const smsSenderId = Deno.env.get("SMSONLINEGH_SENDER_ID") || "ChurchApp";
 
     if (!smsApiKey) {
-      throw new Error("SMSOnlineGH API key not configured");
-    }
-
-    if (!smsSenderId) {
-      throw new Error("SMSOnlineGH Sender ID not configured");
+      throw new Error("SMS API key not configured");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -34,30 +30,13 @@ serve(async (req) => {
       audienceGroupIds,
       audienceMemberIds,
       messageBody,
-      useFirstName,
+      subject,
       recipientCount,
-      segments,
-      creditsNeeded,
     } = await req.json();
 
-    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount, creditsNeeded });
+    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount });
 
-    // 1. Check wallet balance
-    const { data: wallet, error: walletError } = await supabase
-      .from("sms_wallets")
-      .select("*")
-      .eq("church_id", churchId)
-      .single();
-
-    if (walletError || !wallet) {
-      throw new Error("SMS wallet not found. Please initialize your wallet first.");
-    }
-
-    if (wallet.balance_credits < creditsNeeded) {
-      throw new Error(`Insufficient credits. You have ${wallet.balance_credits} but need ${creditsNeeded}.`);
-    }
-
-    // 2. Get recipients based on audience type
+    // Get recipients based on audience type
     let recipients: { id: string; full_name: string; phone: string }[] = [];
 
     if (audienceType === "all_members") {
@@ -115,21 +94,7 @@ serve(async (req) => {
       throw new Error("No recipients with valid phone numbers found");
     }
 
-    // Recalculate actual credits needed
-    const actualCreditsNeeded = segments * uniqueRecipients.length;
-
-    // 3. Deduct credits upfront
-    const { error: deductError } = await supabase
-      .from("sms_wallets")
-      .update({
-        balance_credits: wallet.balance_credits - actualCreditsNeeded,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("church_id", churchId);
-
-    if (deductError) throw deductError;
-
-    // 4. Create campaign record
+    // Create campaign record
     const { data: campaign, error: campaignError } = await supabase
       .from("sms_campaigns")
       .insert({
@@ -139,10 +104,10 @@ serve(async (req) => {
         audience_group_ids: audienceGroupIds || [],
         audience_member_ids: audienceMemberIds || [],
         message_body: messageBody,
-        use_first_name: useFirstName,
+        use_first_name: false,
         recipient_count: uniqueRecipients.length,
-        segments: segments,
-        credits_deducted: actualCreditsNeeded,
+        segments: 1,
+        credits_deducted: 0,
         status: "sending",
       })
       .select()
@@ -150,30 +115,22 @@ serve(async (req) => {
 
     if (campaignError) throw campaignError;
 
-    // 5. Create jobs for each recipient
-    const jobs = uniqueRecipients.map((recipient) => {
-      let personalizedMessage = messageBody;
-      if (useFirstName && recipient.full_name) {
-        const firstName = recipient.full_name.split(" ")[0];
-        personalizedMessage = messageBody.replace(/\{first_name\}/gi, firstName);
-      }
-
-      return {
-        church_id: churchId,
-        campaign_id: campaign.id,
-        member_id: recipient.id,
-        member_name: recipient.full_name,
-        phone_number: recipient.phone,
-        personalized_message: personalizedMessage,
-        status: "pending",
-      };
-    });
+    // Create jobs for each recipient
+    const jobs = uniqueRecipients.map((recipient) => ({
+      church_id: churchId,
+      campaign_id: campaign.id,
+      member_id: recipient.id,
+      member_name: recipient.full_name,
+      phone_number: recipient.phone,
+      personalized_message: messageBody,
+      status: "pending",
+    }));
 
     const { error: jobsError } = await supabase.from("sms_jobs").insert(jobs);
 
     if (jobsError) throw jobsError;
 
-    // 6. Send messages in batches via SMSOnlineGH API
+    // Send messages via SMSOnlineGH API
     const BATCH_SIZE = 50;
     let sentCount = 0;
     let failedCount = 0;
@@ -194,13 +151,12 @@ serve(async (req) => {
           const smsUrl = new URL("https://api.smsonlinegh.com/v4/message/sms/send");
           smsUrl.searchParams.append("key", smsApiKey);
           smsUrl.searchParams.append("text", job.personalized_message);
-          smsUrl.searchParams.append("type", "0"); // Plain text
+          smsUrl.searchParams.append("type", "0");
           smsUrl.searchParams.append("sender", smsSenderId);
           smsUrl.searchParams.append("to", phone);
 
           console.log(`Sending SMS to ${phone}`);
 
-          // Send via SMSOnlineGH API
           const smsResponse = await fetch(smsUrl.toString(), {
             method: "GET",
           });
@@ -208,12 +164,9 @@ serve(async (req) => {
           const smsResult = await smsResponse.json();
           console.log("SMSOnlineGH Response:", JSON.stringify(smsResult));
 
-          // Check for successful response
-          // SMSOnlineGH returns { "handshake": { "label": "HSHK_OK" }, "data": [...] }
           if (smsResponse.ok && smsResult.handshake?.label === "HSHK_OK") {
             const messageData = smsResult.data?.[0];
             
-            // Update job as sent
             await supabase
               .from("sms_jobs")
               .update({
@@ -251,7 +204,7 @@ serve(async (req) => {
       failedCount += results.filter((r) => !r.success).length;
     }
 
-    // 7. Update campaign with final counts
+    // Update campaign with final counts
     await supabase
       .from("sms_campaigns")
       .update({

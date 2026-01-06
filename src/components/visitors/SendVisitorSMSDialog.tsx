@@ -58,12 +58,9 @@ export function SendVisitorSMSDialog({ open, onOpenChange, visitor }: SendVisito
       // Send SMS via the campaign function using "individual" type
       await sendSMS.mutateAsync({
         audienceType: "individual",
-        audienceMemberIds: [], // Empty as this is a visitor
+        audienceMemberIds: [],
         messageBody: personalizedMessage,
-        useFirstName: false, // Already personalized
         recipientCount: 1,
-        segments: 1,
-        creditsNeeded: 1,
       });
 
       // Automatically log a follow-up entry
