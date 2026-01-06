@@ -34,6 +34,8 @@ import { useVisitors, useVisitorStats } from "@/hooks/useVisitorsData";
 import { useAllServices, useBranches } from "@/hooks/useChurchData";
 import { useBranchAccess } from "@/hooks/useBranchAccess";
 import { DateRange } from "react-day-picker";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const howHeardLabels: Record<string, string> = {
   friend_family: "Family",
@@ -55,6 +57,7 @@ const monthNames = [
 ];
 
 type FilterType = "all" | "service" | "period";
+type SegmentType = "all" | "returning";
 
 // Format date range for display
 function formatDateRangeLabel(range: { startDate: Date; endDate: Date }): string {
@@ -89,6 +92,7 @@ export default function VisitorsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [segmentFilter, setSegmentFilter] = useState<SegmentType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const today = new Date();
   
@@ -128,6 +132,11 @@ export default function VisitorsPage() {
         setFilterType("service");
       }
     }
+    
+    const segmentParam = searchParams.get("segment");
+    if (segmentParam === "returning") {
+      setSegmentFilter("returning");
+    }
   }, [searchParams]);
 
   // Filter branches based on access
@@ -146,6 +155,27 @@ export default function VisitorsPage() {
     selectedBranchId
   );
   const { data: allServices } = useAllServices();
+  
+  // Fetch visitor check-in counts for returning filter
+  const { data: visitorCheckinCounts } = useQuery({
+    queryKey: ["visitor-checkin-counts", visitors?.map(v => v.id)],
+    queryFn: async () => {
+      if (!visitors?.length) return new Map<string, number>();
+      
+      const visitorIds = visitors.map(v => v.id);
+      const { data: checkins } = await supabase
+        .from("visitor_checkins")
+        .select("visitor_id")
+        .in("visitor_id", visitorIds);
+      
+      const counts = new Map<string, number>();
+      (checkins || []).forEach(c => {
+        counts.set(c.visitor_id, (counts.get(c.visitor_id) || 0) + 1);
+      });
+      return counts;
+    },
+    enabled: !!visitors?.length && segmentFilter === "returning",
+  });
 
   // Sync temp date range when dateRange changes
   useEffect(() => {
@@ -348,15 +378,26 @@ export default function VisitorsPage() {
     return result;
   }, [visitors, filterType, selectedServiceIds, selectedStartPeriod, selectedEndPeriod, servicesForFilter, availablePeriods]);
 
+  // Apply segment filter (returning visitors)
+  const filteredBySegment = useMemo(() => {
+    if (segmentFilter !== "returning") return filteredByPrimaryFilter;
+    if (!visitorCheckinCounts) return [];
+    
+    return filteredByPrimaryFilter.filter(visitor => {
+      const checkinCount = visitorCheckinCounts.get(visitor.id) || 0;
+      return checkinCount >= 2;
+    });
+  }, [filteredByPrimaryFilter, segmentFilter, visitorCheckinCounts]);
+
   // Apply search filter
   const filteredVisitors = useMemo(() => {
-    return filteredByPrimaryFilter.filter((visitor) => {
+    return filteredBySegment.filter((visitor) => {
       const fullName = `${visitor.first_name} ${visitor.last_name}`.toLowerCase();
       const phone = visitor.phone?.toLowerCase() || "";
       const query = searchQuery.toLowerCase();
       return fullName.includes(query) || phone.includes(query);
     });
-  }, [filteredByPrimaryFilter, searchQuery]);
+  }, [filteredBySegment, searchQuery]);
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
@@ -411,13 +452,34 @@ export default function VisitorsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Visitor Management</h1>
-          <p className="text-muted-foreground">Track and manage church visitors</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {segmentFilter === "returning" ? "Returning Visitors" : "Visitor Management"}
+          </h1>
+          <p className="text-muted-foreground">
+            {segmentFilter === "returning" 
+              ? "Visitors with 2 or more check-ins" 
+              : "Track and manage church visitors"}
+          </p>
         </div>
-        <Button onClick={() => navigate("/app/visitors/new")} className="gap-2 bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4" />
-          Register New Visitor
-        </Button>
+        <div className="flex gap-2">
+          {segmentFilter === "returning" && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSegmentFilter("all");
+                navigate("/app/visitors");
+              }}
+              className="gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Show All Visitors
+            </Button>
+          )}
+          <Button onClick={() => navigate("/app/visitors/new")} className="gap-2 bg-primary hover:bg-primary/90">
+            <Plus className="w-4 h-4" />
+            Register New Visitor
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards - Always show full totals (unaffected by filters) */}

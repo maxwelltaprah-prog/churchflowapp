@@ -539,7 +539,7 @@ export default function AttendanceOverviewPage() {
           description="2+ check-ins"
           isLoading={kpisLoading}
           variant="accent"
-          href="/app/visitors"
+          href="/app/visitors?segment=returning"
         />
         <KPICard
           title="Absentees"
