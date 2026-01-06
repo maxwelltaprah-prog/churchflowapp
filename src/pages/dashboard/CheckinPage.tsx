@@ -295,11 +295,12 @@ export default function CheckinPage() {
               <TabsContent value="member">
                 <div className="flex gap-3">
                   <Input
-                    placeholder="Enter phone number or member code"
+                    placeholder="Enter phone number"
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleManualCheckin()}
                     className="font-mono"
+                    inputMode="tel"
                   />
                   <Button 
                     onClick={handleManualCheckin}
@@ -308,6 +309,9 @@ export default function CheckinPage() {
                     {findMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Check in a member by their phone number
+                </p>
               </TabsContent>
               
               <TabsContent value="visitor">

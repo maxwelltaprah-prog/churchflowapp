@@ -449,7 +449,7 @@ export default function SelfCheckin() {
               
               <TabsContent value="member" className="space-y-4 mt-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  Enter your phone number
+                  Enter your phone number to check in
                 </p>
                 {!showDisambiguation ? (
                   <>
