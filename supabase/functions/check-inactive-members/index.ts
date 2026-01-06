@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
           const inactiveMemberIds = inactiveMembers.map(m => m.id);
 
           // Update these members to inactive
-          const { error: updateError, count } = await supabase
+          const { error: updateError } = await supabase
             .from("members")
             .update({ membership_status: "inactive" })
             .in("id", inactiveMemberIds);
@@ -122,6 +122,33 @@ Deno.serve(async (req) => {
             console.log(`Updated ${inactiveMembers.length} members to inactive:`, 
               inactiveMembers.map(m => m.full_name).join(", "));
             totalUpdated += inactiveMembers.length;
+
+            // Create notification for the church admin
+            const memberNames = inactiveMembers.slice(0, 5).map(m => m.full_name);
+            const moreCount = inactiveMembers.length > 5 ? inactiveMembers.length - 5 : 0;
+            const namesList = moreCount > 0 
+              ? `${memberNames.join(", ")} and ${moreCount} more`
+              : memberNames.join(", ");
+
+            const { error: notifError } = await supabase
+              .from("admin_notifications")
+              .insert({
+                church_id: church.id,
+                notification_type: "inactive_members",
+                title: `${inactiveMembers.length} member${inactiveMembers.length > 1 ? "s" : ""} marked inactive`,
+                message: `The following members have been automatically marked inactive due to missing 8 consecutive services: ${namesList}`,
+                metadata: {
+                  branch_id: branch.id,
+                  member_ids: inactiveMemberIds,
+                  member_names: inactiveMembers.map(m => m.full_name),
+                },
+              });
+
+            if (notifError) {
+              console.error("Error creating notification:", notifError);
+            } else {
+              console.log("Created notification for church:", church.id);
+            }
           }
         }
       }
