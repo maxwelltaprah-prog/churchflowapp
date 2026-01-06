@@ -575,6 +575,87 @@ export default function GroupsAnalyticsPage() {
             </div>
           </div>
 
+          {/* Summary Stats Row */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-primary/10">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Members</p>
+                    {demographicsLoading ? (
+                      <Skeleton className="h-7 w-16 mt-1" />
+                    ) : (
+                      <p className="text-2xl font-bold">{demographics?.totalMembers || 0}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-green-500/10">
+                    <Activity className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active %</p>
+                    {demographicsLoading ? (
+                      <Skeleton className="h-7 w-16 mt-1" />
+                    ) : (
+                      <p className="text-2xl font-bold">
+                        {demographics?.totalMembers
+                          ? Math.round(
+                              ((demographics.membershipDistribution.find(d => d.key === "active")?.value || 0) /
+                                demographics.totalMembers) *
+                                100
+                            )
+                          : 0}
+                        %
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-500/10">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Age</p>
+                    {demographicsLoading ? (
+                      <Skeleton className="h-7 w-16 mt-1" />
+                    ) : (
+                      <p className="text-2xl font-bold">
+                        {(() => {
+                          const ageData = demographics?.ageDistribution || [];
+                          let totalAge = 0;
+                          let totalCount = 0;
+                          ageData.forEach(bucket => {
+                            if (bucket.key !== "Unknown") {
+                              const ageBucket = AGE_BUCKETS.find(b => b.label === bucket.key);
+                              if (ageBucket) {
+                                const midAge = (ageBucket.min + ageBucket.max) / 2;
+                                totalAge += midAge * bucket.value;
+                                totalCount += bucket.value;
+                              }
+                            }
+                          });
+                          return totalCount > 0 ? Math.round(totalAge / totalCount) : "-";
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Member Demographics Section */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
