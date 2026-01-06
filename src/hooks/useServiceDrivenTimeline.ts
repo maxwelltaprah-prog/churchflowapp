@@ -248,6 +248,18 @@ export function useServiceDrivenAttendanceTrend(
 
       const { data: visitorCheckins } = await visitorCheckinsQuery;
 
+      // Fetch visitors registered on service dates (first_visit_date matches service date)
+      const serviceDates = services.map(s => s.service_date);
+      let visitorsQuery = supabase
+        .from("visitors")
+        .select("id, first_visit_date")
+        .eq("church_id", profile.church_id)
+        .in("first_visit_date", serviceDates);
+
+      visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", branchId, accessibleBranchIds);
+
+      const { data: visitors } = await visitorsQuery;
+
       // Group attendance by service
       const attendanceByService = new Map<string, any[]>();
       (attendance || []).forEach(a => {
@@ -266,10 +278,24 @@ export function useServiceDrivenAttendanceTrend(
         visitorsByService.get(vc.service_id)!.add(vc.visitor_id);
       });
 
+      // Group visitors by first_visit_date (registration date)
+      const visitorsByDate = new Map<string, Set<string>>();
+      (visitors || []).forEach(v => {
+        if (!visitorsByDate.has(v.first_visit_date)) {
+          visitorsByDate.set(v.first_visit_date, new Set());
+        }
+        visitorsByDate.get(v.first_visit_date)!.add(v.id);
+      });
+
       // Build trend data per service (always daily for service-level tracking)
       const trendData = services.map(service => {
         const serviceAttendance = attendanceByService.get(service.id) || [];
-        const serviceVisitorCount = visitorsByService.get(service.id)?.size || 0;
+        const checkinVisitorIds = visitorsByService.get(service.id) || new Set<string>();
+        const registeredVisitorIds = visitorsByDate.get(service.service_date) || new Set<string>();
+        
+        // Combine check-in visitors and registered visitors (unique)
+        const allVisitorIds = new Set([...checkinVisitorIds, ...registeredVisitorIds]);
+        const serviceVisitorCount = allVisitorIds.size;
         
         // Count member check-ins (active members)
         const memberCheckins = serviceAttendance.filter((a: any) => 
