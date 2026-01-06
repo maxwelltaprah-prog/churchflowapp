@@ -484,53 +484,63 @@ export default function VisitorsPage() {
 
       {/* Stats Cards - Always show full totals (unaffected by filters) */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="bg-blue-600 text-white border-0">
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Total Visitors</p>
-              <p className="text-3xl font-bold">{stats?.total || 0}</p>
+              <p className="text-sm text-muted-foreground">Total Visitors</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.total || 0}</p>
             </div>
-            <Users className="w-10 h-10 opacity-80" />
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-500 text-white border-0">
+        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">New Visitors</p>
-              <p className="text-3xl font-bold">{stats?.new || 0}</p>
+              <p className="text-sm text-muted-foreground">New Visitors</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.new || 0}</p>
             </div>
-            <UserPlus className="w-10 h-10 opacity-80" />
+            <div className="p-3 rounded-xl bg-amber-500/10">
+              <UserPlus className="w-6 h-6 text-amber-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-purple-600 text-white border-0">
+        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Returning Visitors</p>
-              <p className="text-3xl font-bold">{stats?.returning || 0}</p>
+              <p className="text-sm text-muted-foreground">Returning</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.returning || 0}</p>
             </div>
-            <RotateCcw className="w-10 h-10 opacity-80" />
+            <div className="p-3 rounded-xl bg-violet-500/10">
+              <RefreshCw className="w-6 h-6 text-violet-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-yellow-500 text-white border-0">
+        <Card className="border-l-4 border-l-sky-500 bg-gradient-to-r from-sky-500/5 to-transparent hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">In Follow-up</p>
-              <p className="text-3xl font-bold">{stats?.inFollowUp || 0}</p>
+              <p className="text-sm text-muted-foreground">In Follow-up</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.inFollowUp || 0}</p>
             </div>
-            <PhoneCall className="w-10 h-10 opacity-80" />
+            <div className="p-3 rounded-xl bg-sky-500/10">
+              <PhoneCall className="w-6 h-6 text-sky-600" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-green-600 text-white border-0">
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Converted</p>
-              <p className="text-3xl font-bold">{stats?.converted || 0}</p>
+              <p className="text-sm text-muted-foreground">Converted</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.converted || 0}</p>
             </div>
-            <UserCheck className="w-10 h-10 opacity-80" />
+            <div className="p-3 rounded-xl bg-emerald-500/10">
+              <UserCheck className="w-6 h-6 text-emerald-600" />
+            </div>
           </CardContent>
         </Card>
       </div>

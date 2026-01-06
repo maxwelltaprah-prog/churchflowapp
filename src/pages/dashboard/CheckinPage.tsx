@@ -334,7 +334,7 @@ export default function CheckinPage() {
         </Card>
 
         {/* Today's Stats */}
-        <Card>
+        <Card className="bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -346,16 +346,16 @@ export default function CheckinPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-4 bg-secondary/50 rounded-xl">
+              <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
                 <p className="text-3xl font-bold text-primary">{checkedInCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">Members</p>
               </div>
-              <div className="p-4 bg-secondary/50 rounded-xl">
-                <p className="text-3xl font-bold text-accent">{visitorCheckedInCount}</p>
+              <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                <p className="text-3xl font-bold text-amber-600">{visitorCheckedInCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">Visitors</p>
               </div>
-              <div className="p-4 bg-secondary/50 rounded-xl">
-                <p className="text-3xl font-bold text-foreground">
+              <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                <p className="text-3xl font-bold text-emerald-600">
                   {selectedServiceData 
                     ? format(new Date(selectedServiceData.service_date), "MMM d")
                     : "—"

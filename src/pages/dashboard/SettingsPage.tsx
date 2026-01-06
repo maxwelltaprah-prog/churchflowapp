@@ -143,18 +143,20 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="registration">Registration</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted/50">
+          <TabsTrigger value="general" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">General</TabsTrigger>
+          <TabsTrigger value="registration" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Registration</TabsTrigger>
+          <TabsTrigger value="notifications" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Notifications</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
         <TabsContent value="general" className="space-y-6">
-          <Card>
+          <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-primary" />
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Building2 className="w-5 h-5 text-primary" />
+                </div>
                 Church Information
               </CardTitle>
               <CardDescription>
@@ -200,10 +202,12 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
+                <div className="p-2 rounded-lg bg-violet-500/10">
+                  <User className="w-5 h-5 text-violet-600" />
+                </div>
                 Your Profile
               </CardTitle>
               <CardDescription>
@@ -280,10 +284,12 @@ export default function SettingsPage() {
 
         {/* Registration Settings */}
         <TabsContent value="registration" className="space-y-6">
-          <Card>
+          <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" />
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <Shield className="w-5 h-5 text-emerald-600" />
+                </div>
                 Member Registration
               </CardTitle>
               <CardDescription>
@@ -350,10 +356,12 @@ export default function SettingsPage() {
 
         {/* Notification Settings */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card>
+          <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-primary" />
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <Bell className="w-5 h-5 text-amber-600" />
+                </div>
                 Notification Preferences
               </CardTitle>
               <CardDescription>

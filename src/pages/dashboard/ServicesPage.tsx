@@ -133,7 +133,7 @@ export default function ServicesPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Upcoming Services</CardDescription>
             <CardTitle className="text-3xl">{services?.length || 0}</CardTitle>
@@ -142,7 +142,7 @@ export default function ServicesPage() {
             <p className="text-sm text-muted-foreground">Scheduled services</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Today's Services</CardDescription>
             <CardTitle className="text-3xl">
@@ -153,7 +153,7 @@ export default function ServicesPage() {
             <p className="text-sm text-muted-foreground">Active today</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>This Week</CardDescription>
             <CardTitle className="text-3xl">

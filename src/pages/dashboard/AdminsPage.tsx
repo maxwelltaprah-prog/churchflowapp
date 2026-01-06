@@ -163,7 +163,7 @@ export default function AdminsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Church Admins</CardDescription>
             <CardTitle className="text-3xl">{churchAdmins.length}</CardTitle>
@@ -172,7 +172,7 @@ export default function AdminsPage() {
             <p className="text-sm text-muted-foreground">Full access to all branches</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Branch Admins</CardDescription>
             <CardTitle className="text-3xl">{branchAdmins.length}</CardTitle>
@@ -181,7 +181,7 @@ export default function AdminsPage() {
             <p className="text-sm text-muted-foreground">Limited to assigned branches</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-sky-500 bg-gradient-to-r from-sky-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="pb-2">
             <CardDescription>Ushers & Staff</CardDescription>
             <CardTitle className="text-3xl">{ushers.length}</CardTitle>

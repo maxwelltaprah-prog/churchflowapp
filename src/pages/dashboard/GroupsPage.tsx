@@ -113,8 +113,45 @@ export default function GroupsPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Total Groups</CardDescription>
+            <CardTitle className="text-3xl">{groups?.length || 0}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              {groups?.filter(g => g.is_active).length || 0} active
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Church-wide</CardDescription>
+            <CardTitle className="text-3xl">
+              {groups?.filter(g => !g.branch_id).length || 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Cross-branch groups</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardDescription>Branch-specific</CardDescription>
+            <CardTitle className="text-3xl">
+              {groups?.filter(g => g.branch_id).length || 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Local groups</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
-      <Card>
+      <Card className="bg-muted/30">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
@@ -123,11 +160,11 @@ export default function GroupsPage() {
                 placeholder="Search groups..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-background"
               />
             </div>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px] bg-background">
                 <SelectValue placeholder="Filter by branch" />
               </SelectTrigger>
               <SelectContent>
