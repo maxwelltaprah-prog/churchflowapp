@@ -611,6 +611,16 @@ export default function DemographicsPage() {
           onSegmentClick={(key, label) => handleSegmentClick("occupation", key, label)}
           emptyMessage="No occupation data"
         />
+
+        <DistributionChart
+          title="Membership Status"
+          description="Members vs Visitors"
+          icon={TrendingUp}
+          data={demographics?.membershipDistribution || []}
+          type="pie"
+          isLoading={isLoading}
+          onSegmentClick={(key, label) => handleSegmentClick("membership", key, label)}
+        />
       </div>
 
       {/* Drill-down Modal */}
