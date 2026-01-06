@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,6 +87,7 @@ function formatPeriodLabel(startPeriod: string | null, endPeriod: string | null)
 
 export default function VisitorsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const today = new Date();
@@ -107,7 +108,7 @@ export default function VisitorsPage() {
     to: dateRange.endDate
   });
   
-  // Filter selections
+  // Filter selections - initialize from URL params
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedStartPeriod, setSelectedStartPeriod] = useState<string | null>(null);
@@ -116,6 +117,18 @@ export default function VisitorsPage() {
   // Popover states
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+
+  // Initialize filters from URL params on mount
+  useEffect(() => {
+    const servicesParam = searchParams.get("services");
+    if (servicesParam) {
+      const serviceIds = servicesParam.split(",").filter(Boolean);
+      if (serviceIds.length > 0) {
+        setSelectedServiceIds(serviceIds);
+        setFilterType("service");
+      }
+    }
+  }, [searchParams]);
 
   // Filter branches based on access
   const availableBranches = useMemo(() => {
