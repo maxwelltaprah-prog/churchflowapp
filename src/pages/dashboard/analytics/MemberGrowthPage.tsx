@@ -53,6 +53,7 @@ import {
   differenceInDays,
   startOfMonth,
   endOfMonth,
+  startOfWeek,
 } from "date-fns";
 import { useServiceDrivenMemberGrowth } from "@/hooks/useServiceDrivenTimeline";
 
@@ -160,15 +161,100 @@ function useMemberGrowthKPIs() {
   });
 }
 
-// =================== Acquisition Trend Hook (Service-Driven) ===================
+// =================== Acquisition Trend Hook (Date-Based) ===================
 function useAcquisitionTrend() {
+  const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
-  
-  return useServiceDrivenMemberGrowth(
-    filters.startDate,
-    filters.endDate,
-    filters.branchId || undefined
-  );
+  const { accessibleBranchIds } = useBranchAccess();
+
+  return useQuery({
+    queryKey: ["acquisition-trend", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id) return { data: [], hasData: false };
+
+      // Fetch new members in the date range (using date_joined)
+      let membersQuery = supabase
+        .from("members")
+        .select("id, date_joined, created_at")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true);
+
+      membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: allMembers } = await membersQuery;
+
+      // Filter members by date_joined in the range
+      const membersInRange = (allMembers || []).filter(m => {
+        const joinDate = m.date_joined ? parseISO(m.date_joined) : new Date(m.created_at);
+        return joinDate >= filters.startDate && joinDate <= filters.endDate;
+      });
+
+      // Fetch converted visitors in the date range
+      let visitorsQuery = supabase
+        .from("visitors")
+        .select("id, status, updated_at, created_at")
+        .eq("church_id", profile.church_id)
+        .eq("status", "converted");
+
+      visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: convertedVisitors } = await visitorsQuery;
+
+      // Filter converted visitors by updated_at (when they were converted) in the range
+      const conversionsInRange = (convertedVisitors || []).filter(v => {
+        const convertedAt = new Date(v.updated_at);
+        return convertedAt >= filters.startDate && convertedAt <= filters.endDate;
+      });
+
+      // Build daily/weekly buckets based on date range length
+      const daysDiff = differenceInDays(filters.endDate, filters.startDate);
+      const useWeekly = daysDiff > 30;
+
+      // Group by date
+      const membersByDate = new Map<string, number>();
+      const conversionsByDate = new Map<string, number>();
+
+      membersInRange.forEach(m => {
+        const joinDate = m.date_joined ? parseISO(m.date_joined) : new Date(m.created_at);
+        const key = useWeekly 
+          ? format(startOfWeek(joinDate, { weekStartsOn: 0 }), "yyyy-MM-dd")
+          : format(joinDate, "yyyy-MM-dd");
+        membersByDate.set(key, (membersByDate.get(key) || 0) + 1);
+      });
+
+      conversionsInRange.forEach(v => {
+        const convertedAt = new Date(v.updated_at);
+        const key = useWeekly 
+          ? format(startOfWeek(convertedAt, { weekStartsOn: 0 }), "yyyy-MM-dd")
+          : format(convertedAt, "yyyy-MM-dd");
+        conversionsByDate.set(key, (conversionsByDate.get(key) || 0) + 1);
+      });
+
+      // Merge all unique dates
+      const allDates = new Set([...membersByDate.keys(), ...conversionsByDate.keys()]);
+      const sortedDates = Array.from(allDates).sort();
+
+      const trendData = sortedDates.map(dateKey => {
+        const date = parseISO(dateKey);
+        const newMembers = membersByDate.get(dateKey) || 0;
+        const conversions = conversionsByDate.get(dateKey) || 0;
+        
+        return {
+          date: useWeekly ? `Week of ${format(date, "MMM d")}` : format(date, "MMM d"),
+          fullDate: format(date, "MMM d, yyyy"),
+          members: newMembers,
+          conversions: conversions,
+          total: newMembers + conversions,
+        };
+      });
+
+      return { 
+        data: trendData, 
+        hasData: trendData.length > 0 && trendData.some(d => d.total > 0),
+      };
+    },
+    enabled: !!profile?.church_id,
+  });
 }
 
 // =================== Retention Metrics Hook ===================
@@ -429,13 +515,13 @@ export default function MemberGrowthPage() {
               Acquisition Trend
             </CardTitle>
             <CardDescription>
-              New registrations by service period for {periodLabel.toLowerCase()}
+              New member registrations & visitor conversions for {periodLabel.toLowerCase()}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {trendLoading ? (
               <Skeleton className="h-[280px] w-full" />
-            ) : hasTrendData && trendData.some(d => d.total > 0) ? (
+            ) : hasTrendData ? (
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={trendData}>
                   <defs>
@@ -443,9 +529,9 @@ export default function MemberGrowthPage() {
                       <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
                       <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="visitorsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_COLORS.accent} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={CHART_COLORS.accent} stopOpacity={0} />
+                    <linearGradient id="conversionsGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_COLORS.success} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={CHART_COLORS.success} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -463,17 +549,17 @@ export default function MemberGrowthPage() {
                   <Area
                     type="monotone"
                     dataKey="members"
-                    name="Members"
+                    name="New Members"
                     stroke={CHART_COLORS.primary}
                     fill="url(#membersGrad)"
                     strokeWidth={2}
                   />
                   <Area
                     type="monotone"
-                    dataKey="visitors"
-                    name="Visitors"
-                    stroke={CHART_COLORS.accent}
-                    fill="url(#visitorsGrad)"
+                    dataKey="conversions"
+                    name="Converted Visitors"
+                    stroke={CHART_COLORS.success}
+                    fill="url(#conversionsGrad)"
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -481,8 +567,8 @@ export default function MemberGrowthPage() {
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-muted-foreground">
                 <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No services recorded for this period</p>
-                <p className="text-sm">Create services to see member growth trends</p>
+                <p>No registrations in this period</p>
+                <p className="text-sm">Add members to see acquisition trends</p>
               </div>
             )}
           </CardContent>
