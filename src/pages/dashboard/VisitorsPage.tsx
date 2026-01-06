@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CheckSquare, CalendarIcon, Calendar, Filter } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -26,8 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, formatDistanceToNow, startOfMonth, endOfMonth, isWithinInterval, parseISO, getMonth, getYear } from "date-fns";
+import { format, formatDistanceToNow, startOfMonth, isWithinInterval, parseISO, getMonth, getYear, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useVisitors, useVisitorStats } from "@/hooks/useVisitorsData";
 import { useServices } from "@/hooks/useChurchData";
@@ -54,49 +55,77 @@ const monthNames = [
 
 type FilterType = "all" | "service" | "month" | "year";
 
+// Format date range for display
+function formatDateRangeLabel(range: { startDate: Date; endDate: Date }): string {
+  const { startDate, endDate } = range;
+  const today = new Date();
+  
+  if (startDate.toDateString() === today.toDateString() && endDate.toDateString() === today.toDateString()) {
+    return "Today";
+  }
+  
+  return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
+}
+
 export default function VisitorsPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const today = new Date();
   
-  // Primary filter state
+  // Date range picker state
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date }>({
+    startDate: startOfMonth(today),
+    endDate: today
+  });
+  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: dateRange.startDate,
+    to: dateRange.endDate
+  });
+  
+  // Filter selections
   const [filterType, setFilterType] = useState<FilterType>("all");
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("");
   
-  // Date range for limiting month/year options (NOT for filtering visitors)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  // Popover states
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
 
-  const { data: visitors, isLoading } = useVisitors(undefined, statusFilter);
+  const { data: visitors, isLoading, refetch } = useVisitors(undefined, statusFilter);
   const { data: stats } = useVisitorStats();
-  const { data: services } = useServices();
+  const { data: allServices } = useServices();
 
-  // Extract available months and years from visitor data
+  // Sync temp date range when dateRange changes
+  useEffect(() => {
+    setTempDateRange({ from: dateRange.startDate, to: dateRange.endDate });
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  // Filter services by date range
+  const servicesInRange = useMemo(() => {
+    if (!allServices) return [];
+    return allServices.filter((service) => {
+      const serviceDate = parseISO(service.service_date);
+      return isWithinInterval(serviceDate, { start: dateRange.startDate, end: dateRange.endDate });
+    });
+  }, [allServices, dateRange]);
+
+  // Extract available months and years based on date range
   const { availableMonths, availableYears } = useMemo(() => {
-    if (!visitors) return { availableMonths: [], availableYears: [] };
-
     const monthsSet = new Set<string>();
     const yearsSet = new Set<number>();
 
-    visitors.forEach((visitor) => {
-      const date = parseISO(visitor.first_visit_date);
-      const year = getYear(date);
-      const month = getMonth(date);
-      
-      // If date range is set, only include months/years within range
-      if (dateRange?.from && dateRange?.to) {
-        if (isWithinInterval(date, { start: dateRange.from, end: dateRange.to })) {
-          monthsSet.add(`${year}-${month}`);
-          yearsSet.add(year);
-        }
-      } else {
-        monthsSet.add(`${year}-${month}`);
-        yearsSet.add(year);
-      }
-    });
+    // Generate months/years within the date range
+    let current = new Date(dateRange.startDate);
+    while (current <= dateRange.endDate) {
+      const year = getYear(current);
+      const month = getMonth(current);
+      monthsSet.add(`${year}-${month}`);
+      yearsSet.add(year);
+      current.setMonth(current.getMonth() + 1);
+    }
 
-    // Convert to sorted arrays
     const months = Array.from(monthsSet).sort().reverse().map((key) => {
       const [year, month] = key.split("-").map(Number);
       return { key, label: `${monthNames[month]} ${year}`, year, month };
@@ -105,25 +134,95 @@ export default function VisitorsPage() {
     const years = Array.from(yearsSet).sort((a, b) => b - a);
 
     return { availableMonths: months, availableYears: years };
-  }, [visitors, dateRange]);
+  }, [dateRange]);
 
-  // Apply primary filter to visitors (NOT date range)
+  // Quick preset buttons
+  const applyPreset = (preset: "today" | "this_week" | "this_month" | "this_year") => {
+    const now = new Date();
+    let start: Date, end: Date;
+    
+    switch (preset) {
+      case "today":
+        start = now;
+        end = now;
+        break;
+      case "this_week":
+        start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        end = now;
+        break;
+      case "this_month":
+        start = startOfMonth(now);
+        end = now;
+        break;
+      case "this_year":
+        start = new Date(now.getFullYear(), 0, 1);
+        end = now;
+        break;
+      default:
+        start = startOfMonth(now);
+        end = now;
+        break;
+    }
+    
+    setDateRange({ startDate: start, endDate: end });
+    setDatePickerOpen(false);
+    // Clear filter selections when date range changes
+    setSelectedServiceIds([]);
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
+
+  const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined } | undefined) => {
+    if (range) {
+      setTempDateRange(range);
+      if (range.from && range.to) {
+        setDateRange({ startDate: range.from, endDate: range.to });
+        setDatePickerOpen(false);
+        // Clear filter selections when date range changes
+        setSelectedServiceIds([]);
+        setSelectedMonth("");
+        setSelectedYear("");
+      }
+    }
+  };
+
+  // Toggle service selection
+  const toggleService = (serviceId: string) => {
+    const isSelected = selectedServiceIds.includes(serviceId);
+    if (isSelected) {
+      setSelectedServiceIds(selectedServiceIds.filter(id => id !== serviceId));
+    } else {
+      setSelectedServiceIds([...selectedServiceIds, serviceId]);
+    }
+  };
+
+  const clearAllServices = () => setSelectedServiceIds([]);
+  const selectAllServices = () => setSelectedServiceIds(servicesInRange.map(s => s.id));
+
+  // Service label for button
+  const serviceLabel = useMemo(() => {
+    if (selectedServiceIds.length === 0) return "All Services";
+    if (selectedServiceIds.length === 1) {
+      const service = servicesInRange.find(s => s.id === selectedServiceIds[0]);
+      return service ? service.name : "1 Service";
+    }
+    return `${selectedServiceIds.length} Services`;
+  }, [selectedServiceIds, servicesInRange]);
+
+  // Apply filters to visitors
   const filteredByPrimaryFilter = useMemo(() => {
     if (!visitors) return [];
 
     let result = [...visitors];
 
-    // Apply primary filter based on filter type
     switch (filterType) {
       case "service":
-        if (selectedServiceId) {
-          // Filter visitors by service - using first_visit_date matching service_date
-          const service = services?.find((s) => s.id === selectedServiceId);
-          if (service) {
-            result = result.filter(
-              (v) => v.first_visit_date === service.service_date
-            );
-          }
+        if (selectedServiceIds.length > 0) {
+          const serviceDates = servicesInRange
+            .filter(s => selectedServiceIds.includes(s.id))
+            .map(s => s.service_date);
+          result = result.filter(v => serviceDates.includes(v.first_visit_date));
         }
         break;
       case "month":
@@ -146,14 +245,13 @@ export default function VisitorsPage() {
         break;
       case "all":
       default:
-        // No filtering
         break;
     }
 
     return result;
-  }, [visitors, filterType, selectedServiceId, selectedMonth, selectedYear, services]);
+  }, [visitors, filterType, selectedServiceIds, selectedMonth, selectedYear, servicesInRange]);
 
-  // Apply search filter on top of primary filter
+  // Apply search filter
   const filteredVisitors = useMemo(() => {
     return filteredByPrimaryFilter.filter((visitor) => {
       const fullName = `${visitor.first_name} ${visitor.last_name}`.toLowerCase();
@@ -167,10 +265,10 @@ export default function VisitorsPage() {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Reset dependent selector when filter type changes
+  // Handle filter type change
   const handleFilterTypeChange = (value: string) => {
     setFilterType(value as FilterType);
-    setSelectedServiceId("");
+    setSelectedServiceIds([]);
     setSelectedMonth("");
     setSelectedYear("");
   };
@@ -232,149 +330,156 @@ export default function VisitorsPage() {
         </Card>
       </div>
 
-      {/* Filter Bar */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
-            {/* Primary Filter Type */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">Filter By</label>
-              <Tabs value={filterType} onValueChange={handleFilterTypeChange}>
-                <TabsList>
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="service">By Service</TabsTrigger>
-                  <TabsTrigger value="month">By Month</TabsTrigger>
-                  <TabsTrigger value="year">By Year</TabsTrigger>
-                </TabsList>
-              </Tabs>
+      {/* Filter Bar - Dashboard Style */}
+      <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-border">
+        {/* Date Range Picker (controls services/months/years available) */}
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+              <CalendarDays className="w-4 h-4 mr-2 text-muted-foreground" />
+              <span className="truncate">{formatDateRangeLabel(dateRange)}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex gap-1 p-2 border-b">
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("today")}>Today</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_week")}>This Week</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_month")}>This Month</Button>
+              <Button variant="ghost" size="sm" onClick={() => applyPreset("this_year")}>This Year</Button>
             </div>
+            <CalendarComponent
+              mode="range"
+              selected={tempDateRange}
+              onSelect={handleDateSelect}
+              numberOfMonths={2}
+              defaultMonth={dateRange.startDate}
+              disabled={{ after: today }}
+              className="p-3 pointer-events-auto"
+            />
+            <div className="p-2 border-t text-xs text-muted-foreground text-center">
+              Date range controls which services/months/years are shown
+            </div>
+          </PopoverContent>
+        </Popover>
 
-            {/* Dependent Selector */}
-            {filterType === "service" && (
-              <div className="space-y-1.5 min-w-[200px]">
-                <label className="text-sm font-medium text-muted-foreground">Select Service</label>
-                <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {services?.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        {service.name} - {format(parseISO(service.service_date), "MMM d, yyyy")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+        {/* Filter Type Selector */}
+        <Select value={filterType} onValueChange={handleFilterTypeChange}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Filter by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Visitors</SelectItem>
+            <SelectItem value="service">By Service</SelectItem>
+            <SelectItem value="month">By Month</SelectItem>
+            <SelectItem value="year">By Year</SelectItem>
+          </SelectContent>
+        </Select>
 
-            {filterType === "month" && (
-              <div className="space-y-1.5 min-w-[200px]">
-                <label className="text-sm font-medium text-muted-foreground">Select Month</label>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMonths.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No months available in selected range
-                      </div>
-                    ) : (
-                      availableMonths.map((month) => (
-                        <SelectItem key={month.key} value={month.key}>
-                          {month.label}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {filterType === "year" && (
-              <div className="space-y-1.5 min-w-[150px]">
-                <label className="text-sm font-medium text-muted-foreground">Select Year</label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableYears.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No years available in selected range
-                      </div>
-                    ) : (
-                      availableYears.map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Date Range Picker - Only limits month/year options */}
-            {(filterType === "month" || filterType === "year") && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-muted-foreground">Limit Month/Year Options</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[260px] justify-start text-left font-normal",
-                        !dateRange && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd, yyyy")} - {format(dateRange.to, "LLL dd, yyyy")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, yyyy")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <p className="text-xs text-muted-foreground">
-                  This only limits the month/year options. It does not change visitor totals.
-                </p>
-              </div>
-            )}
-
-            {/* Clear date range button */}
-            {dateRange && (filterType === "month" || filterType === "year") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDateRange(undefined)}
-                className="text-muted-foreground"
-              >
-                Clear range
+        {/* Service Multi-Select (when filter type is service) */}
+        {filterType === "service" && (
+          <Popover open={servicePickerOpen} onOpenChange={setServicePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="default" className="w-[220px] justify-start text-left font-normal">
+                <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{serviceLabel}</span>
+                {selectedServiceIds.length > 0 && (
+                  <Badge variant="secondary" className="ml-auto bg-primary-foreground/20">
+                    {selectedServiceIds.length}
+                  </Badge>
+                )}
               </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0" align="start">
+              <div className="flex items-center justify-between p-3 border-b">
+                <span className="text-sm font-medium">Select Service(s)</span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={servicesInRange.length === 0}>
+                    Select All
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearAllServices} disabled={selectedServiceIds.length === 0}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="h-[280px]">
+                {servicesInRange.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm">No services in this period</div>
+                ) : (
+                  <div className="p-2">
+                    {servicesInRange.map((service) => (
+                      <div
+                        key={service.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+                          selectedServiceIds.includes(service.id) && "bg-muted"
+                        )}
+                        onClick={() => toggleService(service.id)}
+                      >
+                        <Checkbox
+                          checked={selectedServiceIds.includes(service.id)}
+                          onCheckedChange={() => toggleService(service.id)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{service.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {format(parseISO(service.service_date), "MMM d")}
+                            {service.start_time && ` @ ${service.start_time.slice(0, 5)}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Month Selector (when filter type is month) */}
+        {filterType === "month" && (
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select month" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableMonths.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground text-center">No months in range</div>
+              ) : (
+                availableMonths.map((month) => (
+                  <SelectItem key={month.key} value={month.key}>
+                    {month.label}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Year Selector (when filter type is year) */}
+        {filterType === "year" && (
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Select year" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableYears.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground text-center">No years in range</div>
+              ) : (
+                availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Refresh Button */}
+        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Visitors Table */}
@@ -521,7 +626,7 @@ export default function VisitorsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <CheckSquare className="w-12 h-12 mb-3 opacity-50" />
+              <ClipboardList className="w-12 h-12 mb-3 opacity-50" />
               <p>No upcoming follow-ups</p>
             </div>
           </CardContent>
