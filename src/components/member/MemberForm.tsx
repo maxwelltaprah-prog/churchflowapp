@@ -208,6 +208,26 @@ export function MemberForm({
           )}
         />
 
+        {/* Date Joined */}
+        <FormField
+          control={form.control}
+          name="date_joined"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date Joined *</FormLabel>
+              <FormControl>
+                <Input
+                  type="date"
+                  className="h-12"
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* Branch (only for admin/staff modes) */}
         {mode !== "self-register" && branches && (
           <FormField
@@ -628,24 +648,6 @@ export function MemberForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="date_joined"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date Joined</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        className="h-12"
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
           )}
         </CollapsibleContent>
