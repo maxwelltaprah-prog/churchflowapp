@@ -98,7 +98,10 @@ export function AnalyticsFilterBar({
         from: filters.startDate,
         to: filters.endDate,
       });
-      setCustomDateOpen(true);
+
+      // Delay opening so the Select dropdown can fully close first
+      setCustomDateOpen(false);
+      window.setTimeout(() => setCustomDateOpen(true), 0);
     } else {
       setDatePreset(preset);
     }
@@ -201,7 +204,7 @@ export function AnalyticsFilterBar({
           </Select>
           
           {/* Custom Date Range Popover */}
-          <Popover open={customDateOpen} onOpenChange={setCustomDateOpen}>
+          <Popover modal open={customDateOpen} onOpenChange={setCustomDateOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
