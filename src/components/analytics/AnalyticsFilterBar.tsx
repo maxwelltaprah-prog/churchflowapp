@@ -57,6 +57,14 @@ export function AnalyticsFilterBar({
     from: filters.startDate,
     to: filters.endDate,
   });
+
+  // Sync tempDateRange when filters change (e.g., from URL params)
+  useEffect(() => {
+    setTempDateRange({
+      from: filters.startDate,
+      to: filters.endDate,
+    });
+  }, [filters.startDate, filters.endDate]);
   
   // Filter branches based on user access
   const availableBranches = allBranches?.filter(branch => {
