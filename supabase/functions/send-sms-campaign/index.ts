@@ -15,7 +15,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const smsApiKey = Deno.env.get("SMSONLINEGH_API_KEY");
-    const smsSenderId = Deno.env.get("SMSONLINEGH_SENDER_ID") || "ChurchApp";
 
     if (!smsApiKey) {
       throw new Error("SMS API key not configured");
@@ -35,6 +34,27 @@ serve(async (req) => {
     } = await req.json();
 
     console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount });
+
+    // Fetch church name to use as sender ID
+    const { data: church, error: churchError } = await supabase
+      .from("churches")
+      .select("name")
+      .eq("id", churchId)
+      .single();
+
+    if (churchError || !church) {
+      throw new Error("Church not found");
+    }
+
+    // Create sender ID from church name (max 11 chars, alphanumeric only)
+    const smsSenderId = church.name
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .split(" ")
+      .map((word: string) => word.charAt(0).toUpperCase())
+      .join("")
+      .substring(0, 11) || "Church";
+
+    console.log("Using sender ID:", smsSenderId);
 
     // Get recipients based on audience type
     let recipients: { id: string; full_name: string; phone: string }[] = [];
