@@ -45,62 +45,80 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
       if (!profile?.church_id) return null;
 
       if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
-        return { totalAttendance: 0, visitorsToday: 0, firstTimersToday: 0, returningVisitorsToday: 0, lateArrivals: 0, change: 0 };
+        return { totalAttendance: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
       }
 
       // If no services selected, return empty
       if (serviceIds.length === 0) {
-        return { totalAttendance: 0, visitorsToday: 0, firstTimersToday: 0, returningVisitorsToday: 0, lateArrivals: 0, change: 0 };
+        return { totalAttendance: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
       }
 
-      // Build attendance query filtered by selected services
-      let query = supabase
+      // Build member attendance query filtered by selected services
+      let attendanceQuery = supabase
         .from("attendance")
-        .select("*, members!inner(membership_status, created_at)")
+        .select("*")
         .eq("church_id", profile.church_id)
         .in("service_id", serviceIds);
 
-      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
+      attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", branchId, accessibleBranchIds);
 
-      const { data: records, error } = await query;
-      if (error) throw error;
+      const { data: memberAttendance, error: attendanceError } = await attendanceQuery;
+      if (attendanceError) throw attendanceError;
 
-      const data = records || [];
-      const totalAttendance = data.length;
+      // Build visitor check-ins query filtered by selected services
+      let visitorQuery = supabase
+        .from("visitor_checkins")
+        .select("*, visitors!inner(id, first_name, last_name, created_at)")
+        .eq("church_id", profile.church_id)
+        .in("service_id", serviceIds);
+
+      const { data: visitorCheckins, error: visitorError } = await visitorQuery;
+      if (visitorError) throw visitorError;
+
+      const memberData = memberAttendance || [];
+      const visitorData = visitorCheckins || [];
       
-      const visitorsToday = data.filter((r: any) => r.members?.membership_status === "visitor").length;
-      const firstTimersToday = data.filter((r: any) => r.members?.membership_status === "first_timer").length;
+      // Total attendance = members + visitors
+      const totalAttendance = memberData.length + visitorData.length;
       
-      // Returning visitors - visitors who attended before
-      const visitorMemberIds = data
-        .filter((r: any) => r.members?.membership_status === "visitor")
-        .map((r: any) => r.member_id);
+      // New Visitors = unique visitors who checked in and this is their first check-in ever
+      // We need to check if any of these visitors have prior check-ins
+      const visitorIds = [...new Set(visitorData.map((v: any) => v.visitor_id))];
+      let newVisitors = 0;
+      let returningVisitors = 0;
       
-      let returningVisitorsToday = 0;
-      if (visitorMemberIds.length > 0) {
-        // Get the earliest check-in time from current selection to check for prior attendance
-        const earliestCheckin = data.reduce((min: string, r: any) => 
-          r.checked_in_at < min ? r.checked_in_at : min, data[0]?.checked_in_at || new Date().toISOString()
-        );
-        
-        const { count } = await supabase
-          .from("attendance")
-          .select("member_id", { count: "exact", head: true })
-          .eq("church_id", profile.church_id)
-          .in("member_id", visitorMemberIds)
-          .lt("checked_in_at", earliestCheckin);
-        returningVisitorsToday = count || 0;
+      if (visitorIds.length > 0) {
+        // For each visitor in current selection, check if they have prior check-ins
+        for (const visitorId of visitorIds) {
+          const currentVisitorCheckins = visitorData.filter((v: any) => v.visitor_id === visitorId);
+          const earliestCurrentCheckin = currentVisitorCheckins.reduce((min: string, v: any) => 
+            v.checked_in_at < min ? v.checked_in_at : min, currentVisitorCheckins[0]?.checked_in_at
+          );
+          
+          // Check for prior check-ins before the earliest one in current selection
+          const { count } = await supabase
+            .from("visitor_checkins")
+            .select("id", { count: "exact", head: true })
+            .eq("visitor_id", visitorId)
+            .lt("checked_in_at", earliestCurrentCheckin);
+          
+          if ((count || 0) > 0) {
+            returningVisitors++;
+          } else {
+            newVisitors++;
+          }
+        }
       }
 
-      // Late arrivals - checked in 30+ mins after first check-in
+      // Late arrivals - checked in 30+ mins after first check-in (members only for consistency)
       let lateArrivals = 0;
-      if (data.length > 0) {
-        const sorted = [...data].sort((a, b) => 
+      if (memberData.length > 0) {
+        const sorted = [...memberData].sort((a, b) => 
           new Date(a.checked_in_at).getTime() - new Date(b.checked_in_at).getTime()
         );
         const firstCheckin = new Date(sorted[0].checked_in_at);
         const lateThreshold = new Date(firstCheckin.getTime() + 30 * 60 * 1000);
-        lateArrivals = data.filter((r) => new Date(r.checked_in_at) > lateThreshold).length;
+        lateArrivals = memberData.filter((r) => new Date(r.checked_in_at) > lateThreshold).length;
       }
 
       // Get previous service comparison (find comparable service from previous week)
@@ -109,9 +127,8 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
 
       return {
         totalAttendance,
-        visitorsToday,
-        firstTimersToday,
-        returningVisitorsToday,
+        newVisitors,
+        returningVisitors,
         lateArrivals,
         change
       };
