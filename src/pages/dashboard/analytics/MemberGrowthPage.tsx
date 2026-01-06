@@ -161,7 +161,7 @@ function useMemberGrowthKPIs() {
   });
 }
 
-// =================== Acquisition Trend Hook (Date-Based) ===================
+// =================== Acquisition Trend Hook (Service-Driven) ===================
 function useAcquisitionTrend() {
   const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
@@ -172,27 +172,44 @@ function useAcquisitionTrend() {
     queryFn: async () => {
       if (!profile?.church_id) return { data: [], hasData: false };
 
-      // Fetch new members in the date range (using date_joined)
+      // Fetch services in the date range
+      let servicesQuery = supabase
+        .from("services")
+        .select("id, name, service_date, start_time, branch_id")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .gte("service_date", format(filters.startDate, "yyyy-MM-dd"))
+        .lte("service_date", format(filters.endDate, "yyyy-MM-dd"))
+        .order("service_date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      const { data: services } = await servicesQuery;
+
+      if (!services?.length) {
+        return { data: [], hasData: false };
+      }
+
+      // Get all service dates
+      const serviceDates = services.map(s => s.service_date);
+
+      // Fetch new members whose date_joined matches any service date
       let membersQuery = supabase
         .from("members")
-        .select("id, date_joined, created_at")
+        .select("id, date_joined")
         .eq("church_id", profile.church_id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .in("date_joined", serviceDates);
 
       membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
-      const { data: allMembers } = await membersQuery;
+      const { data: members } = await membersQuery;
 
-      // Filter members by date_joined in the range
-      const membersInRange = (allMembers || []).filter(m => {
-        const joinDate = m.date_joined ? parseISO(m.date_joined) : new Date(m.created_at);
-        return joinDate >= filters.startDate && joinDate <= filters.endDate;
-      });
-
-      // Fetch converted visitors in the date range
+      // Fetch converted visitors - match by updated_at date to service dates
       let visitorsQuery = supabase
         .from("visitors")
-        .select("id, status, updated_at, created_at")
+        .select("id, status, updated_at")
         .eq("church_id", profile.church_id)
         .eq("status", "converted");
 
@@ -200,48 +217,37 @@ function useAcquisitionTrend() {
 
       const { data: convertedVisitors } = await visitorsQuery;
 
-      // Filter converted visitors by updated_at (when they were converted) in the range
-      const conversionsInRange = (convertedVisitors || []).filter(v => {
-        const convertedAt = new Date(v.updated_at);
-        return convertedAt >= filters.startDate && convertedAt <= filters.endDate;
-      });
-
-      // Build daily/weekly buckets based on date range length
-      const daysDiff = differenceInDays(filters.endDate, filters.startDate);
-      const useWeekly = daysDiff > 30;
-
-      // Group by date
+      // Group members by date_joined
       const membersByDate = new Map<string, number>();
+      (members || []).forEach(m => {
+        if (m.date_joined) {
+          membersByDate.set(m.date_joined, (membersByDate.get(m.date_joined) || 0) + 1);
+        }
+      });
+
+      // Group conversions by date (extracted from updated_at)
       const conversionsByDate = new Map<string, number>();
-
-      membersInRange.forEach(m => {
-        const joinDate = m.date_joined ? parseISO(m.date_joined) : new Date(m.created_at);
-        const key = useWeekly 
-          ? format(startOfWeek(joinDate, { weekStartsOn: 0 }), "yyyy-MM-dd")
-          : format(joinDate, "yyyy-MM-dd");
-        membersByDate.set(key, (membersByDate.get(key) || 0) + 1);
+      (convertedVisitors || []).forEach(v => {
+        const convertedDate = format(new Date(v.updated_at), "yyyy-MM-dd");
+        // Only count if the conversion date matches a service date
+        if (serviceDates.includes(convertedDate)) {
+          conversionsByDate.set(convertedDate, (conversionsByDate.get(convertedDate) || 0) + 1);
+        }
       });
 
-      conversionsInRange.forEach(v => {
-        const convertedAt = new Date(v.updated_at);
-        const key = useWeekly 
-          ? format(startOfWeek(convertedAt, { weekStartsOn: 0 }), "yyyy-MM-dd")
-          : format(convertedAt, "yyyy-MM-dd");
-        conversionsByDate.set(key, (conversionsByDate.get(key) || 0) + 1);
-      });
-
-      // Merge all unique dates
-      const allDates = new Set([...membersByDate.keys(), ...conversionsByDate.keys()]);
-      const sortedDates = Array.from(allDates).sort();
-
-      const trendData = sortedDates.map(dateKey => {
-        const date = parseISO(dateKey);
-        const newMembers = membersByDate.get(dateKey) || 0;
-        const conversions = conversionsByDate.get(dateKey) || 0;
+      // Build trend data per service
+      const trendData = services.map(service => {
+        const newMembers = membersByDate.get(service.service_date) || 0;
+        const conversions = conversionsByDate.get(service.service_date) || 0;
         
+        const serviceLabel = service.start_time 
+          ? `${service.name} @ ${format(parseISO(`2000-01-01T${service.start_time}`), "h:mm a")}`
+          : service.name;
+
         return {
-          date: useWeekly ? `Week of ${format(date, "MMM d")}` : format(date, "MMM d"),
-          fullDate: format(date, "MMM d, yyyy"),
+          date: format(parseISO(service.service_date), "MMM d"),
+          fullDate: `${serviceLabel} - ${format(parseISO(service.service_date), "MMM d, yyyy")}`,
+          serviceName: service.name,
           members: newMembers,
           conversions: conversions,
           total: newMembers + conversions,
@@ -250,7 +256,7 @@ function useAcquisitionTrend() {
 
       return { 
         data: trendData, 
-        hasData: trendData.length > 0 && trendData.some(d => d.total > 0),
+        hasData: trendData.length > 0,
       };
     },
     enabled: !!profile?.church_id,
