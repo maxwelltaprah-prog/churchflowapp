@@ -129,32 +129,24 @@ function useDemographicsData() {
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
-  // Determine if a date filter is applied (non-default preset)
-  const isDateFiltered = filters.datePreset !== "last_30_days";
-
   return useQuery({
-    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds, isDateFiltered],
+    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.endDate.toISOString(), accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
-      // Fetch members filtered by registration date (date_joined or created_at)
+      // Cumulative count: all members registered up to the end of the selected period
+      const endDateStr = filters.endDate.toISOString().split('T')[0];
+
+      // Fetch members registered on or before the end date
       let membersQuery = supabase
         .from("members")
         .select("id, full_name, phone, gender, date_of_birth, membership_status, marital_status, occupation, residential_area, area_zone, branch_id, date_joined, created_at")
         .eq("church_id", profile.church_id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .lte("date_joined", endDateStr);
 
       // Apply branch filter
       membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-
-      // If date filter is applied, filter by member registration date
-      if (isDateFiltered) {
-        const startDateStr = filters.startDate.toISOString().split('T')[0];
-        const endDateStr = filters.endDate.toISOString().split('T')[0];
-        membersQuery = membersQuery
-          .gte("date_joined", startDateStr)
-          .lte("date_joined", endDateStr);
-      }
 
       const { data: members } = await membersQuery;
       const uniqueMemberIds = (members || []).map(m => m.id);
