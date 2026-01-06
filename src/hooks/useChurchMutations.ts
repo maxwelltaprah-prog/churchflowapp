@@ -668,6 +668,7 @@ export function useUpdateChurchSettings() {
         allow_self_registration?: boolean;
         require_approval?: boolean;
         allow_cross_branch_checkin?: boolean;
+        sms_sender_id?: string;
       };
     }) => {
       if (!profile?.church_id) throw new Error("No church context");

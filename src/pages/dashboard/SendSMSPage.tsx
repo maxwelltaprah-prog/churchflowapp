@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageSquare, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 import { useMembersWithPhone } from "@/hooks/useSMSData";
 import { useSendSMSCampaign } from "@/hooks/useSMSMutations";
 import { useGroups } from "@/hooks/useGroupsData";
+import { useChurch } from "@/hooks/useChurchData";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SendSMSPage() {
@@ -29,6 +30,7 @@ export default function SendSMSPage() {
   // Data hooks
   const { data: members, isLoading: membersLoading } = useMembersWithPhone();
   const { data: groups } = useGroups();
+  const { data: church } = useChurch();
   const sendCampaign = useSendSMSCampaign();
 
   // State
@@ -40,6 +42,23 @@ export default function SendSMSPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Initialize sender name from church settings
+  useEffect(() => {
+    if (church && !senderName) {
+      const settings = church.settings as { sms_sender_id?: string } | null;
+      if (settings?.sms_sender_id) {
+        setSenderName(settings.sms_sender_id);
+      } else if (church.name) {
+        // Default to church name (max 11 chars, alphanumeric only)
+        const defaultSenderId = church.name
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .replace(/\s+/g, "")
+          .substring(0, 11);
+        setSenderName(defaultSenderId);
+      }
+    }
+  }, [church]);
 
   // Filter members based on search
   const filteredMembers = useMemo(() => {
