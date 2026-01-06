@@ -43,6 +43,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import { generateMemberCode, generateQRToken } from "@/lib/church-service";
 import { selfRegisterSchema, type SelfRegisterFormData } from "@/lib/member-form-schema";
+import { padPin } from "@/lib/pin-utils";
 
 // Fetch groups for a branch
 async function fetchBranchGroups(branchId: string) {
@@ -192,7 +193,7 @@ export default function JoinBranch() {
       const authEmail = `${data.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: authEmail,
-        password: data.pin,
+        password: padPin(data.pin),
         options: {
           emailRedirectTo: `${window.location.origin}/member`,
           data: { 
@@ -633,10 +634,11 @@ export default function JoinBranch() {
                                 type={showPin ? "text" : "password"}
                                 placeholder="••••"
                                 className="h-12 pr-10"
-                                maxLength={6}
+                                maxLength={4}
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 {...field}
+                                onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 4))}
                               />
                               <button
                                 type="button"
@@ -647,7 +649,7 @@ export default function JoinBranch() {
                               </button>
                             </div>
                           </FormControl>
-                          <p className="text-xs text-muted-foreground">4-6 digits for quick login</p>
+                          <p className="text-xs text-muted-foreground">4 digits for quick login</p>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -664,10 +666,11 @@ export default function JoinBranch() {
                               type={showPin ? "text" : "password"}
                               placeholder="••••"
                               className="h-12"
-                              maxLength={6}
+                              maxLength={4}
                               inputMode="numeric"
                               pattern="[0-9]*"
                               {...field}
+                              onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 4))}
                             />
                           </FormControl>
                           <FormMessage />
