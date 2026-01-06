@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   XCircle,
   KeyRound,
-  Eye
+  Eye,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,19 +287,19 @@ export default function MembersPage() {
     <div className="space-y-6">
       {/* Summary Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft hover:shadow-md transition-shadow">
           <p className="text-sm text-muted-foreground">Total Members</p>
           <p className="text-2xl font-bold text-foreground">{statusCounts.total}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+        <div className="bg-gradient-to-br from-green-50 to-transparent dark:from-green-500/10 rounded-xl border border-green-200/50 dark:border-green-500/30 p-4 shadow-soft hover:shadow-md transition-shadow">
           <p className="text-sm text-muted-foreground">Active</p>
           <p className="text-2xl font-bold text-green-600">{statusCounts.active}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-soft hover:shadow-md transition-shadow">
           <p className="text-sm text-muted-foreground">Inactive</p>
           <p className="text-2xl font-bold text-gray-500">{statusCounts.inactive}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+        <div className="bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-500/10 rounded-xl border border-blue-200/50 dark:border-blue-500/30 p-4 shadow-soft hover:shadow-md transition-shadow">
           <p className="text-sm text-muted-foreground">Transferred</p>
           <p className="text-2xl font-bold text-blue-600">{statusCounts.transferred}</p>
         </div>
@@ -307,9 +308,12 @@ export default function MembersPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Members</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Members</h1>
+            <p className="text-sm text-muted-foreground">
               Manage your church members across all branches
             </p>
           </div>
@@ -342,12 +346,12 @@ export default function MembersPage() {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={exportToCSV}>
-            <Download className="w-4 h-4 mr-2" />
+          <Button variant="outline" onClick={exportToCSV} className="gap-2">
+            <Download className="w-4 h-4" />
             Export
           </Button>
-          <Button onClick={() => setShowAddDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={() => navigate("/app/members/new")} className="gap-2 shadow-sm">
+            <Plus className="w-4 h-4" />
             Add Member
           </Button>
         </div>
@@ -418,7 +422,7 @@ export default function MembersPage() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden hover:shadow-md transition-shadow">
         {isLoading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />

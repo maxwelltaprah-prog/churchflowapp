@@ -92,10 +92,10 @@ export function DashboardSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border p-4">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border" style={{ background: 'var(--gradient-sidebar)' }}>
+      <SidebarHeader className="border-b border-sidebar-border/50 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-primary flex items-center justify-center shadow-soft flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-gradient-primary flex items-center justify-center shadow-md flex-shrink-0">
             <Church className="w-5 h-5 text-primary-foreground" />
           </div>
           {!collapsed && (
@@ -109,13 +109,13 @@ export function DashboardSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-semibold px-3 py-2">
             {collapsed ? "" : "Main Menu"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {mainNavItems
                 .filter((item) => !('adminOnly' in item) || (item.adminOnly && isChurchAdmin()))
                 .map((item) => (
@@ -125,13 +125,16 @@ export function DashboardSidebar() {
                       to={item.url}
                       end={item.url === "/app"}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                         isActive(item.url)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm border-l-2 border-primary"
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                       )}
                     >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <item.icon className={cn(
+                        "w-5 h-5 flex-shrink-0 transition-colors",
+                        isActive(item.url) ? "text-primary" : ""
+                      )} />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
@@ -142,24 +145,27 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-semibold px-3 py-2">
             {collapsed ? "" : "System"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {settingsNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                         isActive(item.url)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm border-l-2 border-primary"
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                       )}
                     >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <item.icon className={cn(
+                        "w-5 h-5 flex-shrink-0 transition-colors",
+                        isActive(item.url) ? "text-primary" : ""
+                      )} />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>

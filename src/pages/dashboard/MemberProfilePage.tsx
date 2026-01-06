@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,19 +14,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ChevronLeft,
   User,
   Phone,
   Mail,
   Calendar,
   MapPin,
-  Users,
   Clock,
   Activity,
   AlertCircle,
   Edit,
   CheckCircle2,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -172,7 +171,6 @@ export default function MemberProfilePage() {
         <h2 className="text-xl font-semibold">Member not found</h2>
         <p className="text-muted-foreground mt-2">The member you're looking for doesn't exist.</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/app/members")}>
-          <ChevronLeft className="w-4 h-4 mr-2" />
           Back to Members
         </Button>
       </div>
@@ -182,33 +180,18 @@ export default function MemberProfilePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/app/members")}>
-            <ChevronLeft className="w-5 h-5" />
+      <PageHeader
+        title={member.full_name}
+        description={`${member.member_code} • ${statusLabels[member.membership_status || "active"]}`}
+        icon={User}
+        backTo="/app/members"
+        actions={
+          <Button variant="outline" onClick={() => navigate(`/app/members?edit=${member.id}`)}>
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
           </Button>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xl">
-                {member.full_name.split(" ").map((n: string) => n[0]).join("")}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{member.full_name}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className={statusColors[member.membership_status || "active"]}>
-                  {statusLabels[member.membership_status || "active"]}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{member.member_code}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <Button variant="outline" onClick={() => navigate(`/app/members?edit=${member.id}`)}>
-          <Edit className="w-4 h-4 mr-2" />
-          Edit
-        </Button>
-      </div>
+        }
+      />
 
       {/* Attendance Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
