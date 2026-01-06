@@ -93,7 +93,7 @@ export default function Dashboard() {
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds);
   const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds);
   const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds);
-  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId, serviceIds);
+  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
@@ -263,10 +263,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Engagement Signals - Clickable */}
-        <Link to={`/app/analytics/engagement?${new URLSearchParams({
-          ...(branchId ? { branch: branchId } : {}),
-          ...(serviceIds.length > 0 ? { services: serviceIds.join(",") } : {})
-        }).toString()}`}>
+        <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
           <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full">
             <CardHeader className="pb-3">
               <SectionHeader title="Engagement Signals" icon={AlertTriangle} />
