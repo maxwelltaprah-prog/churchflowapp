@@ -441,7 +441,7 @@ export default function AttendanceOverviewPage() {
           description={periodLabel}
           isLoading={kpisLoading}
           variant="primary"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=all`}
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}${filters.serviceIds.length > 0 ? `&services=${filters.serviceIds.join(",")}` : ""}&segment=all`}
         />
         <KPICard
           title="Unique Attendees"
@@ -450,7 +450,7 @@ export default function AttendanceOverviewPage() {
           description="Distinct people"
           isLoading={kpisLoading}
           variant="accent"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=all`}
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}${filters.serviceIds.length > 0 ? `&services=${filters.serviceIds.join(",")}` : ""}&segment=all`}
         />
         <KPICard
           title="Member Check-ins"
@@ -458,7 +458,7 @@ export default function AttendanceOverviewPage() {
           icon={UsersRound}
           isLoading={kpisLoading}
           variant="success"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=members`}
+          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}${filters.serviceIds.length > 0 ? `&services=${filters.serviceIds.join(",")}` : ""}&segment=members`}
         />
         <KPICard
           title="Visitors"
