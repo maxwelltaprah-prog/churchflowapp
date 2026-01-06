@@ -97,8 +97,39 @@ function useAttendanceKPIs() {
         (a.members as any)?.membership_status === "transferred"
       ).length;
 
-      // No "first-timers" concept in new model
-      const firstTimers = 0;
+      // Get total visitors count for the filtered period
+      let visitorsQuery = supabase
+        .from("visitors")
+        .select("id", { count: "exact", head: true })
+        .eq("church_id", profile.church_id);
+
+      // Apply branch filter for visitors
+      if (filters.branchId) {
+        visitorsQuery = visitorsQuery.eq("branch_id", filters.branchId);
+      } else if (accessibleBranchIds && accessibleBranchIds.length > 0) {
+        visitorsQuery = visitorsQuery.in("branch_id", accessibleBranchIds);
+      }
+
+      // If service filter is applied, get visitors who checked in for those services
+      let totalVisitors = 0;
+      if (filters.serviceIds.length > 0) {
+        const { data: visitorCheckinsData } = await supabase
+          .from("visitor_checkins")
+          .select("visitor_id")
+          .eq("church_id", profile.church_id)
+          .in("service_id", filters.serviceIds);
+        
+        const uniqueVisitorIds = new Set(visitorCheckinsData?.map(vc => vc.visitor_id) || []);
+        totalVisitors = uniqueVisitorIds.size;
+      } else {
+        // No service filter - count visitors registered in date range
+        visitorsQuery = visitorsQuery
+          .gte("first_visit_date", filters.startDate.toISOString().split("T")[0])
+          .lte("first_visit_date", filters.endDate.toISOString().split("T")[0]);
+        
+        const { count } = await visitorsQuery;
+        totalVisitors = count || 0;
+      }
 
       // Absentees: members who missed 3+ consecutive service days
       // Get all service dates (grouped by day) to determine consecutive absences
@@ -131,7 +162,7 @@ function useAttendanceKPIs() {
           uniqueAttendees,
           memberCheckins,
           visitorCheckins,
-          firstTimers,
+          totalVisitors,
           absentees: 0,
           totalMembers: 0,
         };
@@ -194,7 +225,7 @@ function useAttendanceKPIs() {
         uniqueAttendees,
         memberCheckins,
         visitorCheckins,
-        firstTimers,
+        totalVisitors,
         absentees,
         totalMembers: memberIds.length,
       };
@@ -427,7 +458,7 @@ export default function AttendanceOverviewPage() {
       <AnalyticsFilterBar />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <KPICard
           title="Total Check-ins"
           value={kpis?.totalCheckins || 0}
@@ -455,21 +486,13 @@ export default function AttendanceOverviewPage() {
           href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=members`}
         />
         <KPICard
-          title="Visitor Check-ins"
-          value={kpis?.visitorCheckins || 0}
+          title="Visitors"
+          value={kpis?.totalVisitors || 0}
           icon={UserPlus}
+          description="Total visitors"
           isLoading={kpisLoading}
           variant="warning"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=visitors`}
-        />
-        <KPICard
-          title="First-Timers"
-          value={kpis?.firstTimers || 0}
-          icon={Activity}
-          description="New this period"
-          isLoading={kpisLoading}
-          variant="accent"
-          href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=first_timers`}
+          href="/app/visitors"
         />
         <KPICard
           title="Absentees"
