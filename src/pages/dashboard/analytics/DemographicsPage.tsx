@@ -29,6 +29,7 @@ import {
   Heart,
   TrendingUp,
   X,
+  Award,
 } from "lucide-react";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
@@ -156,6 +157,7 @@ function useDemographicsData() {
           maritalDistribution: [],
           areaDistribution: [],
           occupationDistribution: [],
+          spiritualJourneyDistribution: [],
         };
       }
 
@@ -266,6 +268,37 @@ function useDemographicsData() {
         key,
       }));
 
+      // Spiritual Journey distribution
+      const { data: spiritualJourneys } = await supabase
+        .from("spiritual_journeys")
+        .select("id, name")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true);
+
+      const { data: memberJourneys } = await supabase
+        .from("member_spiritual_journeys")
+        .select("member_id, spiritual_journey_id")
+        .in("member_id", uniqueMemberIds);
+
+      const journeyCounts: Record<string, number> = {};
+      const journeyIdToName: Record<string, string> = {};
+      (spiritualJourneys || []).forEach(sj => {
+        journeyIdToName[sj.id] = sj.name;
+      });
+
+      (memberJourneys || []).forEach(mj => {
+        const journeyId = mj.spiritual_journey_id;
+        if (journeyIdToName[journeyId]) {
+          journeyCounts[journeyId] = (journeyCounts[journeyId] || 0) + 1;
+        }
+      });
+
+      const spiritualJourneyDistribution = Object.entries(journeyCounts).map(([key, count]) => ({
+        name: journeyIdToName[key] || key,
+        value: count,
+        key,
+      }));
+
       return {
         members: membersWithAge,
         totalAttendees: uniqueMemberIds.length,
@@ -275,6 +308,7 @@ function useDemographicsData() {
         maritalDistribution,
         areaDistribution,
         occupationDistribution,
+        spiritualJourneyDistribution,
       };
     },
     enabled: !!profile?.church_id,
@@ -620,6 +654,17 @@ export default function DemographicsPage() {
           type="pie"
           isLoading={isLoading}
           onSegmentClick={(key, label) => handleSegmentClick("membership", key, label)}
+        />
+
+        <DistributionChart
+          title="Spiritual Journey"
+          description="Milestones completed"
+          icon={Award}
+          data={demographics?.spiritualJourneyDistribution || []}
+          type="pie"
+          isLoading={isLoading}
+          onSegmentClick={(key, label) => handleSegmentClick("spiritual_journey", key, label)}
+          emptyMessage="No spiritual journey data"
         />
       </div>
 
