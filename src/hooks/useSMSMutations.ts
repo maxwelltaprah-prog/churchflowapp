@@ -14,6 +14,7 @@ export function useSendSMSCampaign() {
       audienceMemberIds?: string[];
       messageBody: string;
       subject?: string;
+      senderName?: string;
       recipientCount: number;
     }) => {
       if (!profile?.church_id || !user?.id) throw new Error("Not authenticated");
@@ -27,6 +28,7 @@ export function useSendSMSCampaign() {
           audienceMemberIds: data.audienceMemberIds,
           messageBody: data.messageBody,
           subject: data.subject,
+          senderName: data.senderName,
           recipientCount: data.recipientCount,
         },
       });

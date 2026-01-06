@@ -30,29 +30,41 @@ serve(async (req) => {
       audienceMemberIds,
       messageBody,
       subject,
+      senderName,
       recipientCount,
     } = await req.json();
 
-    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount });
+    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount, senderName });
 
-    // Fetch church name to use as sender ID
-    const { data: church, error: churchError } = await supabase
-      .from("churches")
-      .select("name")
-      .eq("id", churchId)
-      .single();
+    // Use custom sender name if provided, otherwise generate from church name
+    let smsSenderId: string;
+    
+    if (senderName && senderName.trim()) {
+      // Sanitize custom sender name: max 11 chars, alphanumeric only
+      smsSenderId = senderName
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, "")
+        .substring(0, 11) || "Church";
+    } else {
+      // Fetch church name to use as sender ID
+      const { data: church, error: churchError } = await supabase
+        .from("churches")
+        .select("name")
+        .eq("id", churchId)
+        .single();
 
-    if (churchError || !church) {
-      throw new Error("Church not found");
+      if (churchError || !church) {
+        throw new Error("Church not found");
+      }
+
+      // Create sender ID from church name initials (max 11 chars, alphanumeric only)
+      smsSenderId = church.name
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .split(" ")
+        .map((word: string) => word.charAt(0).toUpperCase())
+        .join("")
+        .substring(0, 11) || "Church";
     }
-
-    // Create sender ID from church name (max 11 chars, alphanumeric only)
-    const smsSenderId = church.name
-      .replace(/[^a-zA-Z0-9\s]/g, "")
-      .split(" ")
-      .map((word: string) => word.charAt(0).toUpperCase())
-      .join("")
-      .substring(0, 11) || "Church";
 
     console.log("Using sender ID:", smsSenderId);
 

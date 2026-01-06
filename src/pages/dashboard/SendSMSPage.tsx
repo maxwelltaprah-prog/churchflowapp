@@ -36,6 +36,7 @@ export default function SendSMSPage() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
+  const [senderName, setSenderName] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -101,10 +102,12 @@ export default function SendSMSPage() {
       audienceMemberIds: audienceTab === "individual" ? selectedMemberIds : undefined,
       messageBody: message,
       subject,
+      senderName: senderName.trim() || undefined,
       recipientCount: actualRecipientCount,
     });
 
     // Reset form
+    setSenderName("");
     setSubject("");
     setMessage("");
     setSelectedGroupIds([]);
@@ -273,6 +276,20 @@ export default function SendSMSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Sender Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sender Name</label>
+              <Input
+                placeholder="e.g. MyChurch (max 11 characters)"
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value.replace(/[^a-zA-Z0-9\s]/g, "").substring(0, 11))}
+                maxLength={11}
+              />
+              <p className="text-xs text-muted-foreground">
+                This name will appear as the sender on recipients' phones. Letters and numbers only.
+              </p>
+            </div>
+
             {/* Subject */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Subject (Optional)</label>
