@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight, Phone, UserPlus } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ServiceUpload } from "@/hooks/useServiceUploads";
@@ -26,14 +27,19 @@ interface MemberMatch {
   full_name: string;
 }
 
+type UserType = "member" | "visitor";
+
 export default function SelfCheckin() {
   const { serviceId } = useParams<{ serviceId: string }>();
+  const navigate = useNavigate();
   const [service, setService] = useState<ServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberCode, setMemberCode] = useState("");
+  const [visitorPhone, setVisitorPhone] = useState("");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; name?: string } | null>(null);
+  const [userType, setUserType] = useState<UserType>("member");
   
   // Disambiguation state
   const [matchingMembers, setMatchingMembers] = useState<MemberMatch[]>([]);
@@ -47,6 +53,8 @@ export default function SelfCheckin() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
   const [checkedInMemberId, setCheckedInMemberId] = useState<string | null>(null);
+  const [checkedInVisitorId, setCheckedInVisitorId] = useState<string | null>(null);
+  const [checkedInUserType, setCheckedInUserType] = useState<UserType | null>(null);
 
   useEffect(() => {
     loadService();
@@ -93,7 +101,7 @@ export default function SelfCheckin() {
     }
   };
 
-  const handleCheckin = async (selectedMemberId?: string) => {
+  const handleMemberCheckin = async (selectedMemberId?: string) => {
     if (memberCode.length !== 4 || !serviceId) return;
 
     setChecking(true);
@@ -136,6 +144,7 @@ export default function SelfCheckin() {
 
         const memberIdFromFn = (data as any)?.memberId as string | undefined;
         setCheckedInMemberId(memberIdFromFn ?? null);
+        setCheckedInUserType("member");
 
         setMemberCode("");
         setShowDisambiguation(false);
@@ -146,7 +155,7 @@ export default function SelfCheckin() {
 
         setShowDownloads(true);
         setServiceUploads([]);
-        loadServiceDownloads(memberIdFromFn);
+        loadServiceDownloads(memberIdFromFn, undefined, "member");
         return;
       }
 
@@ -160,17 +169,82 @@ export default function SelfCheckin() {
     }
   };
 
-  const loadServiceDownloads = async (memberId?: string) => {
+  const handleVisitorCheckin = async () => {
+    if (visitorPhone.length < 4 || !serviceId) return;
+
+    setChecking(true);
+    setResult(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", {
+        body: {
+          action: "visitor_checkin",
+          serviceId,
+          phone: visitorPhone.trim(),
+        },
+      });
+
+      if (fnError) {
+        console.error("visitor checkin error", fnError);
+        setResult({ success: false, message: "Failed to check in. Please try again." });
+        return;
+      }
+
+      const status = (data as any)?.status as string | undefined;
+      const name = (data as any)?.name as string | undefined;
+      const visitorIdFromFn = (data as any)?.visitorId as string | undefined;
+      const errMsg = (data as any)?.error as string | undefined;
+
+      if (status === "checked_in" || status === "already_checked_in") {
+        const isAlreadyIn = status === "already_checked_in";
+        setResult({ 
+          success: true, 
+          message: isAlreadyIn ? "You're already checked in!" : "Check-in successful!", 
+          name 
+        });
+
+        setCheckedInVisitorId(visitorIdFromFn ?? null);
+        setCheckedInUserType("visitor");
+
+        setVisitorPhone("");
+        if (!isAlreadyIn) {
+          toast.success("Checked in successfully!");
+        }
+
+        setShowDownloads(true);
+        setServiceUploads([]);
+        loadServiceDownloads(undefined, visitorIdFromFn, "visitor");
+        return;
+      }
+
+      setResult({ success: false, message: errMsg || "Phone number not found." });
+    } catch (err) {
+      console.error("Visitor check-in error:", err);
+      setResult({ success: false, message: "An error occurred. Please try again." });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const loadServiceDownloads = async (memberId?: string, visitorId?: string, type?: UserType) => {
     if (!serviceId) return;
 
     const effectiveMemberId = memberId ?? checkedInMemberId;
-    if (!effectiveMemberId) return;
+    const effectiveVisitorId = visitorId ?? checkedInVisitorId;
+    const effectiveType = type ?? checkedInUserType;
+
+    if (!effectiveMemberId && !effectiveVisitorId) return;
     
     setLoadingDownloads(true);
     try {
-      const { data, error } = await supabase.functions.invoke("self-checkin", {
-        body: { action: "get_downloads", serviceId, memberId: effectiveMemberId },
-      });
+      const body: any = { action: "get_downloads", serviceId };
+      if (effectiveType === "member" && effectiveMemberId) {
+        body.memberId = effectiveMemberId;
+      } else if (effectiveType === "visitor" && effectiveVisitorId) {
+        body.visitorId = effectiveVisitorId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("self-checkin", { body });
 
       if (error) {
         console.error("get_downloads error", error);
@@ -197,20 +271,24 @@ export default function SelfCheckin() {
   };
 
   const handleOpen = async (upload: ServiceUpload) => {
-    if (!serviceId || !checkedInMemberId) return;
+    if (!serviceId || (!checkedInMemberId && !checkedInVisitorId)) return;
 
     // Open a placeholder window immediately to avoid popup blockers on mobile
     const win = window.open("about:blank", "_blank", "noopener,noreferrer");
 
     try {
-      const { data, error } = await supabase.functions.invoke("self-checkin", {
-        body: {
-          action: "get_download_url",
-          serviceId,
-          memberId: checkedInMemberId,
-          uploadId: upload.id,
-        },
-      });
+      const body: any = {
+        action: "get_download_url",
+        serviceId,
+        uploadId: upload.id,
+      };
+      if (checkedInUserType === "member" && checkedInMemberId) {
+        body.memberId = checkedInMemberId;
+      } else if (checkedInUserType === "visitor" && checkedInVisitorId) {
+        body.visitorId = checkedInVisitorId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("self-checkin", { body });
 
       if (error || !(data as any)?.signedUrl) {
         win?.close();
@@ -229,20 +307,24 @@ export default function SelfCheckin() {
   };
 
   const handleDownload = async (upload: ServiceUpload) => {
-    if (!serviceId || !checkedInMemberId) return;
+    if (!serviceId || (!checkedInMemberId && !checkedInVisitorId)) return;
 
     setDownloading(upload.id);
     setDownloadProgress((prev) => ({ ...prev, [upload.id]: 0 }));
 
     try {
-      const { data, error } = await supabase.functions.invoke("self-checkin", {
-        body: {
-          action: "get_download_url",
-          serviceId,
-          memberId: checkedInMemberId,
-          uploadId: upload.id,
-        },
-      });
+      const body: any = {
+        action: "get_download_url",
+        serviceId,
+        uploadId: upload.id,
+      };
+      if (checkedInUserType === "member" && checkedInMemberId) {
+        body.memberId = checkedInMemberId;
+      } else if (checkedInUserType === "visitor" && checkedInVisitorId) {
+        body.visitorId = checkedInVisitorId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("self-checkin", { body });
 
       if (error || !(data as any)?.signedUrl) {
         toast.error("This file is not available.");
@@ -278,7 +360,7 @@ export default function SelfCheckin() {
   };
 
   const handleSelectMember = (memberId: string) => {
-    handleCheckin(memberId);
+    handleMemberCheckin(memberId);
   };
 
   const handleCancelDisambiguation = () => {
@@ -344,42 +426,124 @@ export default function SelfCheckin() {
           </CardHeader>
         </Card>
 
-        {/* Check-in Form */}
+        {/* Check-in Form with Tabs */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
               <Hash className="w-5 h-5 text-primary" />
               Self Check-in
             </CardTitle>
-            <CardDescription>
-              Enter your member code to check in quickly
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!showDisambiguation ? (
-              <>
+            <Tabs value={userType} onValueChange={(v) => setUserType(v as UserType)} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="member" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  Member
+                </TabsTrigger>
+                <TabsTrigger value="visitor" className="gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Visitor
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="member" className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Enter the last 4 digits of your phone number
+                </p>
+                {!showDisambiguation ? (
+                  <>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Last 4 digits"
+                        value={memberCode}
+                        onChange={handleMemberCodeChange}
+                        onKeyDown={(e) => e.key === "Enter" && memberCode.length === 4 && handleMemberCheckin()}
+                        className="text-center text-2xl font-mono tracking-[0.5em] h-14"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        disabled={checking}
+                      />
+                    </div>
+
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={() => handleMemberCheckin()}
+                      disabled={memberCode.length !== 4 || checking}
+                    >
+                      {checking ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Checking In...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Check In
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                      <Users className="w-6 h-6 mx-auto text-primary mb-2" />
+                      <p className="text-sm font-medium">Multiple members found</p>
+                      <p className="text-xs text-muted-foreground">Please select your name below</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {matchingMembers.map((member) => (
+                        <Button
+                          key={member.id}
+                          variant="outline"
+                          className="w-full justify-start h-auto py-3"
+                          onClick={() => handleSelectMember(member.id)}
+                          disabled={checking}
+                        >
+                          <div className="text-left">
+                            <p className="font-medium">{member.full_name}</p>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleCancelDisambiguation}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Enter different code
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="visitor" className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Enter your phone number to check in
+                </p>
                 <div className="space-y-2">
                   <Input
-                    placeholder="Last 4 digits of your phone number"
-                    value={memberCode}
-                    onChange={handleMemberCodeChange}
-                    onKeyDown={(e) => e.key === "Enter" && memberCode.length === 4 && handleCheckin()}
-                    className="text-center text-2xl font-mono tracking-[0.5em] h-14"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={4}
+                    placeholder="Phone number"
+                    value={visitorPhone}
+                    onChange={(e) => setVisitorPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
+                    onKeyDown={(e) => e.key === "Enter" && visitorPhone.length >= 4 && handleVisitorCheckin()}
+                    className="text-center text-xl h-14"
+                    inputMode="tel"
                     disabled={checking}
                   />
-                  <p className="text-xs text-center text-muted-foreground">
-                    No PIN required for check-in
-                  </p>
                 </div>
 
                 <Button 
                   className="w-full" 
                   size="lg"
-                  onClick={() => handleCheckin()}
-                  disabled={memberCode.length !== 4 || checking}
+                  onClick={handleVisitorCheckin}
+                  disabled={visitorPhone.length < 4 || checking}
                 >
                   {checking ? (
                     <>
@@ -393,42 +557,17 @@ export default function SelfCheckin() {
                     </>
                   )}
                 </Button>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="text-center p-3 bg-secondary/50 rounded-lg">
-                  <Users className="w-6 h-6 mx-auto text-primary mb-2" />
-                  <p className="text-sm font-medium">Multiple members found</p>
-                  <p className="text-xs text-muted-foreground">Please select your name below</p>
-                </div>
                 
-                <div className="space-y-2">
-                  {matchingMembers.map((member) => (
-                    <Button
-                      key={member.id}
-                      variant="outline"
-                      className="w-full justify-start h-auto py-3"
-                      onClick={() => handleSelectMember(member.id)}
-                      disabled={checking}
-                    >
-                      <div className="text-left">
-                        <p className="font-medium">{member.full_name}</p>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={handleCancelDisambiguation}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Enter different code
-                </Button>
-              </div>
-            )}
+                {result && !result.success && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Not registered?{" "}
+                    <Link to={`/app/visitors/new`} className="text-primary underline">
+                      Register as a visitor
+                    </Link>
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
 
             {/* Result Message */}
             {result && (

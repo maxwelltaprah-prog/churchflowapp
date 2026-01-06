@@ -285,3 +285,89 @@ export function useConvertToMember() {
     },
   });
 }
+
+export function useRecordVisitorCheckin() {
+  const queryClient = useQueryClient();
+  const { profile, user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      visitor_id,
+      service_id,
+      checkin_method = "manual",
+    }: {
+      visitor_id: string;
+      service_id: string;
+      checkin_method?: "qr" | "manual";
+    }) => {
+      if (!profile?.church_id) throw new Error("No church ID");
+
+      const { data, error } = await supabase
+        .from("visitor_checkins")
+        .insert({
+          church_id: profile.church_id,
+          visitor_id,
+          service_id,
+          checkin_method,
+          checked_in_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("Visitor already checked in for this service");
+        }
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["visitor-checkins"] });
+      queryClient.invalidateQueries({ queryKey: ["visitor-stats"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Check-in failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+export function useFindVisitorByPhone() {
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (phone: string) => {
+      if (!profile?.church_id) throw new Error("No church ID");
+
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "").trim();
+
+      const { data, error } = await supabase
+        .from("visitors")
+        .select("id, first_name, last_name, phone, branch_id")
+        .eq("church_id", profile.church_id);
+
+      if (error) throw error;
+
+      // Find matching visitor
+      const visitor = data?.find((v) => {
+        const visitorPhone = v.phone?.replace(/[\s\-\(\)]/g, "").trim() || "";
+        return (
+          visitorPhone === normalizedPhone ||
+          visitorPhone.endsWith(normalizedPhone) ||
+          normalizedPhone.endsWith(visitorPhone)
+        );
+      });
+
+      if (!visitor) {
+        throw new Error("Visitor not found. Please check the phone number.");
+      }
+
+      return visitor;
+    },
+  });
+}

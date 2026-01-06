@@ -990,6 +990,61 @@ export type Database = {
           },
         ]
       }
+      visitor_checkins: {
+        Row: {
+          checked_in_at: string
+          checked_in_by: string | null
+          checkin_method: string
+          church_id: string
+          created_at: string
+          id: string
+          service_id: string
+          visitor_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          checkin_method: string
+          church_id: string
+          created_at?: string
+          id?: string
+          service_id: string
+          visitor_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          checkin_method?: string
+          church_id?: string
+          created_at?: string
+          id?: string
+          service_id?: string
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_checkins_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_checkins_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_checkins_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitor_followups: {
         Row: {
           church_id: string

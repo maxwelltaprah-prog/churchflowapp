@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -405,7 +405,7 @@ export default function VisitorsPage() {
       </div>
 
       {/* Stats Cards - Always show full totals (unaffected by filters) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="bg-blue-600 text-white border-0">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
@@ -426,6 +426,16 @@ export default function VisitorsPage() {
           </CardContent>
         </Card>
 
+        <Card className="bg-purple-600 text-white border-0">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm opacity-90">Returning Visitors</p>
+              <p className="text-3xl font-bold">{stats?.returning || 0}</p>
+            </div>
+            <RotateCcw className="w-10 h-10 opacity-80" />
+          </CardContent>
+        </Card>
+
         <Card className="bg-yellow-500 text-white border-0">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
@@ -439,7 +449,7 @@ export default function VisitorsPage() {
         <Card className="bg-green-600 text-white border-0">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Converted to Members</p>
+              <p className="text-sm opacity-90">Converted</p>
               <p className="text-3xl font-bold">{stats?.converted || 0}</p>
             </div>
             <UserCheck className="w-10 h-10 opacity-80" />

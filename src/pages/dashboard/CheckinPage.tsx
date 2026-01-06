@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { QrCode, Camera, CheckCircle2, XCircle, Search, Users, Loader2, Monitor } from "lucide-react";
+import { QrCode, Camera, CheckCircle2, XCircle, Search, Users, Loader2, Monitor, Phone, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,10 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useServices, useAttendance, useBranches } from "@/hooks/useChurchData";
 import { useRecordAttendance, useFindMember } from "@/hooks/useChurchMutations";
+import { useFindVisitorByPhone, useRecordVisitorCheckin } from "@/hooks/useVisitorMutations";
+import { useVisitorCheckins } from "@/hooks/useVisitorsData";
 import { QRScanner } from "@/components/dashboard/QRScanner";
 import { ServiceQRDialog } from "@/components/dashboard/ServiceQRDialog";
 import { format, formatDistanceToNow } from "date-fns";
@@ -28,16 +31,21 @@ import { toast } from "sonner";
 export default function CheckinPage() {
   const [selectedService, setSelectedService] = useState("");
   const [manualCode, setManualCode] = useState("");
+  const [visitorPhone, setVisitorPhone] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [showServiceQR, setShowServiceQR] = useState(false);
-  const [lastCheckin, setLastCheckin] = useState<{ name: string; status: "success" | "error"; message?: string } | null>(null);
+  const [lastCheckin, setLastCheckin] = useState<{ name: string; status: "success" | "error"; message?: string; type?: "member" | "visitor" } | null>(null);
+  const [checkinTab, setCheckinTab] = useState<"member" | "visitor">("member");
 
   const { data: branches } = useBranches();
   const { data: services, isLoading: servicesLoading } = useServices();
   const { data: attendance, isLoading: attendanceLoading } = useAttendance(selectedService || undefined);
+  const { data: visitorCheckins } = useVisitorCheckins(selectedService || undefined);
   
   const recordAttendance = useRecordAttendance();
   const findMember = useFindMember();
+  const findVisitor = useFindVisitorByPhone();
+  const recordVisitorCheckin = useRecordVisitorCheckin();
 
   const selectedServiceData = services?.find(s => s.id === selectedService);
 
@@ -85,12 +93,45 @@ export default function CheckinPage() {
     }
   };
 
+  const handleVisitorCheckin = async () => {
+    if (!selectedService || !selectedServiceData || !visitorPhone.trim()) {
+      toast.error("Please select a service and enter a phone number");
+      return;
+    }
+
+    try {
+      const visitor = await findVisitor.mutateAsync(visitorPhone.trim());
+
+      await recordVisitorCheckin.mutateAsync({
+        visitor_id: visitor.id,
+        service_id: selectedService,
+        checkin_method: "manual",
+      });
+
+      const visitorName = `${visitor.first_name} ${visitor.last_name}`;
+      setLastCheckin({ name: visitorName, status: "success", type: "visitor" });
+      toast.success(`${visitorName} checked in successfully`);
+    } catch (error: any) {
+      setLastCheckin({
+        name: visitorPhone,
+        status: "error",
+        message: error.message,
+        type: "visitor",
+      });
+      toast.error(error.message || "Visitor check-in failed");
+    }
+
+    setVisitorPhone("");
+    setTimeout(() => setLastCheckin(null), 2500);
+  };
+
   const handleQRScan = (code: string) => {
     handleCheckin(code, true);
     // Don't stop scanning - camera stays active
   };
 
   const checkedInCount = attendance?.length || 0;
+  const visitorCheckedInCount = visitorCheckins?.length || 0;
 
   return (
     <div className="space-y-6">
@@ -232,31 +273,63 @@ export default function CheckinPage() {
 
         {/* Manual Entry Card */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
               <Search className="w-5 h-5 text-accent" />
               Manual Entry
             </CardTitle>
-            <CardDescription>
-              Enter a member code if scanning doesn't work
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-3">
-              <Input
-                placeholder="Enter member code (e.g., CHU-12345)"
-                value={manualCode}
-                onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && handleManualCheckin()}
-                className="font-mono"
-              />
-              <Button 
-                onClick={handleManualCheckin}
-                disabled={!manualCode.trim() || !selectedService || findMember.isPending}
-              >
-                {findMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
-              </Button>
-            </div>
+            <Tabs value={checkinTab} onValueChange={(v) => setCheckinTab(v as "member" | "visitor")} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="member" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  Member
+                </TabsTrigger>
+                <TabsTrigger value="visitor" className="gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Visitor
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="member">
+                <div className="flex gap-3">
+                  <Input
+                    placeholder="Enter member code (e.g., CHU-12345)"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && handleManualCheckin()}
+                    className="font-mono"
+                  />
+                  <Button 
+                    onClick={handleManualCheckin}
+                    disabled={!manualCode.trim() || !selectedService || findMember.isPending}
+                  >
+                    {findMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="visitor">
+                <div className="flex gap-3">
+                  <Input
+                    placeholder="Enter visitor phone number"
+                    value={visitorPhone}
+                    onChange={(e) => setVisitorPhone(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleVisitorCheckin()}
+                  />
+                  <Button 
+                    onClick={handleVisitorCheckin}
+                    disabled={!visitorPhone.trim() || !selectedService || findVisitor.isPending || recordVisitorCheckin.isPending}
+                  >
+                    {(findVisitor.isPending || recordVisitorCheckin.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Check in a registered visitor by their phone number
+                </p>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -272,10 +345,14 @@ export default function CheckinPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="grid grid-cols-3 gap-4 text-center">
               <div className="p-4 bg-secondary/50 rounded-xl">
                 <p className="text-3xl font-bold text-primary">{checkedInCount}</p>
-                <p className="text-xs text-muted-foreground mt-1">Checked In</p>
+                <p className="text-xs text-muted-foreground mt-1">Members</p>
+              </div>
+              <div className="p-4 bg-secondary/50 rounded-xl">
+                <p className="text-3xl font-bold text-accent">{visitorCheckedInCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">Visitors</p>
               </div>
               <div className="p-4 bg-secondary/50 rounded-xl">
                 <p className="text-3xl font-bold text-foreground">

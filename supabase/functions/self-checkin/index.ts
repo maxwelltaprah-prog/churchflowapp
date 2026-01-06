@@ -2,8 +2,9 @@
 // Supports:
 // - action: "get_service" (serviceId)
 // - action: "checkin" (serviceId, memberCode) - memberCode is last 4 digits of phone
-// - action: "get_downloads" (serviceId, memberId) - returns unexpired uploads (only if member checked in)
-// - action: "get_download_url" (serviceId, memberId, uploadId) - returns a signed URL for download/open
+// - action: "visitor_checkin" (serviceId, phone) - phone is full phone number for visitors
+// - action: "get_downloads" (serviceId, memberId OR visitorId) - returns unexpired uploads (only if checked in)
+// - action: "get_download_url" (serviceId, memberId OR visitorId, uploadId) - returns a signed URL for download/open
 // If multiple members match, returns disambiguation list
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -13,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "get_service" | "checkin" | "get_downloads" | "get_download_url";
+type Action = "get_service" | "checkin" | "visitor_checkin" | "get_downloads" | "get_download_url";
 
 interface MemberMatch {
   id: string;
@@ -229,7 +230,7 @@ Deno.serve(async (req) => {
 
       if (existing) {
         return new Response(
-          JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id }),
+          JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -251,7 +252,7 @@ Deno.serve(async (req) => {
         // Duplicate (unique constraint) safety
         if (insertErr.code === "23505") {
           return new Response(
-            JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id }),
+            JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
@@ -263,7 +264,130 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ status: "checked_in", name: member.full_name, memberId: member.id }),
+        JSON.stringify({ status: "checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // New visitor check-in action
+    if (action === "visitor_checkin") {
+      const serviceId: string | undefined = body?.serviceId;
+      const phoneRaw: string | undefined = body?.phone;
+
+      if (!serviceId || !phoneRaw) {
+        return new Response(JSON.stringify({ error: "Missing serviceId or phone" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Normalize phone number (remove spaces, dashes, keep only digits)
+      const phone = phoneRaw.replace(/[\s\-\(\)]/g, "").trim();
+
+      if (phone.length < 4) {
+        return new Response(JSON.stringify({ error: "Invalid phone number" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: service, error: serviceErr } = await supabase
+        .from("services")
+        .select("id, church_id, branch_id, is_active")
+        .eq("id", serviceId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (serviceErr) {
+        console.error("service lookup error", serviceErr);
+        return new Response(JSON.stringify({ error: "Failed to load service" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!service) {
+        return new Response(JSON.stringify({ error: "Service not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Find visitor by phone number (exact match or ending with)
+      const { data: matchingVisitors, error: visitorErr } = await supabase
+        .from("visitors")
+        .select("id, first_name, last_name, phone")
+        .eq("church_id", service.church_id)
+        .or(`phone.eq.${phone},phone.like.%${phone.slice(-10)}`);
+
+      if (visitorErr) {
+        console.error("visitor lookup error", visitorErr);
+        return new Response(JSON.stringify({ error: "Failed to find visitor" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Filter for exact phone match
+      const visitor = matchingVisitors?.find(v => {
+        const normalizedVisitorPhone = v.phone?.replace(/[\s\-\(\)]/g, "").trim() || "";
+        return normalizedVisitorPhone === phone || normalizedVisitorPhone.endsWith(phone) || phone.endsWith(normalizedVisitorPhone);
+      });
+
+      if (!visitor) {
+        return new Response(JSON.stringify({ error: "Phone number not found." }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const visitorName = `${visitor.first_name} ${visitor.last_name}`;
+
+      // Already checked in?
+      const { data: existing, error: existingErr } = await supabase
+        .from("visitor_checkins")
+        .select("id")
+        .eq("service_id", service.id)
+        .eq("visitor_id", visitor.id)
+        .maybeSingle();
+
+      if (existingErr) {
+        console.error("existing check error", existingErr);
+      }
+
+      if (existing) {
+        return new Response(
+          JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Insert visitor check-in
+      const { error: insertErr } = await supabase.from("visitor_checkins").insert({
+        church_id: service.church_id,
+        visitor_id: visitor.id,
+        service_id: service.id,
+        checkin_method: "qr",
+      });
+
+      if (insertErr) {
+        console.error("insert visitor checkin error", insertErr);
+        // Duplicate (unique constraint) safety
+        if (insertErr.code === "23505") {
+          return new Response(
+            JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        return new Response(JSON.stringify({ error: "Failed to check in" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ status: "checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -271,31 +395,53 @@ Deno.serve(async (req) => {
     if (action === "get_downloads") {
       const serviceId: string | undefined = body?.serviceId;
       const memberId: string | undefined = body?.memberId;
+      const visitorId: string | undefined = body?.visitorId;
 
-      if (!serviceId || !memberId) {
-        return new Response(JSON.stringify({ error: "Missing serviceId or memberId" }), {
+      if (!serviceId || (!memberId && !visitorId)) {
+        return new Response(JSON.stringify({ error: "Missing serviceId or memberId/visitorId" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Only allow downloads listing if the member actually checked into this service
-      const { data: attendanceRow, error: attendanceErr } = await supabase
-        .from("attendance")
-        .select("id")
-        .eq("service_id", serviceId)
-        .eq("member_id", memberId)
-        .maybeSingle();
+      // Check if user (member or visitor) has checked in
+      let hasCheckedIn = false;
 
-      if (attendanceErr) {
-        console.error("get_downloads attendance check error", attendanceErr);
-        return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (memberId) {
+        const { data: attendanceRow, error: attendanceErr } = await supabase
+          .from("attendance")
+          .select("id")
+          .eq("service_id", serviceId)
+          .eq("member_id", memberId)
+          .maybeSingle();
+
+        if (attendanceErr) {
+          console.error("get_downloads attendance check error", attendanceErr);
+          return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        hasCheckedIn = !!attendanceRow;
+      } else if (visitorId) {
+        const { data: visitorCheckin, error: visitorErr } = await supabase
+          .from("visitor_checkins")
+          .select("id")
+          .eq("service_id", serviceId)
+          .eq("visitor_id", visitorId)
+          .maybeSingle();
+
+        if (visitorErr) {
+          console.error("get_downloads visitor check error", visitorErr);
+          return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        hasCheckedIn = !!visitorCheckin;
       }
 
-      if (!attendanceRow) {
+      if (!hasCheckedIn) {
         return new Response(JSON.stringify({ error: "Not checked in" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -327,32 +473,54 @@ Deno.serve(async (req) => {
     if (action === "get_download_url") {
       const serviceId: string | undefined = body?.serviceId;
       const memberId: string | undefined = body?.memberId;
+      const visitorId: string | undefined = body?.visitorId;
       const uploadId: string | undefined = body?.uploadId;
 
-      if (!serviceId || !memberId || !uploadId) {
-        return new Response(JSON.stringify({ error: "Missing serviceId, memberId, or uploadId" }), {
+      if (!serviceId || (!memberId && !visitorId) || !uploadId) {
+        return new Response(JSON.stringify({ error: "Missing serviceId, memberId/visitorId, or uploadId" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Ensure member checked into this service
-      const { data: attendanceRow, error: attendanceErr } = await supabase
-        .from("attendance")
-        .select("id")
-        .eq("service_id", serviceId)
-        .eq("member_id", memberId)
-        .maybeSingle();
+      // Check if user (member or visitor) has checked in
+      let hasCheckedIn = false;
 
-      if (attendanceErr) {
-        console.error("get_download_url attendance check error", attendanceErr);
-        return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (memberId) {
+        const { data: attendanceRow, error: attendanceErr } = await supabase
+          .from("attendance")
+          .select("id")
+          .eq("service_id", serviceId)
+          .eq("member_id", memberId)
+          .maybeSingle();
+
+        if (attendanceErr) {
+          console.error("get_download_url attendance check error", attendanceErr);
+          return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        hasCheckedIn = !!attendanceRow;
+      } else if (visitorId) {
+        const { data: visitorCheckin, error: visitorErr } = await supabase
+          .from("visitor_checkins")
+          .select("id")
+          .eq("service_id", serviceId)
+          .eq("visitor_id", visitorId)
+          .maybeSingle();
+
+        if (visitorErr) {
+          console.error("get_download_url visitor check error", visitorErr);
+          return new Response(JSON.stringify({ error: "Failed to validate check-in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        hasCheckedIn = !!visitorCheckin;
       }
 
-      if (!attendanceRow) {
+      if (!hasCheckedIn) {
         return new Response(JSON.stringify({ error: "Not checked in" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
