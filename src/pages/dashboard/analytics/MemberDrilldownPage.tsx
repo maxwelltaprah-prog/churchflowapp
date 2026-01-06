@@ -87,19 +87,26 @@ function useSegmentedMembers(segment: MemberSegment) {
 
       if (segment === "absentees") {
         // Absentees: members who didn't attend ANY service within the filter period
-        // Get all services in the filter period
-        let servicesQuery = supabase
-          .from("services")
-          .select("id")
-          .eq("church_id", profile.church_id)
-          .eq("is_active", true)
-          .gte("service_date", filters.startDate.toISOString().split("T")[0])
-          .lte("service_date", filters.endDate.toISOString().split("T")[0]);
+        let serviceIdsInPeriod: string[] = [];
 
-        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+        // If specific services are selected, use those
+        if (filters.serviceIds.length > 0) {
+          serviceIdsInPeriod = filters.serviceIds;
+        } else {
+          // Get all services in the filter period
+          let servicesQuery = supabase
+            .from("services")
+            .select("id")
+            .eq("church_id", profile.church_id)
+            .eq("is_active", true)
+            .gte("service_date", filters.startDate.toISOString().split("T")[0])
+            .lte("service_date", filters.endDate.toISOString().split("T")[0]);
 
-        const { data: servicesData } = await servicesQuery;
-        const serviceIdsInPeriod = (servicesData || []).map(s => s.id);
+          servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          const { data: servicesData } = await servicesQuery;
+          serviceIdsInPeriod = (servicesData || []).map(s => s.id);
+        }
 
         if (serviceIdsInPeriod.length === 0) {
           return { members: [], total: 0 };
