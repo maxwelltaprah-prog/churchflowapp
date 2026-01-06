@@ -26,17 +26,26 @@ export function KPICard({
   variant = "default"
 }: KPICardProps) {
   const variantStyles = {
-    default: "bg-card border-border",
-    accent: "bg-primary/5 border-primary/20",
-    muted: "bg-muted/50 border-border",
-    success: "bg-green-500/5 border-green-500/20",
-    warning: "bg-amber-500/5 border-amber-500/20",
-    highlight: "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/30 shadow-md ring-1 ring-primary/10"
+    default: "bg-card border-border hover:border-primary/20",
+    accent: "bg-gradient-to-br from-accent/10 via-accent/5 to-transparent border-accent/30 hover:border-accent/40",
+    muted: "bg-muted/50 border-border hover:border-muted-foreground/20",
+    success: "bg-gradient-to-br from-green-50 to-transparent border-green-200/50 hover:border-green-300 dark:from-green-500/10 dark:border-green-500/30",
+    warning: "bg-gradient-to-br from-amber-50 to-transparent border-amber-200/50 hover:border-amber-300 dark:from-amber-500/10 dark:border-amber-500/30",
+    highlight: "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/30 shadow-md ring-1 ring-primary/10 hover:shadow-lg"
+  };
+
+  const iconStyles = {
+    default: "bg-primary/10 text-primary",
+    accent: "bg-accent/20 text-accent-foreground",
+    muted: "bg-muted-foreground/10 text-muted-foreground",
+    success: "bg-green-100 text-green-600 dark:bg-green-500/20",
+    warning: "bg-amber-100 text-amber-600 dark:bg-amber-500/20",
+    highlight: "bg-primary/15 text-primary"
   };
 
   const content = (
     <div className={cn(
-      "rounded-xl border p-5 transition-all",
+      "rounded-xl border p-5 transition-all duration-200",
       variantStyles[variant],
       href && "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
     )}>
@@ -49,16 +58,16 @@ export function KPICard({
         <>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-muted-foreground">{title}</span>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Icon className="w-4 h-4 text-primary" />
+            <div className={cn("p-2 rounded-lg", iconStyles[variant])}>
+              <Icon className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold text-foreground">{value}</span>
             {change !== undefined && change !== 0 && (
               <span className={cn(
-                "flex items-center text-xs font-medium",
-                change > 0 ? "text-green-600" : "text-red-500"
+                "flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full",
+                change > 0 ? "text-green-600 bg-green-100 dark:bg-green-500/20" : "text-red-500 bg-red-100 dark:bg-red-500/20"
               )}>
                 {change > 0 ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
                 {change > 0 ? "+" : ""}{change}%
@@ -69,8 +78,8 @@ export function KPICard({
             <p className="text-xs text-muted-foreground mt-1">{description}</p>
           )}
           {href && (
-            <div className="mt-3 flex items-center text-xs text-primary font-medium">
-              View details <ChevronRight className="w-3 h-3 ml-1" />
+            <div className="mt-3 flex items-center text-xs text-primary font-medium group-hover:underline">
+              View details <ChevronRight className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-0.5" />
             </div>
           )}
         </>
@@ -79,7 +88,7 @@ export function KPICard({
   );
 
   if (href) {
-    return <Link to={href}>{content}</Link>;
+    return <Link to={href} className="group">{content}</Link>;
   }
   return content;
 }

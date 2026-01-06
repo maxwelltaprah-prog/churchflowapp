@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, 
   Edit, 
   Phone, 
   UserPlus, 
@@ -13,8 +12,10 @@ import {
   MapPin,
   Plus,
   QrCode,
-  ClipboardList
+  ClipboardList,
+  User
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -115,29 +116,22 @@ export default function VisitorDetailsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Visitor Details</h1>
-          <p className="text-muted-foreground flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            First visit: {format(new Date(visitor.first_visit_date), "MMMM d, yyyy")}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => navigate("/app/visitors")} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Visitors
-          </Button>
+      <PageHeader
+        title={`${visitor.first_name} ${visitor.last_name}`}
+        description={`First visit: ${format(new Date(visitor.first_visit_date), "MMMM d, yyyy")}`}
+        icon={User}
+        backTo="/app/visitors"
+        actions={
           <Button variant="outline" onClick={() => navigate(`/app/visitors/${visitor.id}/edit`)} className="gap-2">
             <Edit className="w-4 h-4" />
             Edit
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Visitor Information Card */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle>Visitor Information</CardTitle>
           </CardHeader>
