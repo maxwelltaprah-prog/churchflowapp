@@ -86,33 +86,35 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
       const uniqueMembers = uniqueMemberIds.size;
       
       // Visitors KPIs are visitor-level (unique visitors)
-      // - New Visitors: visitors with exactly 1 total check-in
-      // - Returning Visitors: visitors with 2+ total check-ins
+      // - New Visitors: visitors with no prior check-ins before the selected service(s)
+      // - Returning Visitors: visitors with prior check-ins before the selected service(s)
       const visitorIds = [...new Set(visitorData.map((v: any) => v.visitor_id))];
 
       let newVisitors = 0;
       let returningVisitors = 0;
 
       if (visitorIds.length > 0) {
-        // Fetch all check-ins for these visitors to determine total check-in counts
-        const { data: allVisitorCheckins, error: allVisitorCheckinsError } = await supabase
-          .from("visitor_checkins")
-          .select("visitor_id")
-          .eq("church_id", profile.church_id)
-          .in("visitor_id", visitorIds);
-
-        if (allVisitorCheckinsError) throw allVisitorCheckinsError;
-
-        const checkinCounts = new Map<string, number>();
-        (allVisitorCheckins || []).forEach((c: any) => {
-          checkinCounts.set(c.visitor_id, (checkinCounts.get(c.visitor_id) || 0) + 1);
-        });
-
-        visitorIds.forEach((id) => {
-          const total = checkinCounts.get(id) || 0;
-          if (total >= 2) returningVisitors += 1;
-          else if (total === 1) newVisitors += 1;
-        });
+        // For each visitor, find their earliest check-in in current selection
+        // Then check if they have any check-ins before that date
+        for (const visitorId of visitorIds) {
+          const currentVisitorCheckins = visitorData.filter((v: any) => v.visitor_id === visitorId);
+          const earliestCurrentCheckin = currentVisitorCheckins.reduce((min: string, v: any) => 
+            v.checked_in_at < min ? v.checked_in_at : min, currentVisitorCheckins[0]?.checked_in_at
+          );
+          
+          // Check for prior check-ins before the earliest one in current selection
+          const { count } = await supabase
+            .from("visitor_checkins")
+            .select("id", { count: "exact", head: true })
+            .eq("visitor_id", visitorId)
+            .lt("checked_in_at", earliestCurrentCheckin);
+          
+          if ((count || 0) > 0) {
+            returningVisitors++;
+          } else {
+            newVisitors++;
+          }
+        }
       }
 
       // Late arrivals - checked in 30+ mins after first check-in (members only for consistency)
