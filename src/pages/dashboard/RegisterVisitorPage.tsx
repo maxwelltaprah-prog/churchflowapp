@@ -26,11 +26,15 @@ import { useBranches } from "@/hooks/useChurchData";
 import { useCreateVisitor } from "@/hooks/useVisitorMutations";
 
 const visitorFormSchema = z.object({
-  first_name: z.string().min(1, "First name is required"),
-  last_name: z.string().min(1, "Last name is required"),
-  phone: z.string().min(8, "Phone number is required"),
+  first_name: z.string().min(1, "First name is required").max(50),
+  last_name: z.string().min(1, "Last name is required").max(50),
+  phone: z.string().min(8, "Phone number is required").max(20),
   email: z.string().email().optional().or(z.literal("")),
-  address: z.string().optional(),
+  address: z.string().max(200).optional(),
+  gender: z.enum(["male", "female", "prefer_not_to_say"], {
+    required_error: "Please select gender",
+  }),
+  date_of_birth: z.string().min(1, "Date of birth is required"),
   first_visit_date: z.string().min(1, "First visit date is required"),
   how_heard: z.enum(["friend_family", "social_media", "walk_in", "outreach", "other"], {
     required_error: "Please select how they heard about us",
@@ -53,6 +57,8 @@ export default function RegisterVisitorPage() {
       phone: "",
       email: "",
       address: "",
+      gender: undefined,
+      date_of_birth: "",
       first_visit_date: new Date().toISOString().split("T")[0],
       how_heard: undefined,
       branch_id: "",
@@ -64,6 +70,8 @@ export default function RegisterVisitorPage() {
       first_name: data.first_name,
       last_name: data.last_name,
       phone: data.phone,
+      gender: data.gender,
+      date_of_birth: data.date_of_birth,
       first_visit_date: data.first_visit_date,
       how_heard: data.how_heard,
       branch_id: data.branch_id,
@@ -147,6 +155,43 @@ export default function RegisterVisitorPage() {
                         <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input {...field} type="email" placeholder="Enter email address" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gender <span className="text-destructive">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="date_of_birth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date of Birth <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

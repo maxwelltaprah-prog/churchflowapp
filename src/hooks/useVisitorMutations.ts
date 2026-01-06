@@ -9,6 +9,8 @@ interface CreateVisitorData {
   phone: string;
   email?: string;
   address?: string;
+  gender?: "male" | "female" | "prefer_not_to_say";
+  date_of_birth?: string;
   first_visit_date: string;
   how_heard: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
   branch_id: string;

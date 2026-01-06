@@ -12,6 +12,8 @@ export interface Visitor {
   phone: string;
   email: string | null;
   address: string | null;
+  gender: "male" | "female" | "prefer_not_to_say" | null;
+  date_of_birth: string | null;
   first_visit_date: string;
   how_heard: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
   status: "new" | "in_follow_up" | "converted";
