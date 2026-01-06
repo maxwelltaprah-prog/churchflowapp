@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Lock, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { padPin } from "@/lib/pin-utils";
 
 interface ResetPinDialogProps {
   open: boolean;
@@ -34,8 +35,8 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
   const handleReset = async () => {
     if (!member) return;
 
-    if (newPin.length < 6) {
-      toast.error("PIN must be at least 6 digits");
+    if (newPin.length !== 4) {
+      toast.error("PIN must be exactly 4 digits");
       return;
     }
 
@@ -52,13 +53,10 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
     setIsLoading(true);
 
     try {
-      // Use admin API to update user password
-      // Note: This requires the service role key which we don't have on client
-      // Instead, we'll create an edge function for this
       const response = await supabase.functions.invoke("reset-member-pin", {
         body: {
           userId: member.user_id,
-          newPin: newPin,
+          newPin: padPin(newPin),
         },
       });
 
@@ -121,9 +119,9 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
                   type={showPin ? "text" : "password"}
                   placeholder="Enter new PIN"
                   value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   className="pl-10 pr-10"
-                  maxLength={6}
+                  maxLength={4}
                   inputMode="numeric"
                 />
                 <button
@@ -134,7 +132,7 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Minimum 6 digits</p>
+              <p className="text-xs text-muted-foreground">Exactly 4 digits</p>
             </div>
 
             <div className="space-y-2">
@@ -146,9 +144,9 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
                   type={showPin ? "text" : "password"}
                   placeholder="Confirm new PIN"
                   value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   className="pl-10"
-                  maxLength={6}
+                  maxLength={4}
                   inputMode="numeric"
                 />
               </div>

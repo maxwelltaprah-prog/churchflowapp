@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Church, ArrowLeft, Eye, EyeOff, Phone, Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { padPin } from "@/lib/pin-utils";
 
 export default function MemberLogin() {
   const [memberCode, setMemberCode] = useState("");
@@ -22,8 +23,8 @@ export default function MemberLogin() {
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits, max 6
-    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    // Only allow digits, max 4
+    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
     setPin(value);
   };
 
@@ -39,10 +40,10 @@ export default function MemberLogin() {
       return;
     }
 
-    if (pin.length < 6) {
+    if (pin.length !== 4) {
       toast({
         title: "Invalid PIN",
-        description: "Please enter your 6-digit PIN.",
+        description: "Please enter your 4-digit PIN.",
         variant: "destructive",
       });
       return;
@@ -111,7 +112,7 @@ export default function MemberLogin() {
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: authEmail,
-        password: pin,
+        password: padPin(pin),
       });
 
       if (signInError) {
@@ -213,18 +214,18 @@ export default function MemberLogin() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="pin"
-                    type={showPin ? "text" : "password"}
-                    placeholder="Your 6-digit PIN"
-                    value={pin}
-                    onChange={handlePinChange}
-                    className="pl-10 pr-10 h-12 text-center text-lg font-mono tracking-widest"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    required
-                  />
+                    <Input
+                      id="pin"
+                      type={showPin ? "text" : "password"}
+                      placeholder="Your 4-digit PIN"
+                      value={pin}
+                      onChange={handlePinChange}
+                      className="pl-10 pr-10 h-12 text-center text-lg font-mono tracking-widest"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      required
+                    />
                   <button
                     type="button"
                     onClick={() => setShowPin(!showPin)}
@@ -233,7 +234,7 @@ export default function MemberLogin() {
                     {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">6 digits minimum</p>
+                <p className="text-xs text-muted-foreground">4 digits</p>
               </div>
 
               <Button

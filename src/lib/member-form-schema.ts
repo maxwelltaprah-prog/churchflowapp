@@ -72,8 +72,8 @@ export const memberEditSchema = memberFormSchema.extend({
 
 // Schema for self-registration (without branch_id - it's auto-filled)
 export const selfRegisterSchema = memberFormSchema.omit({ branch_id: true }).extend({
-  // PIN fields for self-registration
-  pin: z.string().min(6, "PIN must be at least 6 digits").max(6),
+  // PIN fields for self-registration (4 digits, padded internally)
+  pin: z.string().length(4, "PIN must be exactly 4 digits"),
   confirmPin: z.string(),
   // Spiritual journey is required for self-registration too
   spiritual_journey_ids: z.array(z.string()).min(1, "Please select at least one spiritual journey option"),

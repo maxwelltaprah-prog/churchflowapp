@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Church, ArrowLeft, Eye, EyeOff, Phone, Lock, KeyRound, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { padPin } from "@/lib/pin-utils";
 
 export default function CreateMemberPin() {
   const [step, setStep] = useState<"phone" | "pin" | "success">("phone");
@@ -23,12 +24,12 @@ export default function CreateMemberPin() {
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
     setPin(value);
   };
 
   const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
     setConfirmPin(value);
   };
 
@@ -107,8 +108,8 @@ export default function CreateMemberPin() {
     
     if (!memberData) return;
 
-    if (pin.length < 6) {
-      toast.error("PIN must be at least 6 digits");
+    if (pin.length !== 4) {
+      toast.error("PIN must be exactly 4 digits");
       return;
     }
 
@@ -125,7 +126,7 @@ export default function CreateMemberPin() {
       // Create Supabase auth user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: authEmail,
-        password: pin,
+        password: padPin(pin),
         options: {
           emailRedirectTo: `${window.location.origin}/member`,
           data: {
@@ -250,13 +251,13 @@ export default function CreateMemberPin() {
                     <Input
                       id="pin"
                       type={showPin ? "text" : "password"}
-                      placeholder="Enter 6-digit PIN"
+                      placeholder="Enter 4-digit PIN"
                       value={pin}
                       onChange={handlePinChange}
                       className="pl-10 pr-10 h-12 text-center text-lg font-mono tracking-widest"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      maxLength={6}
+                      maxLength={4}
                       required
                     />
                     <button
@@ -267,7 +268,7 @@ export default function CreateMemberPin() {
                       {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Minimum 6 digits</p>
+                  <p className="text-xs text-muted-foreground">Exactly 4 digits</p>
                 </div>
 
                 <div className="space-y-2">
@@ -283,7 +284,7 @@ export default function CreateMemberPin() {
                       className="pl-10 h-12 text-center text-lg font-mono tracking-widest"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      maxLength={6}
+                      maxLength={4}
                       required
                     />
                   </div>
@@ -294,7 +295,7 @@ export default function CreateMemberPin() {
                   variant="hero"
                   size="lg"
                   className="w-full"
-                  disabled={isLoading || pin.length < 6 || confirmPin.length < 6}
+                  disabled={isLoading || pin.length !== 4 || confirmPin.length !== 4}
                 >
                   {isLoading ? "Creating..." : "Create PIN"}
                 </Button>
