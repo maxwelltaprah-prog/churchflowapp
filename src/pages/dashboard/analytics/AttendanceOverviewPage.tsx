@@ -523,7 +523,7 @@ export default function AttendanceOverviewPage() {
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="total"
                     name="Total"
                     stroke="hsl(var(--primary))"
@@ -583,7 +583,7 @@ export default function AttendanceOverviewPage() {
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="members"
                     name="Members"
                     stroke="hsl(142 76% 36%)"
@@ -643,7 +643,7 @@ export default function AttendanceOverviewPage() {
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="visitors"
                     name="Visitors"
                     stroke="hsl(38 92% 50%)"
@@ -703,7 +703,7 @@ export default function AttendanceOverviewPage() {
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="absentees"
                     name="Absentees"
                     stroke="hsl(var(--destructive))"
