@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.hubtel-payment-callback]
 verify_jwt = false
+
+[functions.check-inactive-members]
+verify_jwt = false
+
+[functions.reset-member-pin]
+verify_jwt = false
