@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, formatDistanceToNow, startOfMonth, isWithinInterval, parseISO, getMonth, getYear, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useVisitors, useVisitorStats } from "@/hooks/useVisitorsData";
-import { useServices } from "@/hooks/useChurchData";
+import { useServices, useBranches } from "@/hooks/useChurchData";
+import { useBranchAccess } from "@/hooks/useBranchAccess";
 import { DateRange } from "react-day-picker";
 
 const howHeardLabels: Record<string, string> = {
@@ -53,7 +54,7 @@ const monthNames = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-type FilterType = "all" | "service" | "month" | "year";
+type FilterType = "all" | "service" | "period";
 
 // Format date range for display
 function formatDateRangeLabel(range: { startDate: Date; endDate: Date }): string {
@@ -67,16 +68,38 @@ function formatDateRangeLabel(range: { startDate: Date; endDate: Date }): string
   return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
 }
 
+// Format period range for display
+function formatPeriodLabel(startPeriod: string | null, endPeriod: string | null): string {
+  if (!startPeriod) return "Select period";
+  
+  const [startYear, startMonth] = startPeriod.split("-").map(Number);
+  const startLabel = `${monthNames[startMonth]} ${startYear}`;
+  
+  if (!endPeriod || endPeriod === startPeriod) {
+    return startLabel;
+  }
+  
+  const [endYear, endMonth] = endPeriod.split("-").map(Number);
+  const endLabel = `${monthNames[endMonth]} ${endYear}`;
+  
+  return `${startLabel} - ${endLabel}`;
+}
+
 export default function VisitorsPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const today = new Date();
   
+  // Branch access and filtering
+  const { isChurchAdmin, accessibleBranchIds } = useBranchAccess();
+  const { data: allBranches } = useBranches();
+  const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>(undefined);
+  
   // Date range picker state
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date }>({
-    startDate: startOfMonth(today),
+    startDate: new Date(today.getFullYear(), 0, 1), // Start of year
     endDate: today
   });
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
@@ -87,13 +110,24 @@ export default function VisitorsPage() {
   // Filter selections
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedStartPeriod, setSelectedStartPeriod] = useState<string | null>(null);
+  const [selectedEndPeriod, setSelectedEndPeriod] = useState<string | null>(null);
   
   // Popover states
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
 
-  const { data: visitors, isLoading, refetch } = useVisitors(undefined, statusFilter);
+  // Filter branches based on access
+  const availableBranches = useMemo(() => {
+    if (!allBranches) return [];
+    if (isChurchAdmin) return allBranches;
+    if (!accessibleBranchIds) return [];
+    return allBranches.filter(b => accessibleBranchIds.includes(b.id));
+  }, [allBranches, isChurchAdmin, accessibleBranchIds]);
+
+  const showBranchFilter = isChurchAdmin || (accessibleBranchIds && accessibleBranchIds.length > 1);
+
+  const { data: visitors, isLoading, refetch } = useVisitors(selectedBranchId, statusFilter);
   const { data: stats } = useVisitorStats();
   const { data: allServices } = useServices();
 
@@ -111,29 +145,23 @@ export default function VisitorsPage() {
     });
   }, [allServices, dateRange]);
 
-  // Extract available months and years based on date range
-  const { availableMonths, availableYears } = useMemo(() => {
-    const monthsSet = new Set<string>();
-    const yearsSet = new Set<number>();
+  // Extract available periods (month-year combinations) based on date range
+  const availablePeriods = useMemo(() => {
+    const periodsSet = new Set<string>();
 
-    // Generate months/years within the date range
+    // Generate month-year combinations within the date range
     let current = new Date(dateRange.startDate);
     while (current <= dateRange.endDate) {
       const year = getYear(current);
       const month = getMonth(current);
-      monthsSet.add(`${year}-${month}`);
-      yearsSet.add(year);
+      periodsSet.add(`${year}-${month}`);
       current.setMonth(current.getMonth() + 1);
     }
 
-    const months = Array.from(monthsSet).sort().reverse().map((key) => {
+    return Array.from(periodsSet).sort().reverse().map((key) => {
       const [year, month] = key.split("-").map(Number);
       return { key, label: `${monthNames[month]} ${year}`, year, month };
     });
-
-    const years = Array.from(yearsSet).sort((a, b) => b - a);
-
-    return { availableMonths: months, availableYears: years };
   }, [dateRange]);
 
   // Quick preset buttons
@@ -169,8 +197,8 @@ export default function VisitorsPage() {
     setDatePickerOpen(false);
     // Clear filter selections when date range changes
     setSelectedServiceIds([]);
-    setSelectedMonth("");
-    setSelectedYear("");
+    setSelectedStartPeriod(null);
+    setSelectedEndPeriod(null);
   };
 
   const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined } | undefined) => {
@@ -181,8 +209,8 @@ export default function VisitorsPage() {
         setDatePickerOpen(false);
         // Clear filter selections when date range changes
         setSelectedServiceIds([]);
-        setSelectedMonth("");
-        setSelectedYear("");
+        setSelectedStartPeriod(null);
+        setSelectedEndPeriod(null);
       }
     }
   };
@@ -210,6 +238,55 @@ export default function VisitorsPage() {
     return `${selectedServiceIds.length} Services`;
   }, [selectedServiceIds, servicesInRange]);
 
+  // Handle period selection (start and end)
+  const handlePeriodClick = (periodKey: string) => {
+    if (!selectedStartPeriod) {
+      // First selection - set as start
+      setSelectedStartPeriod(periodKey);
+      setSelectedEndPeriod(null);
+    } else if (!selectedEndPeriod) {
+      // Second selection - set as end (ensure proper order)
+      const startIdx = availablePeriods.findIndex(p => p.key === selectedStartPeriod);
+      const endIdx = availablePeriods.findIndex(p => p.key === periodKey);
+      
+      if (periodKey === selectedStartPeriod) {
+        // Same as start - just use single month
+        setSelectedEndPeriod(periodKey);
+      } else if (endIdx > startIdx) {
+        // Clicked earlier period (since list is reversed) - swap
+        setSelectedEndPeriod(selectedStartPeriod);
+        setSelectedStartPeriod(periodKey);
+      } else {
+        setSelectedEndPeriod(periodKey);
+      }
+    } else {
+      // Already have both - start new selection
+      setSelectedStartPeriod(periodKey);
+      setSelectedEndPeriod(null);
+    }
+  };
+
+  const clearPeriodSelection = () => {
+    setSelectedStartPeriod(null);
+    setSelectedEndPeriod(null);
+  };
+
+  // Check if a period is within selected range
+  const isPeriodInRange = (periodKey: string): boolean => {
+    if (!selectedStartPeriod) return false;
+    if (!selectedEndPeriod) return periodKey === selectedStartPeriod;
+    
+    const periods = availablePeriods.map(p => p.key);
+    const startIdx = periods.indexOf(selectedStartPeriod);
+    const endIdx = periods.indexOf(selectedEndPeriod);
+    const currentIdx = periods.indexOf(periodKey);
+    
+    const minIdx = Math.min(startIdx, endIdx);
+    const maxIdx = Math.max(startIdx, endIdx);
+    
+    return currentIdx >= minIdx && currentIdx <= maxIdx;
+  };
+
   // Apply filters to visitors
   const filteredByPrimaryFilter = useMemo(() => {
     if (!visitors) return [];
@@ -225,21 +302,26 @@ export default function VisitorsPage() {
           result = result.filter(v => serviceDates.includes(v.first_visit_date));
         }
         break;
-      case "month":
-        if (selectedMonth) {
-          const [year, month] = selectedMonth.split("-").map(Number);
+      case "period":
+        if (selectedStartPeriod) {
+          const [startYear, startMonth] = selectedStartPeriod.split("-").map(Number);
+          let endYear = startYear;
+          let endMonth = startMonth;
+          
+          if (selectedEndPeriod) {
+            [endYear, endMonth] = selectedEndPeriod.split("-").map(Number);
+          }
+          
+          // Ensure proper order (start should be earlier)
+          const startDate = new Date(startYear, startMonth, 1);
+          const endDate = new Date(endYear, endMonth + 1, 0); // Last day of end month
+          
+          const actualStart = startDate <= endDate ? startDate : endDate;
+          const actualEnd = startDate <= endDate ? endDate : startDate;
+          
           result = result.filter((v) => {
             const date = parseISO(v.first_visit_date);
-            return getYear(date) === year && getMonth(date) === month;
-          });
-        }
-        break;
-      case "year":
-        if (selectedYear) {
-          const year = parseInt(selectedYear);
-          result = result.filter((v) => {
-            const date = parseISO(v.first_visit_date);
-            return getYear(date) === year;
+            return date >= actualStart && date <= actualEnd;
           });
         }
         break;
@@ -249,7 +331,7 @@ export default function VisitorsPage() {
     }
 
     return result;
-  }, [visitors, filterType, selectedServiceIds, selectedMonth, selectedYear, servicesInRange]);
+  }, [visitors, filterType, selectedServiceIds, selectedStartPeriod, selectedEndPeriod, servicesInRange, availablePeriods]);
 
   // Apply search filter
   const filteredVisitors = useMemo(() => {
@@ -269,8 +351,8 @@ export default function VisitorsPage() {
   const handleFilterTypeChange = (value: string) => {
     setFilterType(value as FilterType);
     setSelectedServiceIds([]);
-    setSelectedMonth("");
-    setSelectedYear("");
+    setSelectedStartPeriod(null);
+    setSelectedEndPeriod(null);
   };
 
   return (
@@ -362,6 +444,25 @@ export default function VisitorsPage() {
           </PopoverContent>
         </Popover>
 
+        {/* Branch Filter */}
+        {showBranchFilter && (
+          <Select 
+            value={selectedBranchId || "all"} 
+            onValueChange={(v) => setSelectedBranchId(v === "all" ? undefined : v)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {availableBranches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Filter Type Selector */}
         <Select value={filterType} onValueChange={handleFilterTypeChange}>
           <SelectTrigger className="w-[140px]">
@@ -370,8 +471,7 @@ export default function VisitorsPage() {
           <SelectContent>
             <SelectItem value="all">All Visitors</SelectItem>
             <SelectItem value="service">By Service</SelectItem>
-            <SelectItem value="month">By Month</SelectItem>
-            <SelectItem value="year">By Year</SelectItem>
+            <SelectItem value="period">By Period</SelectItem>
           </SelectContent>
         </Select>
 
@@ -435,44 +535,49 @@ export default function VisitorsPage() {
           </Popover>
         )}
 
-        {/* Month Selector (when filter type is month) */}
-        {filterType === "month" && (
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableMonths.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground text-center">No months in range</div>
-              ) : (
-                availableMonths.map((month) => (
-                  <SelectItem key={month.key} value={month.key}>
-                    {month.label}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Year Selector (when filter type is year) */}
-        {filterType === "year" && (
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Select year" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground text-center">No years in range</div>
-              ) : (
-                availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+        {/* Period Picker (when filter type is period) */}
+        {filterType === "period" && (
+          <Popover open={periodPickerOpen} onOpenChange={setPeriodPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="default" className="w-[240px] justify-start text-left font-normal">
+                <CalendarDays className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="truncate">{formatPeriodLabel(selectedStartPeriod, selectedEndPeriod)}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0" align="start">
+              <div className="flex items-center justify-between p-3 border-b">
+                <span className="text-sm font-medium">Select Period</span>
+                <Button variant="ghost" size="sm" onClick={clearPeriodSelection} disabled={!selectedStartPeriod}>
+                  Clear
+                </Button>
+              </div>
+              <div className="p-2 border-b text-xs text-muted-foreground text-center">
+                Click once for single month, twice for range
+              </div>
+              <ScrollArea className="h-[280px]">
+                {availablePeriods.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm">No periods in range</div>
+                ) : (
+                  <div className="p-2 grid grid-cols-2 gap-1">
+                    {availablePeriods.map((period) => (
+                      <Button
+                        key={period.key}
+                        variant={isPeriodInRange(period.key) ? "default" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "justify-start",
+                          isPeriodInRange(period.key) && "bg-primary text-primary-foreground"
+                        )}
+                        onClick={() => handlePeriodClick(period.key)}
+                      >
+                        {period.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
         )}
 
         {/* Refresh Button */}
