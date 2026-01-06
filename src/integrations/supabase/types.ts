@@ -1046,9 +1046,11 @@ export type Database = {
           converted_member_id: string | null
           created_at: string
           created_by: string | null
+          date_of_birth: string | null
           email: string | null
           first_name: string
           first_visit_date: string
+          gender: Database["public"]["Enums"]["gender_type"] | null
           how_heard: Database["public"]["Enums"]["how_heard"]
           id: string
           last_name: string
@@ -1063,9 +1065,11 @@ export type Database = {
           converted_member_id?: string | null
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           email?: string | null
           first_name: string
           first_visit_date?: string
+          gender?: Database["public"]["Enums"]["gender_type"] | null
           how_heard: Database["public"]["Enums"]["how_heard"]
           id?: string
           last_name: string
@@ -1080,9 +1084,11 @@ export type Database = {
           converted_member_id?: string | null
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           email?: string | null
           first_name?: string
           first_visit_date?: string
+          gender?: Database["public"]["Enums"]["gender_type"] | null
           how_heard?: Database["public"]["Enums"]["how_heard"]
           id?: string
           last_name?: string
