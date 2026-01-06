@@ -5,16 +5,19 @@ import {
   Send,
   CheckCircle,
   XCircle,
+  Clock,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSMSCampaigns } from "@/hooks/useSMSData";
+import { useSMSCampaigns, useDeliveryStatusSummary } from "@/hooks/useSMSData";
 
 export default function SMSDashboardPage() {
   const navigate = useNavigate();
   const { data: campaigns, isLoading: campaignsLoading } = useSMSCampaigns();
+  const { data: deliverySummary, isLoading: summaryLoading } = useDeliveryStatusSummary();
 
   // Calculate stats
   const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) ?? 0;
@@ -36,7 +39,7 @@ export default function SMSDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         {/* Total Campaigns */}
         <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -56,20 +59,43 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Messages Sent */}
-        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="border border-border border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10">
-              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <div className="p-2.5 rounded-xl bg-blue-500/10">
+              <ArrowUpRight className="h-5 w-5 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent>
             {campaignsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-emerald-600">{totalSent}</div>
+              <div className="text-2xl font-bold text-blue-600">{totalSent}</div>
             )}
-            <p className="text-xs text-muted-foreground">Successfully delivered</p>
+            <p className="text-xs text-muted-foreground">Submitted to provider</p>
+          </CardContent>
+        </Card>
+
+        {/* Delivered */}
+        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {summaryLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold text-emerald-600">
+                {deliverySummary?.delivered ?? 0}
+              </div>
+            )}
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>{deliverySummary?.sent ?? 0} awaiting delivery</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -82,12 +108,14 @@ export default function SMSDashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {campaignsLoading ? (
+            {campaignsLoading || summaryLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-rose-600">{totalFailed}</div>
+              <div className="text-2xl font-bold text-rose-600">
+                {deliverySummary?.failed ?? totalFailed}
+              </div>
             )}
-            <p className="text-xs text-muted-foreground">Failed to send</p>
+            <p className="text-xs text-muted-foreground">Failed to deliver</p>
           </CardContent>
         </Card>
       </div>
@@ -109,7 +137,7 @@ export default function SMSDashboardPage() {
               {campaigns.slice(0, 10).map((campaign) => (
                 <div
                   key={campaign.id}
-                  className="flex items-center gap-4 p-4 border rounded-lg"
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -131,14 +159,14 @@ export default function SMSDashboardPage() {
                     <p className="text-sm mt-1 truncate">{campaign.message_body}</p>
                   </div>
                   <div className="text-right text-sm">
-                    <div className="flex items-center gap-1 text-green-600">
-                      <CheckCircle className="h-3 w-3" />
-                      {campaign.sent_count ?? 0}
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <ArrowUpRight className="h-3 w-3" />
+                      {campaign.sent_count ?? 0} sent
                     </div>
                     {(campaign.failed_count ?? 0) > 0 && (
                       <div className="flex items-center gap-1 text-destructive">
                         <XCircle className="h-3 w-3" />
-                        {campaign.failed_count}
+                        {campaign.failed_count} failed
                       </div>
                     )}
                   </div>

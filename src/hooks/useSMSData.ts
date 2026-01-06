@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -114,4 +115,121 @@ export function useMembersWithPhone() {
     },
     enabled: !!churchId,
   });
+}
+
+// Hook for SMS jobs with delivery status tracking
+export function useSMSJobsByCampaign(campaignId: string | null) {
+  const { profile } = useAuth();
+  const churchId = profile?.church_id;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["sms-jobs", campaignId],
+    queryFn: async () => {
+      if (!campaignId || !churchId) return [];
+      
+      const { data, error } = await supabase
+        .from("sms_jobs")
+        .select("*")
+        .eq("campaign_id", campaignId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!campaignId && !!churchId,
+  });
+
+  // Subscribe to real-time updates for delivery status
+  useEffect(() => {
+    if (!campaignId || !churchId) return;
+
+    const channel = supabase
+      .channel(`sms-jobs-${campaignId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sms_jobs",
+          filter: `campaign_id=eq.${campaignId}`,
+        },
+        () => {
+          // Refetch jobs when delivery status updates
+          queryClient.invalidateQueries({ queryKey: ["sms-jobs", campaignId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [campaignId, churchId, queryClient]);
+
+  return query;
+}
+
+// Hook for delivery status summary
+export function useDeliveryStatusSummary() {
+  const { profile } = useAuth();
+  const churchId = profile?.church_id;
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["delivery-status-summary", churchId],
+    queryFn: async () => {
+      if (!churchId) return { delivered: 0, pending: 0, failed: 0, sent: 0 };
+      
+      const { data, error } = await supabase
+        .from("sms_jobs")
+        .select("delivery_status, status")
+        .eq("church_id", churchId);
+
+      if (error) throw error;
+      
+      const summary = {
+        delivered: 0,
+        pending: 0,
+        failed: 0,
+        sent: 0,
+      };
+
+      (data ?? []).forEach((job: { delivery_status?: string; status: string }) => {
+        const dlrStatus = job.delivery_status || "pending";
+        if (dlrStatus === "delivered") summary.delivered++;
+        else if (dlrStatus === "failed" || dlrStatus === "undelivered" || job.status === "failed") summary.failed++;
+        else if (job.status === "sent") summary.sent++;
+        else summary.pending++;
+      });
+
+      return summary;
+    },
+    enabled: !!churchId,
+  });
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!churchId) return;
+
+    const channel = supabase
+      .channel("sms-jobs-delivery")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sms_jobs",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["delivery-status-summary", churchId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [churchId, queryClient]);
+
+  return query;
 }

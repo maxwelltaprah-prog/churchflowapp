@@ -167,15 +167,19 @@ serve(async (req) => {
           }
           phone = phone.replace(/^\+/, "");
 
-          // Build SMSOnlineGH API URL
+          // Build SMSOnlineGH API URL with delivery callback
+          const callbackUrl = `${supabaseUrl}/functions/v1/sms-delivery-callback`;
+          
           const smsUrl = new URL("https://api.smsonlinegh.com/v4/message/sms/send");
           smsUrl.searchParams.append("key", smsApiKey);
           smsUrl.searchParams.append("text", job.personalized_message);
           smsUrl.searchParams.append("type", "0");
           smsUrl.searchParams.append("sender", smsSenderId);
           smsUrl.searchParams.append("to", phone);
+          smsUrl.searchParams.append("dlr", "1"); // Request delivery report
+          smsUrl.searchParams.append("dlr_url", callbackUrl); // Callback URL for delivery status
 
-          console.log(`Sending SMS to ${phone}`);
+          console.log(`Sending SMS to ${phone} with DLR callback`);
 
           const smsResponse = await fetch(smsUrl.toString(), {
             method: "GET",

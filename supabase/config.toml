@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.reset-member-pin]
 verify_jwt = false
+
+[functions.sms-delivery-callback]
+verify_jwt = false
