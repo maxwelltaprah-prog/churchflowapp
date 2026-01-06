@@ -11,13 +11,15 @@ import {
   Info, 
   Clock,
   MapPin,
-  Plus
+  Plus,
+  QrCode,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { useVisitor, useVisitorFollowups } from "@/hooks/useVisitorsData";
+import { useVisitor, useVisitorFollowups, useVisitorCheckinHistory } from "@/hooks/useVisitorsData";
 import { useDeleteVisitor, useDeleteFollowup } from "@/hooks/useVisitorMutations";
 import {
   AlertDialog,
@@ -62,6 +64,7 @@ export default function VisitorDetailsPage() {
 
   const { data: visitor, isLoading } = useVisitor(visitorId);
   const { data: followups } = useVisitorFollowups(visitorId);
+  const { data: checkinHistory } = useVisitorCheckinHistory(visitorId);
   const deleteVisitor = useDeleteVisitor();
   const deleteFollowup = useDeleteFollowup();
 
@@ -333,6 +336,57 @@ export default function VisitorDetailsPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Check-in History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="w-5 h-5" />
+            Check-in History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {checkinHistory?.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No check-ins recorded yet</p>
+          ) : (
+            <div className="space-y-4">
+              {checkinHistory?.map((checkin) => (
+                <div key={checkin.id} className="flex items-start gap-4 border-l-4 border-primary pl-4 py-2">
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {checkin.services?.name || "Unknown Service"}
+                      <span className="font-normal text-muted-foreground ml-2">
+                        {checkin.services?.service_date 
+                          ? format(new Date(checkin.services.service_date), "MMM d, yyyy")
+                          : "Unknown date"}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {format(new Date(checkin.checked_in_at), "h:mm a")}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {checkin.checkin_method === "qr" ? (
+                          <span className="flex items-center gap-1">
+                            <QrCode className="w-3 h-3" />
+                            QR Scan
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <ClipboardList className="w-3 h-3" />
+                            Manual
+                          </span>
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

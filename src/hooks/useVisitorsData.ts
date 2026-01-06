@@ -218,3 +218,42 @@ export function useVisitorCheckins(serviceId?: string) {
     enabled: !!profile?.church_id,
   });
 }
+
+export interface VisitorCheckinHistory {
+  id: string;
+  visitor_id: string;
+  service_id: string;
+  checked_in_at: string;
+  checkin_method: string;
+  services?: {
+    id: string;
+    name: string;
+    service_date: string;
+  } | null;
+}
+
+export function useVisitorCheckinHistory(visitorId: string | undefined) {
+  return useQuery({
+    queryKey: ["visitor-checkin-history", visitorId],
+    queryFn: async () => {
+      if (!visitorId) throw new Error("No visitor ID");
+
+      const { data, error } = await supabase
+        .from("visitor_checkins")
+        .select(`
+          id,
+          visitor_id,
+          service_id,
+          checked_in_at,
+          checkin_method,
+          services:service_id (id, name, service_date)
+        `)
+        .eq("visitor_id", visitorId)
+        .order("checked_in_at", { ascending: false });
+
+      if (error) throw error;
+      return data as VisitorCheckinHistory[];
+    },
+    enabled: !!visitorId,
+  });
+}
