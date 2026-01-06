@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, Clock, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,11 @@ import {
   useFollowUpList, useDashboardServicesInDateRange
 } from "@/hooks/useDashboardData";
 import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
+import { useBirthdayData } from "@/hooks/useBirthdayData";
 import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
-import { startOfMonth, format } from "date-fns";
+import { startOfMonth, format, parseISO, isToday } from "date-fns";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
 
@@ -92,13 +93,13 @@ export default function Dashboard() {
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds);
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds);
   const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds);
-  const { data: mvBreakdown } = useMemberVisitorBreakdown(branchId, serviceIds);
   const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
   const { data: serviceQuality } = useServiceQuality(branchId, serviceIds);
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
+  const { data: birthdays, isLoading: birthdaysLoading } = useBirthdayData(branchId);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;
 
@@ -242,24 +243,102 @@ export default function Dashboard() {
       </Card>
 
       {/* SECTION 3-6: Metrics Grid */}
-      <div className="grid gap-6 lg:grid-cols-4">
-        {/* Trends */}
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Short-Term Trends" icon={BarChart3} /></CardHeader>
-          <CardContent className="space-y-3">
-            <StatCard label="Week Change" value={`${(attendTrend?.weekChange || 0) > 0 ? "+" : ""}${attendTrend?.weekChange || 0}%`} change={attendTrend?.weekChange} />
-            <StatCard label="MTD Attendance" value={attendTrend?.mtdCount || 0} />
-            <StatCard label="vs Last Month" value={`${(attendTrend?.monthChange || 0) > 0 ? "+" : ""}${attendTrend?.monthChange || 0}%`} change={attendTrend?.monthChange} />
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Special Updates - Birthdays */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <SectionHeader title="Special Updates" icon={Gift} />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {birthdaysLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : (
+              <>
+                {/* Past Week Birthdays */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Cake className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Past Week</span>
+                    {(birthdays?.pastWeek?.length || 0) > 0 && (
+                      <Badge variant="secondary" className="ml-auto">{birthdays?.pastWeek?.length}</Badge>
+                    )}
+                  </div>
+                  {!birthdays?.pastWeek?.length ? (
+                    <p className="text-xs text-muted-foreground pl-6">No birthdays in the past week</p>
+                  ) : (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {birthdays.pastWeek.slice(0, 5).map((member) => (
+                        <Link
+                          key={member.id}
+                          to={`/app/members/${member.id}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              {member.photo_url ? (
+                                <img src={member.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                              ) : (
+                                <Cake className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium truncate">{member.full_name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {format(parseISO(member.birthday_date), "MMM d")}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-        {/* Members vs Visitors */}
-        <Card>
-          <CardHeader className="pb-3"><SectionHeader title="Members vs Visitors" icon={UsersRound} /></CardHeader>
-          <CardContent className="space-y-3">
-            <StatCard label="Members Attended" value={mvBreakdown?.members || 0} />
-            <StatCard label="Visitors Attended" value={mvBreakdown?.visitors || 0} />
-            <StatCard label="Visitor Return Rate" value={`${mvBreakdown?.visitorToReturning || 0}%`} description="90-day" />
+                {/* Upcoming Birthdays */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Gift className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Upcoming</span>
+                    {(birthdays?.upcoming?.length || 0) > 0 && (
+                      <Badge className="ml-auto bg-primary">{birthdays?.upcoming?.length}</Badge>
+                    )}
+                  </div>
+                  {!birthdays?.upcoming?.length ? (
+                    <p className="text-xs text-muted-foreground pl-6">No upcoming birthdays this week</p>
+                  ) : (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {birthdays.upcoming.slice(0, 5).map((member) => (
+                        <Link
+                          key={member.id}
+                          to={`/app/members/${member.id}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              {member.photo_url ? (
+                                <img src={member.photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                              ) : (
+                                <Gift className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium truncate">{member.full_name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {isToday(parseISO(member.birthday_date)) && (
+                              <Badge className="bg-green-600 text-xs">Today!</Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {format(parseISO(member.birthday_date), "MMM d")}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
