@@ -69,9 +69,9 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    if (newPin.length < 4) {
+    if (newPin.length < 6) {
       return new Response(
-        JSON.stringify({ error: "PIN must be at least 4 digits" }),
+        JSON.stringify({ error: "PIN must be at least 6 digits" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
