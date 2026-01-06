@@ -93,6 +93,11 @@ export function AnalyticsFilterBar({
   
   const handlePresetChange = (preset: DateRangePreset) => {
     if (preset === "custom") {
+      // Initialize temp range with current filter dates before opening
+      setTempDateRange({
+        from: filters.startDate,
+        to: filters.endDate,
+      });
       setCustomDateOpen(true);
     } else {
       setDatePreset(preset);
