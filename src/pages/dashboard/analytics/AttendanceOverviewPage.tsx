@@ -461,10 +461,10 @@ export default function AttendanceOverviewPage() {
           href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}${filters.serviceIds.length > 0 ? `&services=${filters.serviceIds.join(",")}` : ""}&segment=members`}
         />
         <KPICard
-          title="Visitors"
+          title="New Visitors"
           value={kpis?.totalVisitors || 0}
           icon={UserPlus}
-          description="Total visitors"
+          description="Registered in period"
           isLoading={kpisLoading}
           variant="warning"
           href="/app/visitors"
@@ -602,15 +602,15 @@ export default function AttendanceOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Visitor Check-ins Trend */}
+        {/* New Visitors Registered Trend */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <UserPlus className="w-4 h-4 text-amber-600" />
-              Visitor Check-ins Trend
+              New Visitors Registered
             </CardTitle>
             <CardDescription className="text-xs">
-              Visitor attendance per service
+              Visitors registered per service date
             </CardDescription>
           </CardHeader>
           <CardContent>
