@@ -131,32 +131,28 @@ function useAttendanceKPIs() {
         totalVisitors = count || 0;
       }
 
-      // Absentees: members who missed 3+ consecutive service days
-      // Get all service dates (grouped by day) to determine consecutive absences
+      // Absentees: members who didn't attend ANY service within the filter period
+      // Get all services in the filter period
       let servicesQuery = supabase
         .from("services")
-        .select("id, service_date")
+        .select("id")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
-        .order("service_date", { ascending: false });
+        .gte("service_date", filters.startDate.toISOString().split("T")[0])
+        .lte("service_date", filters.endDate.toISOString().split("T")[0]);
 
       servicesQuery = applyBranchFilter(servicesQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
-      // Apply service filter for absentee calculation
+      // Apply service filter if specific services are selected
       if (filters.serviceIds.length > 0) {
         servicesQuery = servicesQuery.in("id", filters.serviceIds);
       }
 
       const { data: servicesData } = await servicesQuery;
-      
-      // Group services by date (multiple services on same day count as one)
-      const uniqueServiceDates = [...new Set((servicesData || []).map(s => s.service_date))];
-      
-      // Get at least the last 3 service days
-      const lastThreeServiceDays = uniqueServiceDates.slice(0, 3);
-      
-      if (lastThreeServiceDays.length < 3) {
-        // Not enough service days to determine 3-consecutive absences
+      const serviceIdsInPeriod = (servicesData || []).map(s => s.id);
+
+      if (serviceIdsInPeriod.length === 0) {
+        // No services in period
         return {
           totalCheckins,
           uniqueAttendees,
@@ -182,43 +178,22 @@ function useAttendanceKPIs() {
       const { data: allMembers } = await membersQuery;
       const memberIds = (allMembers || []).map(m => m.id);
 
-      // Get services on the last 3 service days
-      let serviceIdsOnLastThreeDays = (servicesData || [])
-        .filter(s => lastThreeServiceDays.includes(s.service_date))
-        .map(s => s.id);
-
-      // If specific services are selected, further filter
-      if (filters.serviceIds.length > 0) {
-        serviceIdsOnLastThreeDays = serviceIdsOnLastThreeDays.filter(id => filters.serviceIds.includes(id));
-      }
-
-      // Get attendance for these services
-      let recentAttendanceQuery = supabase
+      // Get attendance for services in the period
+      let periodAttendanceQuery = supabase
         .from("attendance")
-        .select("member_id, checked_in_at, service_id, services!inner(service_date)")
+        .select("member_id")
         .eq("church_id", profile.church_id)
-        .in("service_id", serviceIdsOnLastThreeDays);
+        .in("service_id", serviceIdsInPeriod);
 
-      recentAttendanceQuery = applyBranchFilter(recentAttendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      periodAttendanceQuery = applyBranchFilter(periodAttendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
 
-      const { data: recentAttendance } = await recentAttendanceQuery;
+      const { data: periodAttendance } = await periodAttendanceQuery;
       
-      // For each member, check which service days they attended
-      const memberAttendanceDays = new Map<string, Set<string>>();
-      memberIds.forEach(id => memberAttendanceDays.set(id, new Set()));
-      
-      (recentAttendance || []).forEach(a => {
-        const serviceDate = (a.services as any)?.service_date;
-        if (serviceDate && memberAttendanceDays.has(a.member_id)) {
-          memberAttendanceDays.get(a.member_id)!.add(serviceDate);
-        }
-      });
+      // Get unique member IDs who attended at least one service
+      const attendedMemberIds = new Set((periodAttendance || []).map(a => a.member_id));
 
-      // Count members who attended NONE of the last 3 service days
-      const absentees = memberIds.filter(id => {
-        const daysAttended = memberAttendanceDays.get(id);
-        return daysAttended && daysAttended.size === 0;
-      }).length;
+      // Absentees = members who didn't attend any service in the period
+      const absentees = memberIds.filter(id => !attendedMemberIds.has(id)).length;
 
       return {
         totalCheckins,
@@ -498,7 +473,7 @@ export default function AttendanceOverviewPage() {
           title="Absentees"
           value={kpis?.absentees || 0}
           icon={UserMinus}
-          description="4+ weeks absent"
+          description="No attendance in period"
           isLoading={kpisLoading}
           variant="destructive"
           href={`/app/analytics/drilldown?period=${filters.datePreset}${filters.branchId ? `&branch=${filters.branchId}` : ""}&segment=absentees`}
