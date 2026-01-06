@@ -490,8 +490,8 @@ export default function VisitorsPage() {
               <p className="text-sm text-muted-foreground">Total Visitors</p>
               <p className="text-3xl font-bold text-foreground">{stats?.total || 0}</p>
             </div>
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Users className="w-6 h-6 text-primary" />
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Users className="w-5 h-5 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -502,8 +502,8 @@ export default function VisitorsPage() {
               <p className="text-sm text-muted-foreground">New Visitors</p>
               <p className="text-3xl font-bold text-foreground">{stats?.new || 0}</p>
             </div>
-            <div className="p-3 rounded-xl bg-amber-500/10">
-              <UserPlus className="w-6 h-6 text-amber-600" />
+            <div className="p-2.5 rounded-xl bg-amber-500/10">
+              <UserPlus className="w-5 h-5 text-amber-600" />
             </div>
           </CardContent>
         </Card>
@@ -514,8 +514,8 @@ export default function VisitorsPage() {
               <p className="text-sm text-muted-foreground">Returning</p>
               <p className="text-3xl font-bold text-foreground">{stats?.returning || 0}</p>
             </div>
-            <div className="p-3 rounded-xl bg-violet-500/10">
-              <RefreshCw className="w-6 h-6 text-violet-600" />
+            <div className="p-2.5 rounded-xl bg-violet-500/10">
+              <RefreshCw className="w-5 h-5 text-violet-600" />
             </div>
           </CardContent>
         </Card>
@@ -526,8 +526,8 @@ export default function VisitorsPage() {
               <p className="text-sm text-muted-foreground">In Follow-up</p>
               <p className="text-3xl font-bold text-foreground">{stats?.inFollowUp || 0}</p>
             </div>
-            <div className="p-3 rounded-xl bg-sky-500/10">
-              <PhoneCall className="w-6 h-6 text-sky-600" />
+            <div className="p-2.5 rounded-xl bg-sky-500/10">
+              <PhoneCall className="w-5 h-5 text-sky-600" />
             </div>
           </CardContent>
         </Card>
@@ -538,8 +538,8 @@ export default function VisitorsPage() {
               <p className="text-sm text-muted-foreground">Converted</p>
               <p className="text-3xl font-bold text-foreground">{stats?.converted || 0}</p>
             </div>
-            <div className="p-3 rounded-xl bg-emerald-500/10">
-              <UserCheck className="w-6 h-6 text-emerald-600" />
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <UserCheck className="w-5 h-5 text-emerald-600" />
             </div>
           </CardContent>
         </Card>

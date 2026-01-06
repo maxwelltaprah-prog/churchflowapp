@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2, QrCode, Phone, Mail, User } from "lucide-react";
+import { Plus, MoreHorizontal, Users, MapPin, Edit, Trash2, Link as LinkIcon, Loader2, QrCode, Phone, Mail, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -82,35 +82,40 @@ export default function BranchesPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Total Branches</CardDescription>
-            <CardTitle className="text-3xl">{branches?.length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {branches?.filter(b => b.is_active).length || 0} active
-            </p>
+        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Branches</p>
+              <p className="text-3xl font-bold text-foreground">{branches?.length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">{branches?.filter(b => b.is_active).length || 0} active</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Building2 className="w-5 h-5 text-primary" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Total Members</CardDescription>
-            <CardTitle className="text-3xl">
-              {totalMembers.toLocaleString()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Across all branches</p>
+        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Members</p>
+              <p className="text-3xl font-bold text-foreground">{totalMembers.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-1">Across all branches</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <Users className="w-5 h-5 text-emerald-600" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Today's Check-ins</CardDescription>
-            <CardTitle className="text-3xl">{stats?.todayCheckins || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">All branches combined</p>
+        <Card className="border border-border border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Today's Check-ins</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.todayCheckins || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">All branches combined</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-500/10">
+              <Users className="w-5 h-5 text-amber-600" />
+            </div>
           </CardContent>
         </Card>
       </div>

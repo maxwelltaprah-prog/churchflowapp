@@ -78,31 +78,40 @@ export default function SpiritualJourneyPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Total Options</CardDescription>
-            <CardTitle className="text-3xl">{journeys?.length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Spiritual milestones</p>
+        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Options</p>
+              <p className="text-3xl font-bold text-foreground">{journeys?.length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Spiritual milestones</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Active</CardDescription>
-            <CardTitle className="text-3xl">{journeys?.filter(j => j.is_active).length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Available for selection</p>
+        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Active</p>
+              <p className="text-3xl font-bold text-foreground">{journeys?.filter(j => j.is_active).length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Available for selection</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Inactive</CardDescription>
-            <CardTitle className="text-3xl">{journeys?.filter(j => !j.is_active).length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Hidden from members</p>
+        <Card className="border border-border border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Inactive</p>
+              <p className="text-3xl font-bold text-foreground">{journeys?.filter(j => !j.is_active).length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Hidden from members</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-500/10">
+              <Sparkles className="w-5 h-5 text-amber-600" />
+            </div>
           </CardContent>
         </Card>
       </div>

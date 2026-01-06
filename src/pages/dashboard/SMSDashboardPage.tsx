@@ -49,11 +49,11 @@ export default function SMSDashboardPage() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Credit Balance */}
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Credit Balance</CardTitle>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <CreditCard className="h-4 w-4 text-primary" />
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <CreditCard className="h-5 w-5 text-primary" />
             </div>
           </CardHeader>
           <CardContent>
@@ -79,11 +79,11 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Total Campaigns */}
-        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-            <div className="p-2 rounded-lg bg-violet-500/10">
-              <MessageSquare className="h-4 w-4 text-violet-600" />
+            <div className="p-2.5 rounded-xl bg-violet-500/10">
+              <MessageSquare className="h-5 w-5 text-violet-600" />
             </div>
           </CardHeader>
           <CardContent>
@@ -97,11 +97,11 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Messages Sent */}
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
           </CardHeader>
           <CardContent>
@@ -115,11 +115,11 @@ export default function SMSDashboardPage() {
         </Card>
 
         {/* Failed Messages */}
-        <Card className="border-l-4 border-l-rose-500 bg-gradient-to-r from-rose-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="border border-border border-l-4 border-l-rose-500 bg-gradient-to-r from-rose-500/5 to-transparent hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Failed</CardTitle>
-            <div className="p-2 rounded-lg bg-rose-500/10">
-              <XCircle className="h-4 w-4 text-rose-600" />
+            <div className="p-2.5 rounded-xl bg-rose-500/10">
+              <XCircle className="h-5 w-5 text-rose-600" />
             </div>
           </CardHeader>
           <CardContent>

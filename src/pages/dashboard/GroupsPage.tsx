@@ -115,37 +115,40 @@ export default function GroupsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Total Groups</CardDescription>
-            <CardTitle className="text-3xl">{groups?.length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {groups?.filter(g => g.is_active).length || 0} active
-            </p>
+        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Groups</p>
+              <p className="text-3xl font-bold text-foreground">{groups?.length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">{groups?.filter(g => g.is_active).length || 0} active</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Church-wide</CardDescription>
-            <CardTitle className="text-3xl">
-              {groups?.filter(g => !g.branch_id).length || 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Cross-branch groups</p>
+        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Church-wide</p>
+              <p className="text-3xl font-bold text-foreground">{groups?.filter(g => !g.branch_id).length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Cross-branch groups</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10">
+              <Users className="w-5 h-5 text-emerald-600" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Branch-specific</CardDescription>
-            <CardTitle className="text-3xl">
-              {groups?.filter(g => g.branch_id).length || 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Local groups</p>
+        <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Branch-specific</p>
+              <p className="text-3xl font-bold text-foreground">{groups?.filter(g => g.branch_id).length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Local groups</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-violet-500/10">
+              <Building2 className="w-5 h-5 text-violet-600" />
+            </div>
           </CardContent>
         </Card>
       </div>
