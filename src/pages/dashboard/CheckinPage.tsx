@@ -56,7 +56,7 @@ export default function CheckinPage() {
     }
 
     try {
-      // Find member by code or QR token
+      // Find member by phone number, member code, or QR token
       const member = await findMember.mutateAsync(codeOrToken);
 
       // Record attendance
@@ -295,9 +295,9 @@ export default function CheckinPage() {
               <TabsContent value="member">
                 <div className="flex gap-3">
                   <Input
-                    placeholder="Enter member code (e.g., CHU-12345)"
+                    placeholder="Enter phone number or member code"
                     value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                    onChange={(e) => setManualCode(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleManualCheckin()}
                     className="font-mono"
                   />

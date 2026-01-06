@@ -30,14 +30,10 @@ export function useCreateMember() {
     }) => {
       if (!profile?.church_id) throw new Error("No church context");
 
-      // Generate member code and QR token
-      const { data: church } = await supabase
-        .from("churches")
-        .select("slug")
-        .eq("id", profile.church_id)
-        .single();
-
-      const memberCode = `${church?.slug?.toUpperCase().substring(0, 3) || "CHU"}-${Math.floor(Math.random() * 100000).toString().padStart(5, "0")}`;
+      // Generate member code using sequential format (church abbreviation + sequence number)
+      const { data: memberCode } = await supabase.rpc('generate_sequential_member_code', {
+        _church_id: profile.church_id
+      });
       const qrToken = crypto.randomUUID();
 
       const insertData: Record<string, unknown> = {
@@ -353,20 +349,23 @@ export function useRecordAttendance() {
   });
 }
 
-// Find member by code or QR token
+// Find member by code, QR token, or phone number
 export function useFindMember() {
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async (codeOrToken: string) => {
+    mutationFn: async (codeOrTokenOrPhone: string) => {
       if (!profile?.church_id) throw new Error("No church context");
 
-      // Try finding by member_code first
+      const input = codeOrTokenOrPhone.trim();
+      const normalizedPhone = input.replace(/\D/g, "");
+      
+      // First try finding by member_code (exact match)
       let { data: member } = await supabase
         .from("members")
         .select("*, branches(name)")
         .eq("church_id", profile.church_id)
-        .eq("member_code", codeOrToken.toUpperCase())
+        .eq("member_code", input.toUpperCase())
         .maybeSingle();
 
       // If not found, try by QR token
@@ -375,9 +374,26 @@ export function useFindMember() {
           .from("members")
           .select("*, branches(name)")
           .eq("church_id", profile.church_id)
-          .eq("qr_code_token", codeOrToken)
+          .eq("qr_code_token", input)
           .maybeSingle();
         member = memberByToken;
+      }
+
+      // If still not found and input looks like a phone number, try by phone
+      if (!member && normalizedPhone.length >= 9) {
+        const { data: members } = await supabase
+          .from("members")
+          .select("*, branches(name)")
+          .eq("church_id", profile.church_id)
+          .eq("is_active", true);
+        
+        // Find exact phone match
+        member = members?.find(m => {
+          const memberPhone = m.phone?.replace(/\D/g, "") || "";
+          return memberPhone === normalizedPhone || 
+                 memberPhone.endsWith(normalizedPhone) || 
+                 normalizedPhone.endsWith(memberPhone);
+        }) || null;
       }
 
       if (!member) {

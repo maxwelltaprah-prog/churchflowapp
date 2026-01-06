@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Church, ArrowLeft, Eye, EyeOff, Hash, Lock, User } from "lucide-react";
+import { Church, ArrowLeft, Eye, EyeOff, Phone, Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,8 +16,8 @@ export default function MemberLogin() {
   const navigate = useNavigate();
 
   const handleMemberCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits, max 4
-    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+    // Only allow digits, max 15 (for full phone numbers)
+    const value = e.target.value.replace(/\D/g, "").slice(0, 15);
     setMemberCode(value);
   };
 
@@ -30,19 +30,19 @@ export default function MemberLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (memberCode.length !== 4) {
+    if (memberCode.length < 9) {
       toast({
-        title: "Invalid Member Code",
-        description: "Please enter exactly 4 digits (the last 4 digits of your phone number).",
+        title: "Invalid Phone Number",
+        description: "Please enter your full phone number (at least 9 digits).",
         variant: "destructive",
       });
       return;
     }
 
-    if (pin.length < 4) {
+    if (pin.length !== 4) {
       toast({
         title: "Invalid PIN",
-        description: "Please enter at least 4 digits for your PIN.",
+        description: "Please enter exactly 4 digits for your PIN.",
         variant: "destructive",
       });
       return;
@@ -51,77 +51,73 @@ export default function MemberLogin() {
     setIsLoading(true);
 
     try {
-      // Find members whose phone ends with these 4 digits and have auth accounts
+      // Find member by exact phone match (normalized)
+      const normalizedPhone = memberCode.replace(/\D/g, "");
       const { data: members, error: memberError } = await supabase
         .from("members")
         .select("id, full_name, phone, approval_status, user_id")
-        .like("phone", `%${memberCode}`)
         .eq("is_active", true)
         .not("user_id", "is", null);
 
       if (memberError) throw memberError;
 
-      if (!members || members.length === 0) {
+      // Filter to find member with matching phone (exact match with normalization)
+      const matchedMember = members?.find(m => {
+        const memberPhone = m.phone?.replace(/\D/g, "") || "";
+        return memberPhone === normalizedPhone || 
+               memberPhone.endsWith(normalizedPhone) || 
+               normalizedPhone.endsWith(memberPhone);
+      });
+
+      if (!matchedMember) {
         toast({
           title: "Member not found",
-          description: "No account found with this member code. Please check and try again.",
+          description: "No account found with this phone number. Please check and try again.",
           variant: "destructive",
         });
         return;
       }
 
-      // Try to authenticate with each matching member until one succeeds
-      let authenticatedMember = null;
-      let lastError = null;
-
-      for (const member of members) {
-        if (!member.user_id || !member.phone) continue;
-
-        if (member.approval_status === "pending") continue;
-        if (member.approval_status === "rejected") continue;
-
-        // Convert phone to the email format used during registration
-        const authEmail = `${member.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
-
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: pin,
+      // Check approval status
+      if (matchedMember.approval_status === "pending") {
+        toast({
+          title: "Pending approval",
+          description: "Your membership is still pending approval. Please wait for an administrator to approve your registration.",
+          variant: "destructive",
         });
-
-        if (!signInError) {
-          authenticatedMember = member;
-          break;
-        }
-        
-        lastError = signInError;
+        return;
       }
 
-      if (!authenticatedMember) {
-        // Check if all matching members are pending/rejected
-        const pendingMember = members.find(m => m.approval_status === "pending");
-        const rejectedMember = members.find(m => m.approval_status === "rejected");
+      if (matchedMember.approval_status === "rejected") {
+        toast({
+          title: "Membership rejected",
+          description: "Your membership application was not approved. Please contact your church administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-        if (pendingMember && members.length === 1) {
-          toast({
-            title: "Pending approval",
-            description: "Your membership is still pending approval. Please wait for an administrator to approve your registration.",
-            variant: "destructive",
-          });
-          return;
-        }
+      if (!matchedMember.user_id || !matchedMember.phone) {
+        toast({
+          title: "Account not set up",
+          description: "Your account is not fully set up. Please contact your church administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-        if (rejectedMember && members.length === 1) {
-          toast({
-            title: "Membership rejected",
-            description: "Your membership application was not approved. Please contact your church administrator.",
-            variant: "destructive",
-          });
-          return;
-        }
+      // Convert phone to the email format used during registration
+      const authEmail = `${matchedMember.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
 
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: pin,
+      });
+
+      if (signInError) {
         toast({
           title: "Invalid credentials",
-          description: "The member code or PIN is incorrect. Please try again.",
+          description: "The phone number or PIN is incorrect. Please try again.",
           variant: "destructive",
         });
         return;
@@ -129,7 +125,7 @@ export default function MemberLogin() {
 
       toast({
         title: "Welcome back!",
-        description: `Logged in as ${authenticatedMember.full_name}`,
+        description: `Logged in as ${matchedMember.full_name}`,
       });
       navigate("/member");
     } catch (error: any) {
@@ -170,31 +166,31 @@ export default function MemberLogin() {
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">Welcome Back</h1>
             <p className="text-muted-foreground">
-              Sign in with your member code and PIN
+              Sign in with your phone number and PIN
             </p>
           </div>
 
           <div className="bg-card rounded-2xl shadow-elevated border border-border p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="memberCode">Member Code</Label>
+                <Label htmlFor="memberCode">Phone Number</Label>
                 <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="memberCode"
-                    type="text"
+                    type="tel"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    placeholder="Last 4 digits of your phone number"
+                    placeholder="Enter your phone number"
                     value={memberCode}
                     onChange={handleMemberCodeChange}
-                    className="pl-10 h-12 text-center text-lg font-mono tracking-widest"
-                    maxLength={4}
+                    className="pl-10 h-12 text-lg font-mono tracking-wide"
+                    maxLength={15}
                     required
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Enter the last 4 digits of your registered phone number
+                  Enter your registered phone number
                 </p>
               </div>
 
@@ -211,7 +207,7 @@ export default function MemberLogin() {
                     className="pl-10 pr-10 h-12 text-center text-lg font-mono tracking-widest"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={6}
+                    maxLength={4}
                     required
                   />
                   <button
@@ -229,7 +225,7 @@ export default function MemberLogin() {
                 variant="hero"
                 size="lg"
                 className="w-full"
-                disabled={isLoading || memberCode.length !== 4}
+                disabled={isLoading || memberCode.length < 9}
               >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
