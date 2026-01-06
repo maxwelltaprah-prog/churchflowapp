@@ -24,7 +24,7 @@ import {
   Clock,
   Activity,
   AlertTriangle,
-  Building2,
+  
   CheckCircle2,
   XCircle,
   Users,
@@ -37,7 +37,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useBranchAccess, applyBranchFilter } from "@/hooks/useBranchAccess";
-import { useBranches } from "@/hooks/useChurchData";
 import {
   BarChart,
   Bar,
@@ -55,7 +54,6 @@ function useServiceQualityMetrics() {
   const { profile } = useAuth();
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
-  const { data: branches } = useBranches();
 
   return useQuery({
     queryKey: ["service-quality", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds],
@@ -65,7 +63,7 @@ function useServiceQualityMetrics() {
       // Fetch attendance with timestamps
       let attendanceQuery = supabase
         .from("attendance")
-        .select("id, checked_in_at, member_id, branch_id, is_cross_branch, member_home_branch_id, checkin_method")
+        .select("id, checked_in_at, member_id, branch_id, checkin_method")
         .eq("church_id", profile.church_id)
         .gte("checked_in_at", filters.startDate.toISOString())
         .lte("checked_in_at", filters.endDate.toISOString());
@@ -107,26 +105,6 @@ function useServiceQualityMetrics() {
       const throughputData = Object.entries(thirtyMinBuckets)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([time, count]) => ({ time, checkins: count }));
-
-      // Cross-branch attendance
-      const crossBranchCheckins = checkins.filter(c => c.is_cross_branch === true);
-      const crossBranchCount = crossBranchCheckins.length;
-
-      // Cross-branch by origin (home branch)
-      const crossBranchByOrigin: Record<string, number> = {};
-      crossBranchCheckins.forEach(c => {
-        const homeBranch = c.member_home_branch_id || "unknown";
-        crossBranchByOrigin[homeBranch] = (crossBranchByOrigin[homeBranch] || 0) + 1;
-      });
-
-      const crossBranchBreakdown = Object.entries(crossBranchByOrigin).map(([branchId, count]) => {
-        const branch = branches?.find(b => b.id === branchId);
-        return {
-          branchId,
-          branchName: branch?.name || "Unknown Branch",
-          count,
-        };
-      }).sort((a, b) => b.count - a.count);
 
       // Check-in method breakdown
       const methodCounts: Record<string, number> = { staff_scan: 0, self_scan: 0 };
@@ -192,8 +170,6 @@ function useServiceQualityMetrics() {
         peakCount,
         peakTimeLabel: `${peakHour.toString().padStart(2, "0")}:00 - ${(peakHour + 1).toString().padStart(2, "0")}:00`,
         throughputData,
-        crossBranchCount,
-        crossBranchBreakdown,
         checkinMethods: methodCounts,
         completeness,
       };
@@ -361,7 +337,7 @@ export default function ServiceQualityPage() {
       <AnalyticsFilterBar showServiceFilter={true} />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardContent className="p-5">
             {isLoading ? (
@@ -400,24 +376,6 @@ export default function ServiceQualityPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-5">
-            {isLoading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : (
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Cross-Branch</p>
-                  <p className="text-3xl font-bold mt-1">{metrics?.crossBranchCount || 0}</p>
-                  <p className="text-xs text-muted-foreground">Visiting from other branches</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-green-500/10">
-                  <Building2 className="h-5 w-5 text-green-600" />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <Card>
           <CardContent className="p-5">
@@ -563,106 +521,65 @@ export default function ServiceQualityPage() {
         </Card>
       </div>
 
-      {/* Cross-Branch & Check-in Methods */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Cross-Branch Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-green-600" />
-              Cross-Branch Visitors
-            </CardTitle>
-            <CardDescription>Members checking in from other home branches</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
-            ) : metrics?.crossBranchBreakdown?.length ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Home Branch</TableHead>
-                    <TableHead className="text-right">Visits</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {metrics.crossBranchBreakdown.map((row) => (
-                    <TableRow key={row.branchId}>
-                      <TableCell className="font-medium">{row.branchName}</TableCell>
-                      <TableCell className="text-right">{row.count}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
-                <Building2 className="w-12 h-12 mb-3 opacity-20" />
-                <p>No cross-branch check-ins</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Check-in Methods */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="w-5 h-5 text-accent" />
-              Check-in Methods
-            </CardTitle>
-            <CardDescription>How members are checking in</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
-            ) : metrics?.checkinMethods ? (
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Staff Scan</p>
-                      <p className="text-xs text-muted-foreground">Admin/usher scanned member</p>
-                    </div>
+      {/* Check-in Methods */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Activity className="w-5 h-5 text-accent" />
+            Check-in Methods
+          </CardTitle>
+          <CardDescription>How members are checking in</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-[200px] w-full" />
+          ) : metrics?.checkinMethods ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-4 rounded-lg border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Users className="w-5 h-5 text-primary" />
                   </div>
-                  <p className="text-2xl font-bold">{metrics.checkinMethods.staff_scan || 0}</p>
+                  <div>
+                    <p className="font-medium">Staff Scan</p>
+                    <p className="text-xs text-muted-foreground">Admin/usher scanned member</p>
+                  </div>
                 </div>
+                <p className="text-2xl font-bold">{metrics.checkinMethods.staff_scan || 0}</p>
+              </div>
 
-                <div className="p-4 rounded-lg border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-accent/10">
-                      <CheckCircle2 className="w-5 h-5 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Self Check-in</p>
-                      <p className="text-xs text-muted-foreground">Member checked themselves in</p>
-                    </div>
+              <div className="p-4 rounded-lg border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-accent/10">
+                    <CheckCircle2 className="w-5 h-5 text-accent" />
                   </div>
-                  <p className="text-2xl font-bold">{metrics.checkinMethods.self_scan || 0}</p>
+                  <div>
+                    <p className="font-medium">Self Check-in</p>
+                    <p className="text-xs text-muted-foreground">Member checked themselves in</p>
+                  </div>
                 </div>
+                <p className="text-2xl font-bold">{metrics.checkinMethods.self_scan || 0}</p>
+              </div>
 
-                {metrics.totalCheckins > 0 && (
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Self-service adoption</span>
-                      <span className="font-medium text-foreground">
-                        {Math.round(((metrics.checkinMethods.self_scan || 0) / metrics.totalCheckins) * 100)}%
-                      </span>
-                    </div>
+              {metrics.totalCheckins > 0 && (
+                <div className="md:col-span-2 pt-4 border-t">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Self-service adoption</span>
+                    <span className="font-medium text-foreground">
+                      {Math.round(((metrics.checkinMethods.self_scan || 0) / metrics.totalCheckins) * 100)}%
+                    </span>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
-                <Activity className="w-12 h-12 mb-3 opacity-20" />
-                <p>No check-in data</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+              <Activity className="w-12 h-12 mb-3 opacity-20" />
+              <p>No check-in data</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Incomplete Members Modal */}
       <IncompleteMembersModal
