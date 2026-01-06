@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -63,7 +65,17 @@ const CHART_COLORS = {
   success: "hsl(142 76% 36%)",
   warning: "hsl(38 92% 50%)",
   muted: "hsl(var(--muted-foreground))",
+  purple: "hsl(280 65% 60%)",
+  blue: "hsl(200 80% 50%)",
 };
+
+const TREND_SERIES = [
+  { key: "totalMembers", label: "Total Members", color: CHART_COLORS.primary },
+  { key: "activeMembers", label: "Active Members", color: CHART_COLORS.success },
+  { key: "inactiveMembers", label: "Inactive Members", color: CHART_COLORS.muted },
+  { key: "transferredMembers", label: "Transferred Members", color: CHART_COLORS.warning },
+  { key: "visitors", label: "Visitors", color: CHART_COLORS.purple },
+] as const;
 
 // =================== Member Growth KPIs Hook ===================
 function useMemberGrowthKPIs() {
@@ -374,6 +386,99 @@ function useMonthlyComparison() {
   });
 }
 
+// =================== 6-Month Cumulative Trend Hook ===================
+function useSixMonthTrend() {
+  const { profile } = useAuth();
+  const { accessibleBranchIds } = useBranchAccess();
+  const { filters } = useAnalyticsFilters();
+
+  return useQuery({
+    queryKey: ["six-month-trend", profile?.church_id, filters.branchId, accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+
+      // Get last 6 months
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthEnd = endOfMonth(subMonths(new Date(), i));
+        months.push({ 
+          end: monthEnd, 
+          label: format(monthEnd, "MMM yyyy"),
+          shortLabel: format(monthEnd, "MMM")
+        });
+      }
+
+      const results = await Promise.all(
+        months.map(async ({ end, label, shortLabel }) => {
+          // Cumulative counts up to the end of each month
+          let totalQuery = supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .eq("is_active", true)
+            .lte("date_joined", format(end, "yyyy-MM-dd"));
+          totalQuery = applyBranchFilter(totalQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          let activeQuery = supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .eq("is_active", true)
+            .eq("membership_status", "active")
+            .lte("date_joined", format(end, "yyyy-MM-dd"));
+          activeQuery = applyBranchFilter(activeQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          let inactiveQuery = supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .eq("is_active", true)
+            .eq("membership_status", "inactive")
+            .lte("date_joined", format(end, "yyyy-MM-dd"));
+          inactiveQuery = applyBranchFilter(inactiveQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          let transferredQuery = supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .eq("is_active", true)
+            .eq("membership_status", "transferred")
+            .lte("date_joined", format(end, "yyyy-MM-dd"));
+          transferredQuery = applyBranchFilter(transferredQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          let visitorsQuery = supabase
+            .from("visitors")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .lte("first_visit_date", format(end, "yyyy-MM-dd"));
+          visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+          const [total, active, inactive, transferred, visitors] = await Promise.all([
+            totalQuery,
+            activeQuery,
+            inactiveQuery,
+            transferredQuery,
+            visitorsQuery,
+          ]);
+
+          return {
+            month: shortLabel,
+            fullMonth: label,
+            totalMembers: total.count || 0,
+            activeMembers: active.count || 0,
+            inactiveMembers: inactive.count || 0,
+            transferredMembers: transferred.count || 0,
+            visitors: visitors.count || 0,
+          };
+        })
+      );
+
+      return results;
+    },
+    enabled: !!profile?.church_id,
+  });
+}
+
 // =================== KPI Card Component ===================
 interface KPICardProps {
   title: string;
@@ -440,11 +545,24 @@ export default function MemberGrowthPage() {
   const { data: trendResult, isLoading: trendLoading } = useAcquisitionTrend();
   const { data: retention, isLoading: retentionLoading } = useRetentionMetrics();
   const { data: monthlyData, isLoading: monthlyLoading } = useMonthlyComparison();
+  const { data: sixMonthTrend, isLoading: sixMonthLoading } = useSixMonthTrend();
+
+  // State for selected series in comparison chart
+  const [selectedSeries, setSelectedSeries] = useState<string[]>(["totalMembers", "activeMembers"]);
 
   const trendData = trendResult?.data || [];
   const hasTrendData = trendResult?.hasData || false;
   
   const periodLabel = formatDateRangeLabel(filters);
+
+  // Toggle series selection
+  const toggleSeries = (seriesKey: string) => {
+    setSelectedSeries(prev => 
+      prev.includes(seriesKey) 
+        ? prev.filter(k => k !== seriesKey)
+        : [...prev, seriesKey]
+    );
+  };
 
   // Status breakdown for the table
   const statusBreakdown = useMemo(() => {
@@ -510,6 +628,83 @@ export default function MemberGrowthPage() {
           variant="warning"
         />
       </div>
+
+      {/* 6-Month Comparison Chart - Full Width */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                6-Month Trend Comparison
+              </CardTitle>
+              <CardDescription>
+                Cumulative counts at end of each month
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {TREND_SERIES.map((series) => (
+                <div key={series.key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={series.key}
+                    checked={selectedSeries.includes(series.key)}
+                    onCheckedChange={() => toggleSeries(series.key)}
+                  />
+                  <Label 
+                    htmlFor={series.key} 
+                    className="text-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: series.color }}
+                    />
+                    {series.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {sixMonthLoading ? (
+            <Skeleton className="h-[320px] w-full" />
+          ) : sixMonthTrend && sixMonthTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={sixMonthTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12 }} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                  labelFormatter={(_, payload) => payload[0]?.payload?.fullMonth || ""}
+                />
+                <Legend />
+                {TREND_SERIES.filter(s => selectedSeries.includes(s.key)).map((series) => (
+                  <Line
+                    key={series.key}
+                    type="linear"
+                    dataKey={series.key}
+                    name={series.label}
+                    stroke={series.color}
+                    strokeWidth={2}
+                    dot={{ fill: series.color, strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[320px] flex flex-col items-center justify-center text-muted-foreground">
+              <Activity className="w-12 h-12 mb-3 opacity-20" />
+              <p>No data available</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
