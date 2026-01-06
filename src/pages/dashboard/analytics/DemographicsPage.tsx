@@ -129,61 +129,49 @@ function useDemographicsData() {
   const { filters } = useAnalyticsFilters();
   const { accessibleBranchIds } = useBranchAccess();
 
-  // Determine if user has applied a filter (service selected or non-default date range)
-  const isFiltered = filters.serviceIds.length > 0 || filters.serviceId !== null;
+  // Determine if a date filter is applied (non-default preset)
+  const isDateFiltered = filters.datePreset !== "last_30_days";
 
   return useQuery({
-    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), filters.serviceIds, filters.serviceId, accessibleBranchIds, isFiltered],
+    queryKey: ["demographics-data", profile?.church_id, filters.branchId, filters.startDate.toISOString(), filters.endDate.toISOString(), accessibleBranchIds, isDateFiltered],
     queryFn: async () => {
       if (!profile?.church_id) return null;
 
-      let uniqueMemberIds: string[] = [];
-
-      if (isFiltered) {
-        // Filter by attendance when a specific service/date is selected
-        let attendanceQuery = supabase
-          .from("attendance")
-          .select("member_id")
-          .eq("church_id", profile.church_id)
-          .gte("checked_in_at", filters.startDate.toISOString())
-          .lte("checked_in_at", filters.endDate.toISOString());
-
-        attendanceQuery = applyBranchFilter(attendanceQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
-
-        const { data: attendanceData } = await attendanceQuery;
-        uniqueMemberIds = [...new Set((attendanceData || []).map(a => a.member_id))];
-
-        if (uniqueMemberIds.length === 0) {
-          return {
-            members: [],
-            totalAttendees: 0,
-            genderDistribution: [],
-            ageDistribution: [],
-            membershipDistribution: [],
-            maritalDistribution: [],
-            areaDistribution: [],
-            occupationDistribution: [],
-            spiritualJourneyDistribution: [],
-          };
-        }
-      }
-
-      // Fetch member demographics - all members if unfiltered, or only attendees if filtered
+      // Fetch members filtered by registration date (date_joined or created_at)
       let membersQuery = supabase
         .from("members")
-        .select("id, full_name, phone, gender, date_of_birth, membership_status, marital_status, occupation, residential_area, area_zone, branch_id")
+        .select("id, full_name, phone, gender, date_of_birth, membership_status, marital_status, occupation, residential_area, area_zone, branch_id, date_joined, created_at")
         .eq("church_id", profile.church_id)
         .eq("is_active", true);
 
-      if (isFiltered) {
-        membersQuery = membersQuery.in("id", uniqueMemberIds);
-      } else {
-        // Default: all members, apply branch filter
-        membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+      // Apply branch filter
+      membersQuery = applyBranchFilter(membersQuery, "branch_id", filters.branchId || undefined, accessibleBranchIds);
+
+      // If date filter is applied, filter by member registration date
+      if (isDateFiltered) {
+        const startDateStr = filters.startDate.toISOString().split('T')[0];
+        const endDateStr = filters.endDate.toISOString().split('T')[0];
+        membersQuery = membersQuery
+          .gte("date_joined", startDateStr)
+          .lte("date_joined", endDateStr);
       }
 
       const { data: members } = await membersQuery;
-      uniqueMemberIds = (members || []).map(m => m.id);
+      const uniqueMemberIds = (members || []).map(m => m.id);
+
+      if (uniqueMemberIds.length === 0) {
+        return {
+          members: [],
+          totalAttendees: 0,
+          genderDistribution: [],
+          ageDistribution: [],
+          membershipDistribution: [],
+          maritalDistribution: [],
+          areaDistribution: [],
+          occupationDistribution: [],
+          spiritualJourneyDistribution: [],
+        };
+      }
       const memberData = (members || []) as MemberDemographic[];
 
       // Calculate age from DOB
