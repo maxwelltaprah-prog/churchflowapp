@@ -3,80 +3,147 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface AdminUser {
-  id: string;
+  id: string; // user_roles.id
   user_id: string;
+  member_id: string | null;
   role: "church_admin" | "branch_admin" | "usher";
   church_id: string;
-  branch_id: string | null;
+  is_active: boolean;
   created_at: string;
+  member: {
+    id: string;
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    photo_url: string | null;
+  } | null;
   profile: {
     id: string;
     full_name: string | null;
     email: string | null;
   } | null;
-  branch: {
+  menuPermissions: string[];
+  branchPermissions: {
     id: string;
     name: string;
-  } | null;
+  }[];
 }
 
-export function useAdmins() {
+export function useAdmins(includeInactive = false) {
   const { profile, isChurchAdmin } = useAuth();
-  
+
   return useQuery({
-    queryKey: ["admins", profile?.church_id],
+    queryKey: ["admins", profile?.church_id, includeInactive],
     queryFn: async () => {
       if (!profile?.church_id) return [];
-      
-      // First fetch user_roles with their branch info
-      const { data: roles, error: rolesError } = await supabase
+
+      // 1. Fetch user_roles with member and profile info
+      let query = supabase
         .from("user_roles")
         .select(`
           id,
           user_id,
+          member_id,
           role,
           church_id,
-          branch_id,
+          is_active,
           created_at,
-          branches!left (
+          members!left (
             id,
-            name
+            full_name,
+            email,
+            phone,
+            photo_url
+          ),
+          profiles!left (
+            id,
+            full_name,
+            email
           )
         `)
         .eq("church_id", profile.church_id)
         .in("role", ["church_admin", "branch_admin", "usher"])
         .order("created_at", { ascending: false });
 
+      if (!includeInactive) {
+        query = query.eq("is_active", true);
+      }
+
+      const { data: roles, error: rolesError } = await query;
+
       if (rolesError) throw rolesError;
-      
-      // Get unique user IDs
-      const userIds = [...new Set(roles?.map(r => r.user_id) || [])];
-      
-      // Fetch profiles for these users
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
-        
-      if (profilesError) throw profilesError;
-      
-      // Create a map for quick profile lookup
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      
-      // Combine the data
-      const admins: AdminUser[] = (roles || []).map(role => ({
-        id: role.id,
-        user_id: role.user_id,
-        role: role.role as "church_admin" | "branch_admin" | "usher",
-        church_id: role.church_id,
-        branch_id: role.branch_id,
-        created_at: role.created_at,
-        profile: profileMap.get(role.user_id) || null,
-        branch: role.branches ? {
-          id: role.branches.id,
-          name: role.branches.name
-        } : null
-      }));
+      if (!roles || roles.length === 0) return [];
+
+      // 2. Get all role IDs
+      const roleIds = roles.map((r) => r.id);
+
+      // 3. Fetch menu permissions for these roles
+      const { data: menuPerms, error: menuError } = await supabase
+        .from("admin_menu_permissions")
+        .select("user_role_id, menu_key")
+        .in("user_role_id", roleIds);
+
+      if (menuError) {
+        console.error("Menu permissions error:", menuError);
+      }
+
+      // 4. Fetch branch permissions with branch names
+      const { data: branchPerms, error: branchError } = await supabase
+        .from("admin_branch_permissions")
+        .select(`
+          user_role_id,
+          branch_id,
+          branches!inner (
+            id,
+            name
+          )
+        `)
+        .in("user_role_id", roleIds);
+
+      if (branchError) {
+        console.error("Branch permissions error:", branchError);
+      }
+
+      // 5. Build the result
+      const admins: AdminUser[] = roles.map((role) => {
+        const memberData = role.members as any;
+        const profileData = role.profiles as any;
+
+        const roleMenuPerms = (menuPerms || [])
+          .filter((p) => p.user_role_id === role.id)
+          .map((p) => p.menu_key);
+
+        const roleBranchPerms = (branchPerms || [])
+          .filter((p) => p.user_role_id === role.id)
+          .map((p) => ({
+            id: (p.branches as any).id,
+            name: (p.branches as any).name,
+          }));
+
+        return {
+          id: role.id,
+          user_id: role.user_id,
+          member_id: role.member_id,
+          role: role.role as "church_admin" | "branch_admin" | "usher",
+          church_id: role.church_id,
+          is_active: role.is_active,
+          created_at: role.created_at,
+          member: memberData ? {
+            id: memberData.id,
+            full_name: memberData.full_name,
+            email: memberData.email,
+            phone: memberData.phone,
+            photo_url: memberData.photo_url,
+          } : null,
+          profile: profileData ? {
+            id: profileData.id,
+            full_name: profileData.full_name,
+            email: profileData.email,
+          } : null,
+          menuPermissions: roleMenuPerms,
+          branchPermissions: roleBranchPerms,
+        };
+      });
 
       return admins;
     },
@@ -84,52 +151,53 @@ export function useAdmins() {
   });
 }
 
-export function useAdminsByUser() {
-  const { data: admins, ...rest } = useAdmins();
-  
-  // Group admins by user_id to consolidate multiple branch assignments
-  const adminsByUser = admins?.reduce((acc, admin) => {
-    const existing = acc.get(admin.user_id);
-    if (existing) {
-      // User already exists, add branch to their list
-      if (admin.branch) {
-        existing.branches.push(admin.branch);
-      }
-      // If this role is "higher" priority, update the main role
-      const rolePriority = { church_admin: 3, branch_admin: 2, usher: 1 };
-      if (rolePriority[admin.role] > rolePriority[existing.role]) {
-        existing.role = admin.role;
-      }
-    } else {
-      // New user entry
-      acc.set(admin.user_id, {
-        user_id: admin.user_id,
-        profile: admin.profile,
-        role: admin.role,
-        church_id: admin.church_id,
-        branches: admin.branch ? [admin.branch] : [],
-        created_at: admin.created_at,
-        roleIds: [admin.id]
-      });
-    }
-    // Always track all role IDs for this user
-    const entry = acc.get(admin.user_id)!;
-    if (!entry.roleIds.includes(admin.id)) {
-      entry.roleIds.push(admin.id);
-    }
-    return acc;
-  }, new Map<string, {
-    user_id: string;
-    profile: AdminUser["profile"];
-    role: AdminUser["role"];
-    church_id: string;
-    branches: { id: string; name: string }[];
-    created_at: string;
-    roleIds: string[];
-  }>());
-  
-  return {
-    ...rest,
-    data: adminsByUser ? Array.from(adminsByUser.values()) : undefined
-  };
+// Search members for admin selection
+export function useSearchMembersForAdmin(searchQuery: string) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ["members-admin-search", profile?.church_id, searchQuery],
+    queryFn: async () => {
+      if (!profile?.church_id || searchQuery.length < 2) return [];
+
+      const search = `%${searchQuery}%`;
+
+      const { data, error } = await supabase
+        .from("members")
+        .select("id, full_name, email, phone, photo_url, branch_id, branches(name)")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .eq("approval_status", "approved")
+        .or(`full_name.ilike.${search},email.ilike.${search},phone.ilike.${search}`)
+        .order("full_name")
+        .limit(20);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!profile?.church_id && searchQuery.length >= 2,
+  });
+}
+
+// Check if member is already an admin
+export function useMemberAdminStatus(memberId: string | null) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ["member-admin-status", profile?.church_id, memberId],
+    queryFn: async () => {
+      if (!profile?.church_id || !memberId) return null;
+
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("id, role, is_active")
+        .eq("church_id", profile.church_id)
+        .eq("member_id", memberId)
+        .in("role", ["church_admin", "branch_admin", "usher"]);
+
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
+    },
+    enabled: !!profile?.church_id && !!memberId,
+  });
 }

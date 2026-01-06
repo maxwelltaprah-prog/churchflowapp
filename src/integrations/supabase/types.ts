@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_branch_permissions: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          user_role_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          user_role_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          user_role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_branch_permissions_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_branch_permissions_user_role_id_fkey"
+            columns: ["user_role_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_menu_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          menu_key: string
+          user_role_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_key: string
+          user_role_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_key?: string
+          user_role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_menu_permissions_user_role_id_fkey"
+            columns: ["user_role_id"]
+            isOneToOne: false
+            referencedRelation: "user_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_notifications: {
         Row: {
           church_id: string
@@ -1001,6 +1066,8 @@ export type Database = {
           church_id: string
           created_at: string
           id: string
+          is_active: boolean
+          member_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -1009,6 +1076,8 @@ export type Database = {
           church_id: string
           created_at?: string
           id?: string
+          is_active?: boolean
+          member_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -1017,6 +1086,8 @@ export type Database = {
           church_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean
+          member_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -1033,6 +1104,13 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]
@@ -1240,7 +1318,19 @@ export type Database = {
         Args: { _church_id: string }
         Returns: string
       }
+      get_accessible_branches: {
+        Args: { _church_id: string; _user_id: string }
+        Returns: string[]
+      }
+      get_menu_permissions: {
+        Args: { _church_id: string; _user_id: string }
+        Returns: string[]
+      }
       get_user_church_id: { Args: { _user_id: string }; Returns: string }
+      has_menu_access: {
+        Args: { _church_id: string; _menu_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _church_id: string

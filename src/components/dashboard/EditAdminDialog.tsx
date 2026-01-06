@@ -20,11 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useBranches } from "@/hooks/useChurchData";
-import { useUpdateAdmin } from "@/hooks/useAdminMutations";
+import { useUpdateAdminPermissions } from "@/hooks/useAdminMutations";
+import { ALL_MENUS } from "@/hooks/useAdminPermissions";
+import type { AdminUser } from "@/hooks/useAdminsData";
 
 const formSchema = z.object({
   role: z.enum(["church_admin", "branch_admin", "usher"]),
+  menuPermissions: z.array(z.string()),
   branchIds: z.array(z.string()),
 }).refine((data) => {
   if (data.role !== "church_admin" && data.branchIds.length === 0) {
@@ -38,27 +43,15 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-interface AdminToEdit {
-  user_id: string;
-  profile: {
-    id: string;
-    full_name: string | null;
-    email: string | null;
-  } | null;
-  role: "church_admin" | "branch_admin" | "usher";
-  branches: { id: string; name: string }[];
-  roleIds: string[];
-}
-
 interface EditAdminDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  admin: AdminToEdit | null;
+  admin: AdminUser | null;
 }
 
 export function EditAdminDialog({ open, onOpenChange, admin }: EditAdminDialogProps) {
   const { data: branches } = useBranches();
-  const updateAdmin = useUpdateAdmin();
+  const updateAdmin = useUpdateAdminPermissions();
 
   const {
     watch,
@@ -70,18 +63,21 @@ export function EditAdminDialog({ open, onOpenChange, admin }: EditAdminDialogPr
     resolver: zodResolver(formSchema),
     defaultValues: {
       role: "branch_admin",
+      menuPermissions: [],
       branchIds: [],
     },
   });
 
   const selectedRole = watch("role");
   const selectedBranchIds = watch("branchIds");
+  const selectedMenus = watch("menuPermissions");
 
   useEffect(() => {
     if (admin) {
       reset({
         role: admin.role,
-        branchIds: admin.branches.map((b) => b.id),
+        menuPermissions: admin.menuPermissions || [],
+        branchIds: admin.branchPermissions?.map((b) => b.id) || [],
       });
     }
   }, [admin, reset]);
@@ -90,10 +86,10 @@ export function EditAdminDialog({ open, onOpenChange, admin }: EditAdminDialogPr
     if (!admin) return;
 
     await updateAdmin.mutateAsync({
-      userId: admin.user_id,
+      userRoleId: admin.id,
       role: data.role,
+      menuPermissions: data.role === "church_admin" ? [] : data.menuPermissions,
       branchIds: data.role === "church_admin" ? [] : data.branchIds,
-      currentRoleIds: admin.roleIds,
     });
     onOpenChange(false);
   };
@@ -107,108 +103,192 @@ export function EditAdminDialog({ open, onOpenChange, admin }: EditAdminDialogPr
     }
   };
 
+  const handleMenuToggle = (menuKey: string, checked: boolean) => {
+    const current = selectedMenus || [];
+    if (checked) {
+      setValue("menuPermissions", [...current, menuKey]);
+    } else {
+      setValue("menuPermissions", current.filter((k) => k !== menuKey));
+    }
+  };
+
+  const handleSelectAllMenus = () => {
+    const allKeys = ALL_MENUS.map((m) => m.key);
+    setValue("menuPermissions", allKeys);
+  };
+
+  const handleSelectAllBranches = () => {
+    const allIds = branches?.map((b) => b.id) || [];
+    setValue("branchIds", allIds);
+  };
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return "?";
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
   const getRoleDescription = (role: string) => {
     switch (role) {
       case "church_admin":
-        return "Full access to all branches and settings";
+        return "Full access to all branches, menus, and settings. Cannot be restricted.";
       case "branch_admin":
-        return "Can manage members, services, and attendance for selected branches";
+        return "Can manage members, services, and attendance for selected branches.";
       case "usher":
-        return "Can perform check-ins for selected branches only";
+        return "Limited access based on assigned menus and branches.";
       default:
         return "";
     }
   };
 
+  const displayName = admin?.member?.full_name || admin?.profile?.full_name || "Unknown";
+  const displayEmail = admin?.member?.email || admin?.profile?.email || "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Edit Administrator</DialogTitle>
+          <DialogTitle>Edit Administrator Permissions</DialogTitle>
           <DialogDescription>
-            Update role and branch access for {admin?.profile?.full_name || admin?.profile?.email}
+            Update role, menu access, and branch permissions
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="p-3 bg-secondary/50 rounded-lg">
-            <p className="font-medium">{admin?.profile?.full_name || "Unknown"}</p>
-            <p className="text-sm text-muted-foreground">{admin?.profile?.email}</p>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-hidden flex flex-col">
+          {/* Admin info header */}
+          <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg mb-4">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={admin?.member?.photo_url || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {getInitials(displayName)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium">{displayName}</p>
+              <p className="text-sm text-muted-foreground">{displayEmail}</p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select
-              value={selectedRole}
-              onValueChange={(value: FormData["role"]) => {
-                setValue("role", value);
-                if (value === "church_admin") {
-                  setValue("branchIds", []);
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="church_admin">Church Admin</SelectItem>
-                <SelectItem value="branch_admin">Branch Admin</SelectItem>
-                <SelectItem value="usher">Usher / Staff</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {getRoleDescription(selectedRole)}
-            </p>
-          </div>
-
-          {selectedRole !== "church_admin" && (
-            <div className="space-y-2">
-              <Label>Branch Access</Label>
-              <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-                {branches?.map((branch) => (
-                  <div key={branch.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`edit-branch-${branch.id}`}
-                      checked={selectedBranchIds?.includes(branch.id)}
-                      onCheckedChange={(checked) =>
-                        handleBranchToggle(branch.id, checked as boolean)
-                      }
-                    />
-                    <label
-                      htmlFor={`edit-branch-${branch.id}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {branch.name}
-                      {branch.is_main_branch && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (Main)
-                        </span>
-                      )}
-                    </label>
-                  </div>
-                ))}
-                {(!branches || branches.length === 0) && (
-                  <p className="text-sm text-muted-foreground">No branches available</p>
-                )}
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6 pb-4">
+              {/* Role Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={selectedRole}
+                  onValueChange={(value: FormData["role"]) => {
+                    setValue("role", value);
+                    if (value === "church_admin") {
+                      setValue("branchIds", []);
+                      setValue("menuPermissions", []);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="church_admin">Church Admin (Superadmin)</SelectItem>
+                    <SelectItem value="branch_admin">Branch Admin</SelectItem>
+                    <SelectItem value="usher">Usher / Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {getRoleDescription(selectedRole)}
+                </p>
               </div>
-              {errors.branchIds && (
-                <p className="text-sm text-destructive">{errors.branchIds.message}</p>
+
+              {/* Menu Permissions (only for non-church_admin) */}
+              {selectedRole !== "church_admin" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Menu Access</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSelectAllMenus}
+                    >
+                      Select All
+                    </Button>
+                  </div>
+                  <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {ALL_MENUS.filter((m) => m.key !== "admins").map((menu) => (
+                      <div key={menu.key} className="flex items-start space-x-2">
+                        <Checkbox
+                          id={`edit-menu-${menu.key}`}
+                          checked={selectedMenus?.includes(menu.key)}
+                          onCheckedChange={(checked) =>
+                            handleMenuToggle(menu.key, checked as boolean)
+                          }
+                        />
+                        <div className="grid gap-0.5">
+                          <label
+                            htmlFor={`edit-menu-${menu.key}`}
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {menu.label}
+                          </label>
+                          <p className="text-xs text-muted-foreground">{menu.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Branch Permissions (only for non-church_admin) */}
+              {selectedRole !== "church_admin" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Branch Access</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSelectAllBranches}
+                    >
+                      Select All
+                    </Button>
+                  </div>
+                  <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {branches?.map((branch) => (
+                      <div key={branch.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-branch-${branch.id}`}
+                          checked={selectedBranchIds?.includes(branch.id)}
+                          onCheckedChange={(checked) =>
+                            handleBranchToggle(branch.id, checked as boolean)
+                          }
+                        />
+                        <label
+                          htmlFor={`edit-branch-${branch.id}`}
+                          className="text-sm font-medium leading-none cursor-pointer"
+                        >
+                          {branch.name}
+                          {branch.is_main_branch && (
+                            <span className="ml-2 text-xs text-muted-foreground">(Main)</span>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                    {(!branches || branches.length === 0) && (
+                      <p className="text-sm text-muted-foreground">No branches available</p>
+                    )}
+                  </div>
+                  {errors.branchIds && (
+                    <p className="text-sm text-destructive">{errors.branchIds.message}</p>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </ScrollArea>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+          <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={updateAdmin.isPending}>
-              {updateAdmin.isPending && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
+              {updateAdmin.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Changes
             </Button>
           </div>
