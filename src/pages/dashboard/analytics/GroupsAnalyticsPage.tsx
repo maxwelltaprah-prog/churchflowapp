@@ -15,8 +15,8 @@ import {
   Calendar,
   Heart,
   Award,
-  ArrowLeft,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -483,17 +483,12 @@ export default function GroupsAnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Groups & Ministries</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Groups & Ministries</h1>
-        <p className="text-muted-foreground">
-          Select a group to view member demographics and growth trends
-        </p>
-      </div>
+      <PageHeader
+        title="Groups & Ministries"
+        description="Select a group to view member demographics and growth trends"
+        icon={Layers}
+        backTo="/app/analytics"
+      />
 
       {/* Group Selection Cards */}
       {!selectedGroupId && (
@@ -551,29 +546,14 @@ export default function GroupsAnalyticsPage() {
       {/* Selected Group View */}
       {selectedGroupId && selectedGroup && (
         <>
-          {/* Back Button & Group Header */}
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedGroupId(null)}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Groups
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Layers className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-lg">{selectedGroup.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {demographics?.totalMembers || 0} members
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Group Header with Back Button */}
+          <PageHeader
+            title={selectedGroup.name}
+            description={`${demographics?.totalMembers || 0} members`}
+            icon={Layers}
+            onBack={() => setSelectedGroupId(null)}
+            backLabel="Back to Groups"
+          />
 
           {/* Summary Stats Row */}
           <div className="grid gap-4 md:grid-cols-3">

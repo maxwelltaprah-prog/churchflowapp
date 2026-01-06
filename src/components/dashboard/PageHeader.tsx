@@ -9,6 +9,7 @@ interface PageHeaderProps {
   icon?: LucideIcon;
   backTo?: string;
   backLabel?: string;
+  onBack?: () => void;
   actions?: React.ReactNode;
   className?: string;
 }
@@ -19,23 +20,28 @@ export function PageHeader({
   icon: Icon,
   backTo,
   backLabel = "Back",
+  onBack,
   actions,
   className,
 }: PageHeaderProps) {
   const navigate = useNavigate();
 
   const handleBack = () => {
-    if (backTo) {
+    if (onBack) {
+      onBack();
+    } else if (backTo) {
       navigate(backTo);
     } else {
       navigate(-1);
     }
   };
 
+  const showBackButton = onBack || backTo || backTo === undefined;
+
   return (
     <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", className)}>
       <div className="flex items-center gap-4">
-        {(backTo || backTo === undefined) && (
+        {showBackButton && (
           <Button
             variant="ghost"
             size="icon"
