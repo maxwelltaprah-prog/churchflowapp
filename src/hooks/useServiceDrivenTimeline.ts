@@ -242,7 +242,7 @@ export function useServiceDrivenAttendanceTrend(
       // Fetch visitor check-ins for all services
       let visitorCheckinsQuery = supabase
         .from("visitor_checkins")
-        .select("service_id, visitor_id")
+        .select("service_id, visitor_id, checked_in_at")
         .eq("church_id", profile.church_id)
         .in("service_id", fetchedServiceIds);
 
@@ -259,6 +259,20 @@ export function useServiceDrivenAttendanceTrend(
       visitorsQuery = applyBranchFilter(visitorsQuery, "branch_id", branchId, accessibleBranchIds);
 
       const { data: visitors } = await visitorsQuery;
+
+      // Fetch ALL visitor check-ins to determine returning visitors
+      let allVisitorCheckinsQuery = supabase
+        .from("visitor_checkins")
+        .select("visitor_id, service_id, checked_in_at")
+        .eq("church_id", profile.church_id);
+
+      const { data: allVisitorCheckins } = await allVisitorCheckinsQuery;
+
+      // Count check-ins per visitor to identify returning visitors
+      const visitorCheckinCounts = new Map<string, number>();
+      (allVisitorCheckins || []).forEach(vc => {
+        visitorCheckinCounts.set(vc.visitor_id, (visitorCheckinCounts.get(vc.visitor_id) || 0) + 1);
+      });
 
       // Group attendance by service
       const attendanceByService = new Map<string, any[]>();
@@ -278,23 +292,36 @@ export function useServiceDrivenAttendanceTrend(
         visitorsByService.get(vc.service_id)!.add(vc.visitor_id);
       });
 
-      // Group visitors by first_visit_date (registration date)
-      const visitorsByDate = new Map<string, Set<string>>();
+      // Group visitors by first_visit_date (registration date) - these are NEW visitors
+      const newVisitorsByDate = new Map<string, Set<string>>();
       (visitors || []).forEach(v => {
-        if (!visitorsByDate.has(v.first_visit_date)) {
-          visitorsByDate.set(v.first_visit_date, new Set());
+        if (!newVisitorsByDate.has(v.first_visit_date)) {
+          newVisitorsByDate.set(v.first_visit_date, new Set());
         }
-        visitorsByDate.get(v.first_visit_date)!.add(v.id);
+        newVisitorsByDate.get(v.first_visit_date)!.add(v.id);
       });
 
       // Build trend data per service (always daily for service-level tracking)
       const trendData = services.map(service => {
         const serviceAttendance = attendanceByService.get(service.id) || [];
         const checkinVisitorIds = visitorsByService.get(service.id) || new Set<string>();
-        const registeredVisitorIds = visitorsByDate.get(service.service_date) || new Set<string>();
+        const newVisitorIds = newVisitorsByDate.get(service.service_date) || new Set<string>();
         
-        // Combine check-in visitors and registered visitors (unique)
-        const allVisitorIds = new Set([...checkinVisitorIds, ...registeredVisitorIds]);
+        // New visitors = registered on this service date
+        const newVisitorCount = newVisitorIds.size;
+        
+        // Returning visitors = checked in for this service AND have 2+ total check-ins
+        const returningVisitorIds = new Set<string>();
+        checkinVisitorIds.forEach(visitorId => {
+          const totalCheckins = visitorCheckinCounts.get(visitorId) || 0;
+          if (totalCheckins >= 2 && !newVisitorIds.has(visitorId)) {
+            returningVisitorIds.add(visitorId);
+          }
+        });
+        const returningVisitorCount = returningVisitorIds.size;
+        
+        // Total visitors for this service
+        const allVisitorIds = new Set([...checkinVisitorIds, ...newVisitorIds]);
         const serviceVisitorCount = allVisitorIds.size;
         
         // Count member check-ins (active members)
@@ -315,6 +342,8 @@ export function useServiceDrivenAttendanceTrend(
           total: serviceAttendance.length + serviceVisitorCount,
           members: memberCheckins,
           visitors: serviceVisitorCount,
+          newVisitors: newVisitorCount,
+          returningVisitors: returningVisitorCount,
           absentees: Math.max(0, absentees),
           serviceCount: 1,
         };
