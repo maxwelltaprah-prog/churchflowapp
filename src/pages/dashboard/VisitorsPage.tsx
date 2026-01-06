@@ -156,23 +156,60 @@ export default function VisitorsPage() {
   );
   const { data: allServices } = useAllServices();
   
-  // Fetch visitor check-in counts for returning filter
-  const { data: visitorCheckinCounts } = useQuery({
-    queryKey: ["visitor-checkin-counts", visitors?.map(v => v.id)],
+  // Fetch "returning" flags for visitors (used only when segmentFilter === "returning")
+  // Returning here means: visitor has ANY check-in for a service_date BEFORE the selected service date.
+  const { data: visitorReturningMap } = useQuery({
+    queryKey: ["visitor-returning-map", visitors?.map(v => v.id), filterType, selectedServiceIds, segmentFilter],
     queryFn: async () => {
-      if (!visitors?.length) return new Map<string, number>();
-      
+      const map = new Map<string, boolean>();
+      if (!visitors?.length) return map;
+
       const visitorIds = visitors.map(v => v.id);
+      visitorIds.forEach((id) => map.set(id, false));
+
+      // Only apply the "prior-visit" definition when a service filter is active (this is the dashboard deep-link case)
+      if (filterType === "service" && selectedServiceIds.length > 0) {
+        const { data: selectedServices, error: selectedServicesError } = await supabase
+          .from("services")
+          .select("service_date")
+          .in("id", selectedServiceIds);
+
+        if (selectedServicesError) throw selectedServicesError;
+
+        const cutoffServiceDate = selectedServices?.length
+          ? selectedServices.reduce((min: string, s: any) => (s.service_date < min ? s.service_date : min), selectedServices[0].service_date)
+          : null;
+
+        if (!cutoffServiceDate) return map;
+
+        const { data: priorCheckins, error: priorCheckinsError } = await supabase
+          .from("visitor_checkins")
+          .select("visitor_id, services!inner(service_date)")
+          .in("visitor_id", visitorIds)
+          .lt("services.service_date", cutoffServiceDate);
+
+        if (priorCheckinsError) throw priorCheckinsError;
+
+        (priorCheckins || []).forEach((c: any) => map.set(c.visitor_id, true));
+        return map;
+      }
+
+      // Fallback (no service selected): treat "returning" as 2+ check-ins total
       const { data: checkins } = await supabase
         .from("visitor_checkins")
         .select("visitor_id")
         .in("visitor_id", visitorIds);
-      
+
       const counts = new Map<string, number>();
-      (checkins || []).forEach(c => {
+      (checkins || []).forEach((c: any) => {
         counts.set(c.visitor_id, (counts.get(c.visitor_id) || 0) + 1);
       });
-      return counts;
+
+      visitorIds.forEach((id) => {
+        map.set(id, (counts.get(id) || 0) >= 2);
+      });
+
+      return map;
     },
     enabled: !!visitors?.length && segmentFilter === "returning",
   });
@@ -381,13 +418,10 @@ export default function VisitorsPage() {
   // Apply segment filter (returning visitors)
   const filteredBySegment = useMemo(() => {
     if (segmentFilter !== "returning") return filteredByPrimaryFilter;
-    if (!visitorCheckinCounts) return [];
-    
-    return filteredByPrimaryFilter.filter(visitor => {
-      const checkinCount = visitorCheckinCounts.get(visitor.id) || 0;
-      return checkinCount >= 2;
-    });
-  }, [filteredByPrimaryFilter, segmentFilter, visitorCheckinCounts]);
+    if (!visitorReturningMap) return [];
+
+    return filteredByPrimaryFilter.filter((visitor) => visitorReturningMap.get(visitor.id) === true);
+  }, [filteredByPrimaryFilter, segmentFilter, visitorReturningMap]);
 
   // Apply search filter
   const filteredVisitors = useMemo(() => {

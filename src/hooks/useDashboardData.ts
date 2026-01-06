@@ -86,34 +86,43 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
       const uniqueMembers = uniqueMemberIds.size;
       
       // Visitors KPIs are visitor-level (unique visitors)
-      // - New Visitors: visitors with no prior check-ins before the selected service(s)
-      // - Returning Visitors: visitors with prior check-ins before the selected service(s)
+      // - New Visitors: visitors with NO prior visits (service_date) before the selected service date
+      // - Returning Visitors: visitors with prior visits (service_date) before the selected service date
+      //
+      // Important: we compare by the SERVICE DATE (not checked_in_at) so backdated/manual check-ins
+      // don't incorrectly mark earlier services as "returning".
       const visitorIds = [...new Set(visitorData.map((v: any) => v.visitor_id))];
 
       let newVisitors = 0;
       let returningVisitors = 0;
 
       if (visitorIds.length > 0) {
-        // For each visitor, find their earliest check-in in current selection
-        // Then check if they have any check-ins before that date
-        for (const visitorId of visitorIds) {
-          const currentVisitorCheckins = visitorData.filter((v: any) => v.visitor_id === visitorId);
-          const earliestCurrentCheckin = currentVisitorCheckins.reduce((min: string, v: any) => 
-            v.checked_in_at < min ? v.checked_in_at : min, currentVisitorCheckins[0]?.checked_in_at
-          );
-          
-          // Check for prior check-ins before the earliest one in current selection
-          const { count } = await supabase
+        const { data: selectedServices, error: selectedServicesError } = await supabase
+          .from("services")
+          .select("service_date")
+          .in("id", serviceIds);
+
+        if (selectedServicesError) throw selectedServicesError;
+
+        const cutoffServiceDate = selectedServices?.length
+          ? selectedServices.reduce((min: string, s: any) => (s.service_date < min ? s.service_date : min), selectedServices[0].service_date)
+          : null;
+
+        if (cutoffServiceDate) {
+          const { data: priorCheckins, error: priorCheckinsError } = await supabase
             .from("visitor_checkins")
-            .select("id", { count: "exact", head: true })
-            .eq("visitor_id", visitorId)
-            .lt("checked_in_at", earliestCurrentCheckin);
-          
-          if ((count || 0) > 0) {
-            returningVisitors++;
-          } else {
-            newVisitors++;
-          }
+            .select("visitor_id, services!inner(service_date)")
+            .eq("church_id", profile.church_id)
+            .in("visitor_id", visitorIds)
+            .lt("services.service_date", cutoffServiceDate);
+
+          if (priorCheckinsError) throw priorCheckinsError;
+
+          const returningSet = new Set<string>((priorCheckins || []).map((c: any) => c.visitor_id));
+          returningVisitors = returningSet.size;
+          newVisitors = visitorIds.length - returningVisitors;
+        } else {
+          newVisitors = visitorIds.length;
         }
       }
 
