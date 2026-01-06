@@ -133,22 +133,88 @@ export function useVisitorFollowups(visitorId: string | undefined) {
   });
 }
 
-export function useVisitorStats() {
+export function useVisitorStats(serviceIds: string[] = [], branchId?: string) {
   const { profile } = useAuth();
   const { accessibleBranchIds } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["visitor-stats", profile?.church_id, accessibleBranchIds],
+    queryKey: ["visitor-stats", profile?.church_id, serviceIds, branchId, accessibleBranchIds],
     queryFn: async () => {
       if (!profile?.church_id) throw new Error("No church ID");
 
-      // Get all visitors
+      // If service filter is applied, get stats based on visitor check-ins for those services
+      if (serviceIds.length > 0) {
+        // Get check-ins for the selected services
+        let checkinsQuery = supabase
+          .from("visitor_checkins")
+          .select("visitor_id, checked_in_at")
+          .eq("church_id", profile.church_id)
+          .in("service_id", serviceIds);
+
+        const { data: checkins, error: checkinsError } = await checkinsQuery;
+        if (checkinsError) throw checkinsError;
+
+        // Get unique visitor IDs from check-ins
+        const visitorIds = [...new Set(checkins?.map(c => c.visitor_id) || [])];
+        
+        if (visitorIds.length === 0) {
+          return { total: 0, new: 0, inFollowUp: 0, converted: 0, returning: 0 };
+        }
+
+        // Get visitor details for these IDs
+        let visitorsQuery = supabase
+          .from("visitors")
+          .select("id, status")
+          .eq("church_id", profile.church_id)
+          .in("id", visitorIds);
+
+        if (branchId) {
+          visitorsQuery = visitorsQuery.eq("branch_id", branchId);
+        } else if (accessibleBranchIds && accessibleBranchIds.length > 0) {
+          visitorsQuery = visitorsQuery.in("branch_id", accessibleBranchIds);
+        }
+
+        const { data: visitors, error: visitorsError } = await visitorsQuery;
+        if (visitorsError) throw visitorsError;
+
+        // Count returning visitors (those who had check-ins BEFORE the selected services)
+        let returningCount = 0;
+        for (const visitorId of visitorIds) {
+          const visitorCheckinsInSelection = checkins?.filter(c => c.visitor_id === visitorId) || [];
+          const earliestInSelection = visitorCheckinsInSelection.reduce((min, c) => 
+            c.checked_in_at < min ? c.checked_in_at : min, visitorCheckinsInSelection[0]?.checked_in_at
+          );
+
+          const { count } = await supabase
+            .from("visitor_checkins")
+            .select("id", { count: "exact", head: true })
+            .eq("visitor_id", visitorId)
+            .lt("checked_in_at", earliestInSelection);
+
+          if ((count || 0) > 0) {
+            returningCount++;
+          }
+        }
+
+        const filteredVisitors = visitors || [];
+        return {
+          total: filteredVisitors.length,
+          new: filteredVisitors.filter((v) => v.status === "new").length,
+          inFollowUp: filteredVisitors.filter((v) => v.status === "in_follow_up").length,
+          converted: filteredVisitors.filter((v) => v.status === "converted").length,
+          returning: returningCount,
+        };
+      }
+
+      // No service filter - get all visitors (original logic)
       let visitorsQuery = supabase
         .from("visitors")
         .select("id, status")
         .eq("church_id", profile.church_id);
 
-      if (accessibleBranchIds && accessibleBranchIds.length > 0) {
+      if (branchId) {
+        visitorsQuery = visitorsQuery.eq("branch_id", branchId);
+      } else if (accessibleBranchIds && accessibleBranchIds.length > 0) {
         visitorsQuery = visitorsQuery.in("branch_id", accessibleBranchIds);
       }
 
@@ -169,22 +235,20 @@ export function useVisitorStats() {
         checkinCounts.set(c.visitor_id, (checkinCounts.get(c.visitor_id) || 0) + 1);
       });
 
-      // Returning visitors = visitors with 2+ check-ins (current + at least 1 prior)
+      // Returning visitors = visitors with 2+ check-ins
       const returningVisitorIds = new Set(
         Array.from(checkinCounts.entries())
           .filter(([_, count]) => count >= 2)
           .map(([id]) => id)
       );
 
-      const stats = {
+      return {
         total: visitors?.length || 0,
         new: visitors?.filter((v) => v.status === "new").length || 0,
         inFollowUp: visitors?.filter((v) => v.status === "in_follow_up").length || 0,
         converted: visitors?.filter((v) => v.status === "converted").length || 0,
         returning: returningVisitorIds.size,
       };
-
-      return stats;
     },
     enabled: !!profile?.church_id,
   });

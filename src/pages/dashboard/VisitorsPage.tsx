@@ -141,7 +141,10 @@ export default function VisitorsPage() {
   const showBranchFilter = isChurchAdmin || (accessibleBranchIds && accessibleBranchIds.length > 1);
 
   const { data: visitors, isLoading, refetch } = useVisitors(selectedBranchId, statusFilter);
-  const { data: stats } = useVisitorStats();
+  const { data: stats } = useVisitorStats(
+    filterType === "service" ? selectedServiceIds : [],
+    selectedBranchId
+  );
   const { data: allServices } = useAllServices();
 
   // Sync temp date range when dateRange changes
