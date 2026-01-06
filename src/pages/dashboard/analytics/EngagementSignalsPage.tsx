@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ChevronRight,
   UserMinus,
   UserCheck,
   Phone,
@@ -23,6 +22,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useConsecutiveMissSignals, MissedMember, ReturneeMember } from "@/hooks/useConsecutiveMissSignals";
 import { useBranches } from "@/hooks/useChurchData";
 import { format, parseISO } from "date-fns";
@@ -97,28 +97,12 @@ export default function EngagementSignalsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app" className="hover:text-foreground transition-colors">Dashboard</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Engagement Signals</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-amber-500/10">
-            <AlertTriangle className="w-6 h-6 text-amber-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Engagement Signals
-            </h1>
-            <p className="text-muted-foreground">
-              Track members who missed 3+ consecutive service days and recent returnees • {branchName}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Engagement Signals"
+        description={`Track members who missed 3+ consecutive service days and recent returnees • ${branchName}`}
+        icon={AlertTriangle}
+        backTo="/app/analytics"
+      />
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">

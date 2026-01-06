@@ -20,17 +20,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ChevronRight,
   Clock,
   Activity,
   AlertTriangle,
-  
   CheckCircle2,
   XCircle,
   Users,
   BarChart3,
   Gauge,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -321,17 +320,12 @@ export default function ServiceQualityPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Service Quality</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Service Quality Indicators</h1>
-        <p className="text-muted-foreground">
-          Operational performance metrics for {periodLabel.toLowerCase()}
-        </p>
-      </div>
+      <PageHeader
+        title="Service Quality Indicators"
+        description={`Operational performance metrics for ${periodLabel.toLowerCase()}`}
+        icon={Gauge}
+        backTo="/app/analytics"
+      />
 
       {/* Filter Bar */}
       <AnalyticsFilterBar showServiceFilter={true} />

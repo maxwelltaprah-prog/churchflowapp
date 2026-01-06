@@ -16,11 +16,13 @@ import {
   UserPlus,
   UserMinus,
   UsersRound,
-  ChevronRight,
   Activity,
   RefreshCw,
   Clock,
+  BarChart3,
+  ChevronRight,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -658,17 +660,12 @@ export default function AttendanceOverviewPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Attendance Overview</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Attendance Overview</h1>
-        <p className="text-muted-foreground">
-          Comprehensive attendance metrics and trends
-        </p>
-      </div>
+      <PageHeader
+        title="Attendance Overview"
+        description="Comprehensive attendance metrics and trends"
+        icon={BarChart3}
+        backTo="/app/analytics"
+      />
 
       {/* Filter Bar */}
       <AnalyticsFilterBar />

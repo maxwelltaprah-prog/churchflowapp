@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSMSCampaigns, useDeliveryStatusSummary } from "@/hooks/useSMSData";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 
 export default function SMSDashboardPage() {
   const navigate = useNavigate();
@@ -27,16 +28,18 @@ export default function SMSDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">SMS Dashboard</h1>
-          <p className="text-muted-foreground">Manage your SMS campaigns</p>
-        </div>
-        <Button onClick={() => navigate("/app/sms/send")}>
-          <Send className="h-4 w-4 mr-2" />
-          Send SMS
-        </Button>
-      </div>
+      <PageHeader
+        title="SMS Dashboard"
+        description="Manage your SMS campaigns"
+        icon={MessageSquare}
+        backTo="/app"
+        actions={
+          <Button onClick={() => navigate("/app/sms/send")}>
+            <Send className="h-4 w-4 mr-2" />
+            Send SMS
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">

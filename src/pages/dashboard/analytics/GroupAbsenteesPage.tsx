@@ -13,13 +13,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ChevronRight,
   UserMinus,
   Download,
   Phone,
   MessageSquare,
   Calendar,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -218,28 +218,12 @@ export default function GroupAbsenteesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link to="/app/analytics/groups" className="hover:text-foreground transition-colors">Groups</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Absentees</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-red-500/10">
-            <UserMinus className="w-6 h-6 text-red-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {data?.groupName || "Group"} — Absentees
-            </h1>
-            <p className="text-muted-foreground">
-              Members who didn't attend during {periodLabel.toLowerCase()} • {branchName}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={`${data?.groupName || "Group"} — Absentees`}
+        description={`Members who didn't attend during ${periodLabel.toLowerCase()} • ${branchName}`}
+        icon={UserMinus}
+        backTo="/app/analytics/groups"
+      />
 
       {/* Filter Bar */}
       <AnalyticsFilterBar showServiceFilter={false} />

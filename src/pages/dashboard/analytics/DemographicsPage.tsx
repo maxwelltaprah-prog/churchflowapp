@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ChevronRight,
   Users,
   UserCircle,
   Calendar,
@@ -31,6 +30,7 @@ import {
   X,
   Award,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -563,17 +563,12 @@ export default function DemographicsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link to="/app/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-medium">Demographics</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Demographics</h1>
-        <p className="text-muted-foreground">
-          Member demographics based on attendance for {periodLabel.toLowerCase()}
-        </p>
-      </div>
+      <PageHeader
+        title="Demographics"
+        description={`Member demographics based on attendance for ${periodLabel.toLowerCase()}`}
+        icon={Users}
+        backTo="/app/analytics"
+      />
 
       {/* Filter Bar */}
       <AnalyticsFilterBar showServiceFilter={false} />
