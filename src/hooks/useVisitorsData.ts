@@ -142,26 +142,78 @@ export function useVisitorStats() {
     queryFn: async () => {
       if (!profile?.church_id) throw new Error("No church ID");
 
-      let query = supabase
+      // Get all visitors
+      let visitorsQuery = supabase
         .from("visitors")
-        .select("status")
+        .select("id, status")
         .eq("church_id", profile.church_id);
 
       if (accessibleBranchIds && accessibleBranchIds.length > 0) {
-        query = query.in("branch_id", accessibleBranchIds);
+        visitorsQuery = visitorsQuery.in("branch_id", accessibleBranchIds);
+      }
+
+      const { data: visitors, error: visitorsError } = await visitorsQuery;
+      if (visitorsError) throw visitorsError;
+
+      // Get all visitor check-ins to count returning visitors
+      const { data: checkins, error: checkinsError } = await supabase
+        .from("visitor_checkins")
+        .select("visitor_id")
+        .eq("church_id", profile.church_id);
+
+      if (checkinsError) throw checkinsError;
+
+      // Count check-ins per visitor
+      const checkinCounts = new Map<string, number>();
+      checkins?.forEach((c) => {
+        checkinCounts.set(c.visitor_id, (checkinCounts.get(c.visitor_id) || 0) + 1);
+      });
+
+      // Returning visitors = visitors with 2+ check-ins (current + at least 1 prior)
+      const returningVisitorIds = new Set(
+        Array.from(checkinCounts.entries())
+          .filter(([_, count]) => count >= 2)
+          .map(([id]) => id)
+      );
+
+      const stats = {
+        total: visitors?.length || 0,
+        new: visitors?.filter((v) => v.status === "new").length || 0,
+        inFollowUp: visitors?.filter((v) => v.status === "in_follow_up").length || 0,
+        converted: visitors?.filter((v) => v.status === "converted").length || 0,
+        returning: returningVisitorIds.size,
+      };
+
+      return stats;
+    },
+    enabled: !!profile?.church_id,
+  });
+}
+
+export function useVisitorCheckins(serviceId?: string) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ["visitor-checkins", serviceId, profile?.church_id],
+    queryFn: async () => {
+      if (!profile?.church_id) throw new Error("No church ID");
+
+      let query = supabase
+        .from("visitor_checkins")
+        .select(`
+          *,
+          visitors:visitor_id (id, first_name, last_name, phone)
+        `)
+        .eq("church_id", profile.church_id)
+        .order("checked_in_at", { ascending: false });
+
+      if (serviceId) {
+        query = query.eq("service_id", serviceId);
       }
 
       const { data, error } = await query;
       if (error) throw error;
-
-      const stats = {
-        total: data.length,
-        new: data.filter((v) => v.status === "new").length,
-        inFollowUp: data.filter((v) => v.status === "in_follow_up").length,
-        converted: data.filter((v) => v.status === "converted").length,
-      };
-
-      return stats;
+      return data;
     },
     enabled: !!profile?.church_id,
   });
