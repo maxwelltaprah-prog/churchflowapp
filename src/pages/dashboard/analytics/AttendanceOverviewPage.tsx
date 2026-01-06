@@ -728,9 +728,9 @@ export default function AttendanceOverviewPage() {
                     type="linear"
                     dataKey="returningVisitors"
                     name="Returning Visitors"
-                    stroke="hsl(var(--accent))"
+                    stroke="hsl(280 65% 60%)"
                     strokeWidth={2}
-                    dot={{ fill: "hsl(var(--accent))", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "hsl(280 65% 60%)", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
