@@ -568,8 +568,8 @@ export default function DemographicsPage() {
         </CardContent>
       </Card>
 
-      {/* Primary Charts Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Primary Charts Grid - 2 cards per row */}
+      <div className="grid gap-6 md:grid-cols-2">
         <DistributionChart
           title="Gender Distribution"
           description="Attendees by gender"
@@ -591,65 +591,27 @@ export default function DemographicsPage() {
         />
 
         <DistributionChart
-          title="Membership Status"
-          description="Members vs Visitors"
-          icon={TrendingUp}
-          data={demographics?.membershipDistribution || []}
+          title="Marital Status"
+          description="Relationship status breakdown"
+          icon={Heart}
+          data={demographics?.maritalDistribution || []}
           type="pie"
           isLoading={isLoading}
-          onSegmentClick={(key, label) => handleSegmentClick("membership", key, label)}
+          onSegmentClick={(key, label) => handleSegmentClick("marital", key, label)}
+          emptyMessage="No marital status data"
+        />
+
+        <DistributionChart
+          title="Occupation"
+          description="Employment breakdown"
+          icon={Briefcase}
+          data={demographics?.occupationDistribution || []}
+          type="pie"
+          isLoading={isLoading}
+          onSegmentClick={(key, label) => handleSegmentClick("occupation", key, label)}
+          emptyMessage="No occupation data"
         />
       </div>
-
-      {/* Optional Breakdowns */}
-      {((demographics?.maritalDistribution?.length || 0) > 0 ||
-        (demographics?.areaDistribution?.length || 0) > 0 ||
-        (demographics?.occupationDistribution?.length || 0) > 0) && (
-        <>
-          <div className="flex items-center gap-2 pt-4">
-            <h2 className="text-lg font-semibold">Additional Insights</h2>
-            <Badge variant="outline">Optional fields</Badge>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {(demographics?.maritalDistribution?.length || 0) > 0 && (
-              <DistributionChart
-                title="Marital Status"
-                description="Relationship status breakdown"
-                icon={Heart}
-                data={demographics?.maritalDistribution || []}
-                type="pie"
-                isLoading={isLoading}
-                onSegmentClick={(key, label) => handleSegmentClick("marital", key, label)}
-              />
-            )}
-
-            {(demographics?.areaDistribution?.length || 0) > 0 && (
-              <DistributionChart
-                title="Top Areas"
-                description="Where attendees live"
-                icon={MapPin}
-                data={demographics?.areaDistribution || []}
-                type="bar"
-                isLoading={isLoading}
-                onSegmentClick={(key, label) => handleSegmentClick("area", key, label)}
-              />
-            )}
-
-            {(demographics?.occupationDistribution?.length || 0) > 0 && (
-              <DistributionChart
-                title="Occupation"
-                description="Employment breakdown"
-                icon={Briefcase}
-                data={demographics?.occupationDistribution || []}
-                type="pie"
-                isLoading={isLoading}
-                onSegmentClick={(key, label) => handleSegmentClick("occupation", key, label)}
-              />
-            )}
-          </div>
-        </>
-      )}
 
       {/* Drill-down Modal */}
       <MemberListModal
