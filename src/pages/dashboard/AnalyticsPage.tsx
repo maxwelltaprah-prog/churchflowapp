@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
         {analyticsModules.map((module) => (
           <Card 
             key={module.title} 
-            className={`group border-l-4 ${module.borderColor} bg-gradient-to-r ${module.bgGradient} to-transparent hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
+            className={`group border border-border border-l-4 ${module.borderColor} bg-gradient-to-r ${module.bgGradient} to-transparent hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
           >
             <Link to={module.href}>
               <CardHeader>

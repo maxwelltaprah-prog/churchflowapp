@@ -26,28 +26,28 @@ export function KPICard({
   variant = "default"
 }: KPICardProps) {
   const variantStyles = {
-    default: "bg-card border-border hover:border-primary/20",
-    accent: "bg-gradient-to-br from-accent/10 via-accent/5 to-transparent border-accent/30 hover:border-accent/40",
-    muted: "bg-muted/50 border-border hover:border-muted-foreground/20",
-    success: "bg-gradient-to-br from-green-50 to-transparent border-green-200/50 hover:border-green-300 dark:from-green-500/10 dark:border-green-500/30",
-    warning: "bg-gradient-to-br from-amber-50 to-transparent border-amber-200/50 hover:border-amber-300 dark:from-amber-500/10 dark:border-amber-500/30",
-    highlight: "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/30 shadow-md ring-1 ring-primary/10 hover:shadow-lg"
+    default: "border-l-primary bg-gradient-to-r from-primary/5 to-transparent",
+    accent: "border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent",
+    muted: "border-l-slate-400 bg-gradient-to-r from-slate-400/5 to-transparent",
+    success: "border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent",
+    warning: "border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent",
+    highlight: "border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent ring-1 ring-primary/10"
   };
 
   const iconStyles = {
     default: "bg-primary/10 text-primary",
-    accent: "bg-accent/20 text-accent-foreground",
-    muted: "bg-muted-foreground/10 text-muted-foreground",
-    success: "bg-green-100 text-green-600 dark:bg-green-500/20",
-    warning: "bg-amber-100 text-amber-600 dark:bg-amber-500/20",
+    accent: "bg-violet-500/10 text-violet-600",
+    muted: "bg-slate-400/10 text-slate-600",
+    success: "bg-emerald-500/10 text-emerald-600",
+    warning: "bg-amber-500/10 text-amber-600",
     highlight: "bg-primary/15 text-primary"
   };
 
   const content = (
     <div className={cn(
-      "rounded-xl border p-5 transition-all duration-200",
+      "rounded-xl border border-border border-l-4 p-5 transition-all duration-200 hover:shadow-md",
       variantStyles[variant],
-      href && "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+      href && "hover:-translate-y-0.5 cursor-pointer"
     )}>
       {isLoading ? (
         <div className="space-y-3">
@@ -58,8 +58,8 @@ export function KPICard({
         <>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-muted-foreground">{title}</span>
-            <div className={cn("p-2 rounded-lg", iconStyles[variant])}>
-              <Icon className="w-4 h-4" />
+            <div className={cn("p-2.5 rounded-xl", iconStyles[variant])}>
+              <Icon className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
