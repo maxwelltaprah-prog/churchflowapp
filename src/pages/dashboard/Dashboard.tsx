@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Users, UserPlus, UserCheck, Clock, ChevronRight, Building2,
+  Users, UserPlus, Clock, ChevronRight, Building2,
   TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -121,11 +121,10 @@ export default function Dashboard() {
       />
 
       {/* SECTION 1: KPI Cards - with deep links to analytics */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} />
-        <KPICard title="Visitors" value={kpis?.visitorsToday ?? 0} icon={UserPlus} href={buildAnalyticsLink("drilldown", dateRange, branchId, "visitors")} isLoading={kpisLoading} variant="accent" />
-        <KPICard title="First-Timers" value={kpis?.firstTimersToday ?? 0} icon={UserCheck} href={buildAnalyticsLink("drilldown", dateRange, branchId, "first_timers")} isLoading={kpisLoading} variant="accent" />
-        <KPICard title="Returning Visitors" value={kpis?.returningVisitorsToday ?? 0} icon={RefreshCw} href={buildAnalyticsLink("drilldown", dateRange, branchId, "returning_visitors")} isLoading={kpisLoading} />
+        <KPICard title="New Visitors" value={kpis?.newVisitors ?? 0} icon={UserPlus} href="/app/visitors" isLoading={kpisLoading} variant="accent" />
+        <KPICard title="Returning Visitors" value={kpis?.returningVisitors ?? 0} icon={RefreshCw} href="/app/visitors" isLoading={kpisLoading} />
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />
       </div>
 
