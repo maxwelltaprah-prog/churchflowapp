@@ -24,6 +24,7 @@ import {
   ArrowRight,
   ChevronRight,
   Activity,
+  RefreshCw,
 } from "lucide-react";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 import { useAnalyticsFilters, formatDateRangeLabel } from "@/hooks/useAnalyticsFilters";
@@ -97,38 +98,98 @@ function useAttendanceKPIs() {
         (a.members as any)?.membership_status === "transferred"
       ).length;
 
-      // Get total visitors count for the filtered period
-      let visitorsQuery = supabase
+      // Get total NEW visitors count for the filtered period (registered in date range)
+      let newVisitorsQuery = supabase
         .from("visitors")
         .select("id", { count: "exact", head: true })
         .eq("church_id", profile.church_id);
 
       // Apply branch filter for visitors
       if (filters.branchId) {
-        visitorsQuery = visitorsQuery.eq("branch_id", filters.branchId);
+        newVisitorsQuery = newVisitorsQuery.eq("branch_id", filters.branchId);
       } else if (accessibleBranchIds && accessibleBranchIds.length > 0) {
-        visitorsQuery = visitorsQuery.in("branch_id", accessibleBranchIds);
+        newVisitorsQuery = newVisitorsQuery.in("branch_id", accessibleBranchIds);
       }
 
-      // If service filter is applied, get visitors who checked in for those services
-      let totalVisitors = 0;
+      let totalNewVisitors = 0;
+      let totalReturningVisitors = 0;
+
       if (filters.serviceIds.length > 0) {
+        // Get visitors registered on service dates for selected services
+        const { data: servicesForDates } = await supabase
+          .from("services")
+          .select("service_date")
+          .in("id", filters.serviceIds);
+        
+        const serviceDates = servicesForDates?.map(s => s.service_date) || [];
+        
+        if (serviceDates.length > 0) {
+          const { count: newCount } = await supabase
+            .from("visitors")
+            .select("id", { count: "exact", head: true })
+            .eq("church_id", profile.church_id)
+            .in("first_visit_date", serviceDates);
+          totalNewVisitors = newCount || 0;
+        }
+
+        // Get returning visitors (checked in for selected services, have 2+ total check-ins)
         const { data: visitorCheckinsData } = await supabase
           .from("visitor_checkins")
           .select("visitor_id")
           .eq("church_id", profile.church_id)
           .in("service_id", filters.serviceIds);
         
-        const uniqueVisitorIds = new Set(visitorCheckinsData?.map(vc => vc.visitor_id) || []);
-        totalVisitors = uniqueVisitorIds.size;
+        const checkedInVisitorIds = [...new Set(visitorCheckinsData?.map(vc => vc.visitor_id) || [])];
+        
+        if (checkedInVisitorIds.length > 0) {
+          // Count total check-ins per visitor
+          const { data: allCheckins } = await supabase
+            .from("visitor_checkins")
+            .select("visitor_id")
+            .eq("church_id", profile.church_id)
+            .in("visitor_id", checkedInVisitorIds);
+          
+          const checkinCounts = new Map<string, number>();
+          (allCheckins || []).forEach(vc => {
+            checkinCounts.set(vc.visitor_id, (checkinCounts.get(vc.visitor_id) || 0) + 1);
+          });
+          
+          // Returning = 2+ total check-ins
+          totalReturningVisitors = checkedInVisitorIds.filter(id => (checkinCounts.get(id) || 0) >= 2).length;
+        }
       } else {
         // No service filter - count visitors registered in date range
-        visitorsQuery = visitorsQuery
+        newVisitorsQuery = newVisitorsQuery
           .gte("first_visit_date", filters.startDate.toISOString().split("T")[0])
           .lte("first_visit_date", filters.endDate.toISOString().split("T")[0]);
         
-        const { count } = await visitorsQuery;
-        totalVisitors = count || 0;
+        const { count } = await newVisitorsQuery;
+        totalNewVisitors = count || 0;
+
+        // Get returning visitors who checked in during the period
+        const { data: periodCheckins } = await supabase
+          .from("visitor_checkins")
+          .select("visitor_id, checked_in_at")
+          .eq("church_id", profile.church_id)
+          .gte("checked_in_at", filters.startDate.toISOString())
+          .lte("checked_in_at", filters.endDate.toISOString());
+
+        const checkedInVisitorIds = [...new Set(periodCheckins?.map(vc => vc.visitor_id) || [])];
+        
+        if (checkedInVisitorIds.length > 0) {
+          const { data: allCheckins } = await supabase
+            .from("visitor_checkins")
+            .select("visitor_id")
+            .eq("church_id", profile.church_id)
+            .in("visitor_id", checkedInVisitorIds);
+          
+          const checkinCounts = new Map<string, number>();
+          (allCheckins || []).forEach(vc => {
+            checkinCounts.set(vc.visitor_id, (checkinCounts.get(vc.visitor_id) || 0) + 1);
+          });
+          
+          totalReturningVisitors = checkedInVisitorIds.filter(id => (checkinCounts.get(id) || 0) >= 2).length;
+        }
       }
 
       // Absentees: members who didn't attend ANY service within the filter period
@@ -158,7 +219,8 @@ function useAttendanceKPIs() {
           uniqueAttendees,
           memberCheckins,
           visitorCheckins,
-          totalVisitors,
+          totalNewVisitors,
+          totalReturningVisitors,
           absentees: 0,
           totalMembers: 0,
         };
@@ -200,7 +262,8 @@ function useAttendanceKPIs() {
         uniqueAttendees,
         memberCheckins,
         visitorCheckins,
-        totalVisitors,
+        totalNewVisitors,
+        totalReturningVisitors,
         absentees,
         totalMembers: memberIds.length,
       };
@@ -433,7 +496,7 @@ export default function AttendanceOverviewPage() {
       <AnalyticsFilterBar />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <KPICard
           title="Total Check-ins"
           value={kpis?.totalCheckins || 0}
@@ -462,11 +525,20 @@ export default function AttendanceOverviewPage() {
         />
         <KPICard
           title="New Visitors"
-          value={kpis?.totalVisitors || 0}
+          value={kpis?.totalNewVisitors || 0}
           icon={UserPlus}
           description="Registered in period"
           isLoading={kpisLoading}
           variant="warning"
+          href="/app/visitors"
+        />
+        <KPICard
+          title="Returning Visitors"
+          value={kpis?.totalReturningVisitors || 0}
+          icon={RefreshCw}
+          description="2+ check-ins"
+          isLoading={kpisLoading}
+          variant="accent"
           href="/app/visitors"
         />
         <KPICard
@@ -602,15 +674,15 @@ export default function AttendanceOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* New Visitors Registered Trend */}
+        {/* Visitors Trend (New vs Returning) */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <UserPlus className="w-4 h-4 text-amber-600" />
-              New Visitors Registered
+              Visitors Trend
             </CardTitle>
             <CardDescription className="text-xs">
-              Visitors registered per service date
+              New vs returning visitors per service
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -642,13 +714,23 @@ export default function AttendanceOverviewPage() {
                     }}
                     labelFormatter={(_, payload) => payload[0]?.payload?.serviceName || payload[0]?.payload?.fullDate || ""}
                   />
+                  <Legend />
                   <Line
                     type="linear"
-                    dataKey="visitors"
-                    name="Visitors"
+                    dataKey="newVisitors"
+                    name="New Visitors"
                     stroke="hsl(38 92% 50%)"
                     strokeWidth={2}
                     dot={{ fill: "hsl(38 92% 50%)", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="returningVisitors"
+                    name="Returning Visitors"
+                    stroke="hsl(var(--accent))"
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(var(--accent))", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
