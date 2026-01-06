@@ -13,7 +13,8 @@ import {
   Church,
   ShieldCheck,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  UserPlus
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -44,6 +45,7 @@ import { useChurch } from "@/hooks/useChurchData";
 const mainNavItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard },
   { title: "Members", url: "/app/members", icon: Users },
+  { title: "Visitors", url: "/app/visitors", icon: UserPlus },
   { title: "Groups", url: "/app/groups", icon: UsersRound },
   { title: "Branches", url: "/app/branches", icon: Building2 },
   { title: "Services", url: "/app/services", icon: Calendar },

@@ -41,6 +41,13 @@ import SpiritualJourneyPage from "./pages/dashboard/SpiritualJourneyPage";
 import SMSDashboardPage from "./pages/dashboard/SMSDashboardPage";
 import SendSMSPage from "./pages/dashboard/SendSMSPage";
 
+// Visitor Management imports
+import VisitorsPage from "./pages/dashboard/VisitorsPage";
+import RegisterVisitorPage from "./pages/dashboard/RegisterVisitorPage";
+import VisitorDetailsPage from "./pages/dashboard/VisitorDetailsPage";
+import EditVisitorPage from "./pages/dashboard/EditVisitorPage";
+import AddFollowupPage from "./pages/dashboard/AddFollowupPage";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -94,6 +101,13 @@ const App = () => (
               <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              
+              {/* Visitor Management Routes */}
+              <Route path="visitors" element={<VisitorsPage />} />
+              <Route path="visitors/new" element={<RegisterVisitorPage />} />
+              <Route path="visitors/:visitorId" element={<VisitorDetailsPage />} />
+              <Route path="visitors/:visitorId/edit" element={<EditVisitorPage />} />
+              <Route path="visitors/:visitorId/followup" element={<AddFollowupPage />} />
             </Route>
 
             {/* Catch-all */}

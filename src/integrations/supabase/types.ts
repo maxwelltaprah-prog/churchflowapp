@@ -990,6 +990,130 @@ export type Database = {
           },
         ]
       }
+      visitor_followups: {
+        Row: {
+          church_id: string
+          conducted_by: string | null
+          created_at: string
+          followup_date: string
+          followup_type: Database["public"]["Enums"]["followup_type"]
+          id: string
+          notes: string | null
+          visitor_id: string
+        }
+        Insert: {
+          church_id: string
+          conducted_by?: string | null
+          created_at?: string
+          followup_date: string
+          followup_type: Database["public"]["Enums"]["followup_type"]
+          id?: string
+          notes?: string | null
+          visitor_id: string
+        }
+        Update: {
+          church_id?: string
+          conducted_by?: string | null
+          created_at?: string
+          followup_date?: string
+          followup_type?: Database["public"]["Enums"]["followup_type"]
+          id?: string
+          notes?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_followups_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_followups_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitors: {
+        Row: {
+          address: string | null
+          branch_id: string
+          church_id: string
+          converted_member_id: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          first_name: string
+          first_visit_date: string
+          how_heard: Database["public"]["Enums"]["how_heard"]
+          id: string
+          last_name: string
+          phone: string
+          status: Database["public"]["Enums"]["visitor_status"]
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          branch_id: string
+          church_id: string
+          converted_member_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          first_name: string
+          first_visit_date?: string
+          how_heard: Database["public"]["Enums"]["how_heard"]
+          id?: string
+          last_name: string
+          phone: string
+          status?: Database["public"]["Enums"]["visitor_status"]
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          branch_id?: string
+          church_id?: string
+          converted_member_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          first_name?: string
+          first_visit_date?: string
+          how_heard?: Database["public"]["Enums"]["how_heard"]
+          id?: string
+          last_name?: string
+          phone?: string
+          status?: Database["public"]["Enums"]["visitor_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitors_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitors_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitors_converted_member_id_fkey"
+            columns: ["converted_member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1026,6 +1150,7 @@ export type Database = {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
       approval_status: "pending" | "approved" | "rejected"
       checkin_method: "staff_scan" | "self_scan"
+      followup_type: "sms" | "phone_call" | "visit" | "other"
       gender_type: "male" | "female" | "prefer_not_to_say"
       how_heard:
         | "friend_family"
@@ -1043,6 +1168,7 @@ export type Database = {
         | "self_employed"
         | "unemployed"
         | "other"
+      visitor_status: "new" | "in_follow_up" | "converted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1173,6 +1299,7 @@ export const Constants = {
       app_role: ["church_admin", "branch_admin", "usher", "member"],
       approval_status: ["pending", "approved", "rejected"],
       checkin_method: ["staff_scan", "self_scan"],
+      followup_type: ["sms", "phone_call", "visit", "other"],
       gender_type: ["male", "female", "prefer_not_to_say"],
       how_heard: [
         "friend_family",
@@ -1192,6 +1319,7 @@ export const Constants = {
         "unemployed",
         "other",
       ],
+      visitor_status: ["new", "in_follow_up", "converted"],
     },
   },
 } as const
