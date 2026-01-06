@@ -132,7 +132,7 @@ export function usePendingMembersCount() {
   });
 }
 
-// Fetch services for the current church (filtered by branch access)
+// Fetch services for the current church (filtered by branch access) - future services only
 export function useServices(branchId?: string) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
@@ -166,6 +166,44 @@ export function useServices(branchId?: string) {
       return data;
     },
     enabled: !!profile?.church_id && !accessLoading
+  });
+}
+
+// Fetch ALL services for the current church (including past services) - for filtering purposes
+export function useAllServices(branchId?: string) {
+  const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
+  
+  return useQuery({
+    queryKey: ["all-services", profile?.church_id, branchId, accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+      
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+      
+      let query = supabase
+        .from("services")
+        .select("*, branches(name)")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .order("service_date", { ascending: false })
+        .order("start_time", { ascending: false });
+
+      if (branchId) {
+        query = query.eq("branch_id", branchId);
+      } else if (accessibleBranchIds !== null) {
+        query = query.in("branch_id", accessibleBranchIds);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.church_id && !accessLoading,
+    // Refetch when services might change
+    refetchOnWindowFocus: true,
   });
 }
 

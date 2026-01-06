@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useVisitor, useVisitorFollowups } from "@/hooks/useVisitorsData";
-import { useDeleteVisitor, useDeleteFollowup, useConvertToMember } from "@/hooks/useVisitorMutations";
+import { useDeleteVisitor, useDeleteFollowup } from "@/hooks/useVisitorMutations";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,7 +64,6 @@ export default function VisitorDetailsPage() {
   const { data: followups } = useVisitorFollowups(visitorId);
   const deleteVisitor = useDeleteVisitor();
   const deleteFollowup = useDeleteFollowup();
-  const convertToMember = useConvertToMember();
 
   const handleDelete = async () => {
     if (!visitor) return;
@@ -72,19 +71,22 @@ export default function VisitorDetailsPage() {
     navigate("/app/visitors");
   };
 
-  const handleConvert = async () => {
+  const handleConvert = () => {
     if (!visitor) return;
-    await convertToMember.mutateAsync({
-      id: visitor.id,
+    // Navigate to member registration page with visitor data pre-filled
+    const visitorData = {
       first_name: visitor.first_name,
       last_name: visitor.last_name,
       phone: visitor.phone,
-      email: visitor.email,
-      address: visitor.address,
+      email: visitor.email || "",
+      gender: visitor.gender || "",
+      date_of_birth: visitor.date_of_birth || "",
       how_heard: visitor.how_heard,
       branch_id: visitor.branch_id,
-    });
-    setShowConvertDialog(false);
+      address: visitor.address || "",
+      visitor_id: visitor.id,
+    };
+    navigate(`/app/members/new?from_visitor=${encodeURIComponent(JSON.stringify(visitorData))}`);
   };
 
   const handleDeleteFollowup = async () => {
@@ -362,14 +364,14 @@ export default function VisitorDetailsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Convert to Member</AlertDialogTitle>
             <AlertDialogDescription>
-              This will create a new member record using the visitor's information. 
-              The visitor record will be marked as converted.
+              You will be redirected to the member registration form with the visitor's information pre-filled.
+              Complete the registration to convert this visitor to a member.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConvert} className="bg-green-600 hover:bg-green-700">
-              Convert to Member
+              Continue to Registration
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

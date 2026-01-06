@@ -31,7 +31,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, formatDistanceToNow, startOfMonth, isWithinInterval, parseISO, getMonth, getYear, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useVisitors, useVisitorStats } from "@/hooks/useVisitorsData";
-import { useServices, useBranches } from "@/hooks/useChurchData";
+import { useAllServices, useBranches } from "@/hooks/useChurchData";
 import { useBranchAccess } from "@/hooks/useBranchAccess";
 import { DateRange } from "react-day-picker";
 
@@ -129,7 +129,7 @@ export default function VisitorsPage() {
 
   const { data: visitors, isLoading, refetch } = useVisitors(selectedBranchId, statusFilter);
   const { data: stats } = useVisitorStats();
-  const { data: allServices } = useServices();
+  const { data: allServices } = useAllServices();
 
   // Sync temp date range when dateRange changes
   useEffect(() => {

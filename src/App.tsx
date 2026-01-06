@@ -47,6 +47,7 @@ import RegisterVisitorPage from "./pages/dashboard/RegisterVisitorPage";
 import VisitorDetailsPage from "./pages/dashboard/VisitorDetailsPage";
 import EditVisitorPage from "./pages/dashboard/EditVisitorPage";
 import AddFollowupPage from "./pages/dashboard/AddFollowupPage";
+import AddMemberPage from "./pages/dashboard/AddMemberPage";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
             }>
               <Route index element={<Dashboard />} />
               <Route path="members" element={<MembersPage />} />
+              <Route path="members/new" element={<AddMemberPage />} />
               <Route path="members/:memberId" element={<MemberProfilePage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="branches" element={<BranchesPage />} />
