@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { UserPlus } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,16 +85,12 @@ export default function RegisterVisitorPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Register New Visitor</h1>
-          <p className="text-muted-foreground">Add a new visitor to the system</p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate("/app/visitors")} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Visitors
-        </Button>
-      </div>
+      <PageHeader
+        title="Register New Visitor"
+        description="Add a new visitor to the system"
+        icon={UserPlus}
+        backTo="/app/visitors"
+      />
 
       {/* Form */}
       <Form {...form}>

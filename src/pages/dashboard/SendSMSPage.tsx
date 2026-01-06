@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Users, Search } from "lucide-react";
+import { MessageSquare, Users, Search, Send } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -143,17 +144,12 @@ export default function SendSMSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Send SMS</h1>
-          <p className="text-muted-foreground">Send bulk SMS to your congregation</p>
-        </div>
-        
-        <Button variant="outline" onClick={() => navigate("/app/sms")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to SMS Dashboard
-        </Button>
-      </div>
+      <PageHeader
+        title="Send SMS"
+        description="Send bulk SMS to your congregation"
+        icon={Send}
+        backTo="/app/sms"
+      />
 
       {/* Main Content - Two Column Layout */}
       <div className="grid lg:grid-cols-2 gap-6">

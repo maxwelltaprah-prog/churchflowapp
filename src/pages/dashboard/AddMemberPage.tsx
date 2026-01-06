@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, UserPlus, AlertCircle } from "lucide-react";
+import { UserPlus, AlertCircle } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -168,27 +169,15 @@ export default function AddMemberPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {isConvertingVisitor ? "Convert Visitor to Member" : "Add New Member"}
-          </h1>
-          <p className="text-muted-foreground">
-            {isConvertingVisitor 
-              ? "Complete the registration form to convert this visitor to a member"
-              : "Register a new member with their details"
-            }
-          </p>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={() => navigate(isConvertingVisitor ? `/app/visitors/${visitorData?.visitor_id}` : "/app/members")} 
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-      </div>
+      <PageHeader
+        title={isConvertingVisitor ? "Convert Visitor to Member" : "Add New Member"}
+        description={isConvertingVisitor 
+          ? "Complete the registration form to convert this visitor to a member"
+          : "Register a new member with their details"
+        }
+        icon={UserPlus}
+        backTo={isConvertingVisitor ? `/app/visitors/${visitorData?.visitor_id}` : "/app/members"}
+      />
 
       {/* Conversion Alert */}
       {isConvertingVisitor && (

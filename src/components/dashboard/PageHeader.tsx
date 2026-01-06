@@ -7,7 +7,7 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   icon?: LucideIcon;
-  backTo?: string;
+  backTo?: string | null; // null = no back button, undefined = browser back, string = specific route
   backLabel?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
@@ -36,7 +36,7 @@ export function PageHeader({
     }
   };
 
-  const showBackButton = onBack || backTo || backTo === undefined;
+  const showBackButton = backTo !== null && (onBack || backTo || backTo === undefined);
 
   return (
     <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", className)}>

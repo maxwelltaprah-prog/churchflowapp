@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -484,37 +485,35 @@ export default function VisitorsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {segmentFilter === "returning" ? "Returning Visitors" : "Visitor Management"}
-          </h1>
-          <p className="text-muted-foreground">
-            {segmentFilter === "returning" 
-              ? "Visitors with 2 or more check-ins" 
-              : "Track and manage church visitors"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {segmentFilter === "returning" && (
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSegmentFilter("all");
-                navigate("/app/visitors");
-              }}
-              className="gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Show All Visitors
+      <PageHeader
+        title={segmentFilter === "returning" ? "Returning Visitors" : "Visitor Management"}
+        description={segmentFilter === "returning" 
+          ? "Visitors with 2 or more check-ins" 
+          : "Track and manage church visitors"}
+        icon={Users}
+        backTo={segmentFilter === "returning" ? "/app/visitors" : null}
+        actions={
+          <div className="flex gap-2">
+            {segmentFilter === "returning" && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSegmentFilter("all");
+                  navigate("/app/visitors");
+                }}
+                className="gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Show All Visitors
+              </Button>
+            )}
+            <Button onClick={() => navigate("/app/visitors/new")} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" />
+              Register New Visitor
             </Button>
-          )}
-          <Button onClick={() => navigate("/app/visitors/new")} className="gap-2 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" />
-            Register New Visitor
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Stats Cards - Always show full totals (unaffected by filters) */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
