@@ -34,8 +34,8 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
   const handleReset = async () => {
     if (!member) return;
 
-    if (newPin.length < 4) {
-      toast.error("PIN must be at least 4 digits");
+    if (newPin.length < 6) {
+      toast.error("PIN must be at least 6 digits");
       return;
     }
 
@@ -134,7 +134,7 @@ export function ResetPinDialog({ open, onOpenChange, member }: ResetPinDialogPro
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Minimum 4 digits</p>
+              <p className="text-xs text-muted-foreground">Minimum 6 digits</p>
             </div>
 
             <div className="space-y-2">
