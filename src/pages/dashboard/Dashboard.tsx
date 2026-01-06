@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, Clock, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,8 +121,9 @@ export default function Dashboard() {
       />
 
       {/* SECTION 1: KPI Cards - with deep links to analytics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} variant="highlight" />
+        <KPICard title="Members" value={kpis?.uniqueMembers ?? 0} icon={UserCheck} href={`/app/analytics/members-attended${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}${branchId ? `&branch=${branchId}` : ""}`} isLoading={kpisLoading} description="Unique check-ins" />
         <KPICard title="New Visitors" value={kpis?.newVisitors ?? 0} icon={UserPlus} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} variant="accent" />
         <KPICard title="Returning Visitors" value={kpis?.returningVisitors ?? 0} icon={RefreshCw} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} />
         <KPICard title="Late Arrivals" value={kpis?.lateArrivals ?? 0} icon={Clock} description=">30 min" isLoading={kpisLoading} variant="muted" />

@@ -12,7 +12,7 @@ interface KPICardProps {
   href?: string;
   isLoading?: boolean;
   change?: number;
-  variant?: "default" | "accent" | "muted" | "success" | "warning";
+  variant?: "default" | "accent" | "muted" | "success" | "warning" | "highlight";
 }
 
 export function KPICard({
@@ -30,7 +30,8 @@ export function KPICard({
     accent: "bg-primary/5 border-primary/20",
     muted: "bg-muted/50 border-border",
     success: "bg-green-500/5 border-green-500/20",
-    warning: "bg-amber-500/5 border-amber-500/20"
+    warning: "bg-amber-500/5 border-amber-500/20",
+    highlight: "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/30 shadow-md ring-1 ring-primary/10"
   };
 
   const content = (

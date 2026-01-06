@@ -45,12 +45,12 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
       if (!profile?.church_id) return null;
 
       if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
-        return { totalAttendance: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
+        return { totalAttendance: 0, uniqueMembers: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
       }
 
       // If no services selected, return empty
       if (serviceIds.length === 0) {
-        return { totalAttendance: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
+        return { totalAttendance: 0, uniqueMembers: 0, newVisitors: 0, returningVisitors: 0, lateArrivals: 0, change: 0 };
       }
 
       // Build member attendance query filtered by selected services
@@ -78,8 +78,12 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
       const memberData = memberAttendance || [];
       const visitorData = visitorCheckins || [];
       
-      // Total attendance = members + visitors
+      // Total attendance = members + visitors (count of check-ins)
       const totalAttendance = memberData.length + visitorData.length;
+      
+      // Unique members who checked in
+      const uniqueMemberIds = new Set(memberData.map(m => m.member_id));
+      const uniqueMembers = uniqueMemberIds.size;
       
       // New Visitors = unique visitors who checked in and this is their first check-in ever
       // We need to check if any of these visitors have prior check-ins
@@ -127,6 +131,7 @@ export function useTodayKPIs(branchId?: string, serviceIds: string[] = []) {
 
       return {
         totalAttendance,
+        uniqueMembers,
         newVisitors,
         returningVisitors,
         lateArrivals,
