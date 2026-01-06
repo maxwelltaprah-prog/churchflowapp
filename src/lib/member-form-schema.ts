@@ -51,7 +51,9 @@ export const memberFormSchema = z.object({
   
   // Admin-only fields
   admin_notes: z.string().max(1000).optional().nullable(),
-  date_joined: z.string().optional().nullable(),
+  
+  // Date joined - required, defaults to today
+  date_joined: z.string().min(1, "Date joined is required"),
 });
 
 // Schema for editing members - allows empty optional fields for data quality handling
