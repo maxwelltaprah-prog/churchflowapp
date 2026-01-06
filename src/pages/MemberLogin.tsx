@@ -39,10 +39,10 @@ export default function MemberLogin() {
       return;
     }
 
-    if (pin.length !== 4) {
+    if (pin.length < 6) {
       toast({
         title: "Invalid PIN",
-        description: "Please enter exactly 4 digits for your PIN.",
+        description: "Please enter your 6-digit PIN.",
         variant: "destructive",
       });
       return;
@@ -195,19 +195,34 @@ export default function MemberLogin() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="pin">Member PIN</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="pin">Member PIN</Label>
+                  <Link 
+                    to="/member-login" 
+                    className="text-xs text-primary hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toast({
+                        title: "Contact Your Administrator",
+                        description: "Please contact your church administrator to reset your PIN.",
+                      });
+                    }}
+                  >
+                    Forgot PIN?
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
                     id="pin"
                     type={showPin ? "text" : "password"}
-                    placeholder="Your 4-digit PIN"
+                    placeholder="Your 6-digit PIN"
                     value={pin}
                     onChange={handlePinChange}
                     className="pl-10 pr-10 h-12 text-center text-lg font-mono tracking-widest"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={4}
+                    maxLength={6}
                     required
                   />
                   <button
@@ -218,6 +233,7 @@ export default function MemberLogin() {
                     {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <p className="text-xs text-muted-foreground">6 digits minimum</p>
               </div>
 
               <Button
@@ -233,11 +249,13 @@ export default function MemberLogin() {
 
             <div className="mt-6 pt-6 border-t border-border space-y-3">
               <p className="text-sm text-muted-foreground text-center">
-                Forgot your PIN?{" "}
-                <span className="text-foreground">Contact your church administrator to reset it.</span>
+                Added by your church but no PIN yet?{" "}
+                <Link to="/create-pin" className="text-primary font-medium hover:underline">
+                  Create PIN
+                </Link>
               </p>
               <p className="text-muted-foreground text-center">
-                Don't have an account?{" "}
+                New to this church?{" "}
                 <Link to="/join" className="text-primary font-medium hover:underline">
                   Join a Branch
                 </Link>
