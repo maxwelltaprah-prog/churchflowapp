@@ -168,6 +168,7 @@ export function getAggregationLevel(
 /**
  * Hook to build service-driven attendance trend data
  * Plots only on actual service dates/periods, not continuous calendar
+ * Includes total, members, visitors, and absentees per service
  */
 export function useServiceDrivenAttendanceTrend(
   startDate: Date,
@@ -212,9 +213,19 @@ export function useServiceDrivenAttendanceTrend(
         return { data: [], hasData: false, aggregation: "daily" as const };
       }
 
-      // Determine aggregation level
-      const daysDiff = differenceInDays(endDate, effectiveStart);
-      const aggregation = getAggregationLevel(daysDiff, services.length);
+      // Get all active members for absentee calculation
+      let membersQuery = supabase
+        .from("members")
+        .select("id")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .eq("approval_status", "approved")
+        .eq("membership_status", "active");
+
+      membersQuery = applyBranchFilter(membersQuery, "branch_id", branchId, accessibleBranchIds);
+      
+      const { data: allMembers } = await membersQuery;
+      const totalActiveMembers = allMembers?.length || 0;
 
       // Fetch attendance for all services
       const fetchedServiceIds = services.map(s => s.id);
@@ -228,6 +239,15 @@ export function useServiceDrivenAttendanceTrend(
 
       const { data: attendance } = await attendanceQuery;
 
+      // Fetch visitor check-ins for all services
+      let visitorCheckinsQuery = supabase
+        .from("visitor_checkins")
+        .select("service_id, visitor_id")
+        .eq("church_id", profile.church_id)
+        .in("service_id", fetchedServiceIds);
+
+      const { data: visitorCheckins } = await visitorCheckinsQuery;
+
       // Group attendance by service
       const attendanceByService = new Map<string, any[]>();
       (attendance || []).forEach(a => {
@@ -237,51 +257,47 @@ export function useServiceDrivenAttendanceTrend(
         attendanceByService.get(a.service_id)!.push(a);
       });
 
-      // Map services to periods
-      const servicePeriods = services.map(s => ({
-        serviceId: s.id,
-        serviceDate: s.service_date,
-        serviceName: s.name,
-        branchId: s.branch_id,
-        startTime: s.start_time,
-      }));
+      // Group visitor check-ins by service
+      const visitorsByService = new Map<string, Set<string>>();
+      (visitorCheckins || []).forEach(vc => {
+        if (!visitorsByService.has(vc.service_id)) {
+          visitorsByService.set(vc.service_id, new Set());
+        }
+        visitorsByService.get(vc.service_id)!.add(vc.visitor_id);
+      });
 
-      const periods = aggregateServicePeriods(servicePeriods, aggregation);
+      // Build trend data per service (always daily for service-level tracking)
+      const trendData = services.map(service => {
+        const serviceAttendance = attendanceByService.get(service.id) || [];
+        const serviceVisitorCount = visitorsByService.get(service.id)?.size || 0;
+        
+        // Count member check-ins (active members)
+        const memberCheckins = serviceAttendance.filter((a: any) => 
+          a.members?.membership_status === "active"
+        ).length;
 
-      // Build trend data
-      const trendData = periods.map(period => {
-        let total = 0;
-        let members = 0;
-        let visitors = 0;
-
-        period.serviceIds.forEach(serviceId => {
-          const serviceAttendance = attendanceByService.get(serviceId) || [];
-          total += serviceAttendance.length;
-
-          serviceAttendance.forEach((a: any) => {
-            const status = a.members?.membership_status;
-            if (status === "member") {
-              members++;
-            } else if (status === "visitor" || status === "first_timer") {
-              visitors++;
-            }
-          });
-        });
+        // Unique member IDs who attended this service
+        const attendedMemberIds = new Set(serviceAttendance.map((a: any) => a.member_id));
+        
+        // Absentees = total active members - members who attended
+        const absentees = totalActiveMembers - attendedMemberIds.size;
 
         return {
-          date: period.label,
-          fullDate: format(period.periodStart, "MMM d, yyyy"),
-          total,
-          members,
-          visitors,
-          serviceCount: period.serviceCount,
+          date: format(parseISO(service.service_date), "MMM d"),
+          fullDate: format(parseISO(service.service_date), "MMM d, yyyy"),
+          serviceName: service.name,
+          total: serviceAttendance.length + serviceVisitorCount,
+          members: memberCheckins,
+          visitors: serviceVisitorCount,
+          absentees: Math.max(0, absentees),
+          serviceCount: 1,
         };
       });
 
       return {
         data: trendData,
         hasData: trendData.length > 0,
-        aggregation,
+        aggregation: "daily" as const,
       };
     },
     enabled: !!profile?.church_id,
