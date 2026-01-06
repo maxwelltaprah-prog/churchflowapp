@@ -40,20 +40,20 @@ export interface ConsecutiveMissSignals {
  * and members who returned after being in that category.
  * 
  * Key logic:
+ * - Evaluates ALL services in the church (not filtered by dashboard selection)
  * - "Service occurrence" = unique calendar date with at least one service
  * - Multiple services on the same day count as ONE occurrence
  * - A member is "missed 3+" if they have no check-in on the last 3+ service days
  * - A "returnee" is someone who was in missed-3+ category but checked in on the most recent service day
  * 
- * @param branchId - Optional branch filter
- * @param serviceIds - Optional array of service IDs to scope the evaluation to specific services
+ * @param branchId - Optional branch filter for members (not services)
  */
-export function useConsecutiveMissSignals(branchId?: string, serviceIds?: string[]) {
+export function useConsecutiveMissSignals(branchId?: string) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, accessibleBranchIds, serviceIds],
+    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, accessibleBranchIds],
     queryFn: async (): Promise<ConsecutiveMissSignals> => {
       if (!profile?.church_id) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
@@ -63,24 +63,14 @@ export function useConsecutiveMissSignals(branchId?: string, serviceIds?: string
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
       }
 
-      // 1. Get all service dates (unique calendar dates) ordered descending
-      // If serviceIds are provided, only consider those services for determining service days
-      let servicesQuery = supabase
+      // 1. Get ALL service dates in the church (unique calendar dates) ordered descending
+      // This evaluates against all church services, not filtered by dashboard selection
+      const { data: servicesData } = await supabase
         .from("services")
         .select("id, service_date, branch_id")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
         .order("service_date", { ascending: false });
-
-      // If specific services are selected, filter to only those
-      if (serviceIds && serviceIds.length > 0) {
-        servicesQuery = servicesQuery.in("id", serviceIds);
-      } else {
-        // Otherwise, apply branch filter for general view
-        servicesQuery = applyBranchFilter(servicesQuery, "branch_id", branchId, accessibleBranchIds);
-      }
-
-      const { data: servicesData } = await servicesQuery;
 
       // Group services by date - each unique date is ONE service occurrence
       const servicesByDate = new Map<string, string[]>();
