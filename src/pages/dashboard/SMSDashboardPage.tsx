@@ -1,5 +1,6 @@
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import {
   MessageSquare,
   Send,
@@ -8,11 +9,14 @@ import {
   Clock,
   ArrowUpRight,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSMSCampaigns, useDeliveryStatusSummary } from "@/hooks/useSMSData";
 import { useResendFailedSMS } from "@/hooks/useSMSMutations";
 import { PageHeader } from "@/components/dashboard/PageHeader";
@@ -22,11 +26,28 @@ export default function SMSDashboardPage() {
   const { data: campaigns, isLoading: campaignsLoading } = useSMSCampaigns();
   const { data: deliverySummary, isLoading: summaryLoading } = useDeliveryStatusSummary();
   const resendMutation = useResendFailedSMS();
+  
+  // Date filter state
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
 
-  // Calculate stats
-  const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) ?? 0;
-  const totalFailed = campaigns?.reduce((sum, c) => sum + (c.failed_count || 0), 0) ?? 0;
-  const totalCampaigns = campaigns?.length ?? 0;
+  // Filter campaigns by date
+  const filteredCampaigns = useMemo(() => {
+    if (!campaigns) return [];
+    return campaigns.filter((campaign) => {
+      const campaignDate = new Date(campaign.created_at);
+      if (dateRange.from && campaignDate < startOfDay(dateRange.from)) return false;
+      if (dateRange.to && campaignDate > endOfDay(dateRange.to)) return false;
+      return true;
+    });
+  }, [campaigns, dateRange]);
+
+  // Calculate stats from filtered campaigns
+  const totalSent = filteredCampaigns.reduce((sum, c) => sum + (c.sent_count || 0), 0);
+  const totalFailed = filteredCampaigns.reduce((sum, c) => sum + (c.failed_count || 0), 0);
+  const totalCampaigns = filteredCampaigns.length;
 
   return (
     <div className="space-y-6">
