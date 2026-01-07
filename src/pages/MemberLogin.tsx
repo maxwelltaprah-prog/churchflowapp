@@ -107,8 +107,13 @@ export default function MemberLogin() {
         return;
       }
 
-      // Convert phone to the email format used during registration
-      const authEmail = `${matchedMember.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
+      // Normalize phone number - remove all non-digits and convert +233 to 0 for consistency
+      let authPhoneNormalized = matchedMember.phone.replace(/[^0-9]/g, "");
+      // If starts with 233 (country code), convert to local format starting with 0
+      if (authPhoneNormalized.startsWith("233")) {
+        authPhoneNormalized = "0" + authPhoneNormalized.slice(3);
+      }
+      const authEmail = `${authPhoneNormalized}@churchflow.member`;
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: authEmail,
