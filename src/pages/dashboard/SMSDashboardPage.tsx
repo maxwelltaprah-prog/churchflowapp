@@ -7,18 +7,21 @@ import {
   XCircle,
   Clock,
   ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSMSCampaigns, useDeliveryStatusSummary } from "@/hooks/useSMSData";
+import { useResendFailedSMS } from "@/hooks/useSMSMutations";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 
 export default function SMSDashboardPage() {
   const navigate = useNavigate();
   const { data: campaigns, isLoading: campaignsLoading } = useSMSCampaigns();
   const { data: deliverySummary, isLoading: summaryLoading } = useDeliveryStatusSummary();
+  const resendMutation = useResendFailedSMS();
 
   // Calculate stats
   const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) ?? 0;
@@ -173,8 +176,25 @@ export default function SMSDashboardPage() {
                       </div>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground whitespace-nowrap">
-                    {format(new Date(campaign.created_at), "MMM d, h:mm a")}
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(campaign.created_at), "MMM d, h:mm a")}
+                    </div>
+                    {(campaign.failed_count ?? 0) > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resendMutation.mutate(campaign.id);
+                        }}
+                        disabled={resendMutation.isPending}
+                      >
+                        <RefreshCw className={`h-3 w-3 mr-1 ${resendMutation.isPending ? 'animate-spin' : ''}`} />
+                        Resend Failed
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

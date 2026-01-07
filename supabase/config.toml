@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.sms-delivery-callback]
 verify_jwt = false
+
+[functions.resend-failed-sms]
+verify_jwt = true

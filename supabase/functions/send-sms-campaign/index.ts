@@ -201,24 +201,45 @@ serve(async (req) => {
           const responseText = await smsResponse.text();
           console.log("BulkSMSGH Response:", responseText);
 
-          // BulkSMSGH returns "1000" or similar success codes, or error messages
-          // Success typically returns a numeric code like "1000", "1001", etc.
-          const isSuccess = smsResponse.ok && /^\d+$/.test(responseText.trim()) && parseInt(responseText.trim()) >= 1000;
+          // BulkSMSGH returns JSON response like:
+          // {"success":true,"code":1000,"data":{...},"message":"message submitted succesfully"}
+          // or {"success":false,"code":1006,"data":{...},"message":"invalid sender id..."}
+          let isSuccess = false;
+          let providerMessageId = "";
+          let errorMessage = "SMS sending failed";
+
+          try {
+            const jsonResponse = JSON.parse(responseText);
+            isSuccess = jsonResponse.success === true && jsonResponse.code >= 1000 && jsonResponse.code < 2000;
+            providerMessageId = jsonResponse.data?.campaign_id || jsonResponse.code?.toString() || "";
+            if (!isSuccess) {
+              errorMessage = jsonResponse.message || "SMS sending failed";
+            }
+          } catch {
+            // Fallback: some older responses may be plain text
+            isSuccess = smsResponse.ok && /^\d+$/.test(responseText.trim()) && parseInt(responseText.trim()) >= 1000;
+            providerMessageId = responseText.trim();
+            if (!isSuccess) {
+              errorMessage = responseText || "SMS sending failed";
+            }
+          }
 
           if (isSuccess) {
             await supabase
               .from("sms_jobs")
               .update({
                 status: "sent",
+                delivery_status: "sent",
                 sent_at: new Date().toISOString(),
-                provider_message_id: responseText.trim(),
+                provider_message_id: providerMessageId,
+                last_error: null,
               })
               .eq("campaign_id", campaign.id)
               .eq("phone_number", job.phone_number);
 
             return { success: true };
           } else {
-            throw new Error(responseText || "SMS sending failed");
+            throw new Error(errorMessage);
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
