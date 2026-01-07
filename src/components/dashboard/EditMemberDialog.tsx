@@ -39,6 +39,9 @@ interface EditMemberDialogProps {
     marital_status?: "single" | "married" | "divorced" | "widowed" | null;
     occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other" | null;
     is_baptized?: boolean | null;
+    emergency_contact_name?: string | null;
+    emergency_contact_phone?: string | null;
+    emergency_contact_relationship?: string | null;
     admin_notes?: string | null;
     date_joined?: string | null;
   } | null;
@@ -109,6 +112,9 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         marital_status: member.marital_status || null,
         occupation: member.occupation || null,
         is_baptized: member.is_baptized ?? null,
+        emergency_contact_name: member.emergency_contact_name || "",
+        emergency_contact_phone: member.emergency_contact_phone || "",
+        emergency_contact_relationship: member.emergency_contact_relationship || "",
         admin_notes: member.admin_notes || "",
         date_joined: member.date_joined || "",
       });
@@ -133,6 +139,9 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       marital_status: data.marital_status || undefined,
       occupation: data.occupation || undefined,
       is_baptized: data.is_baptized ?? undefined,
+      emergency_contact_name: data.emergency_contact_name || undefined,
+      emergency_contact_phone: data.emergency_contact_phone || undefined,
+      emergency_contact_relationship: data.emergency_contact_relationship || undefined,
       admin_notes: data.admin_notes || undefined,
       date_joined: data.date_joined || undefined,
     });
