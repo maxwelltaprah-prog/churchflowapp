@@ -34,32 +34,15 @@ export default function SendSMSPage() {
   const { data: church } = useChurch();
   const sendCampaign = useSendSMSCampaign();
 
-  // State
+  // State - Sender name is fixed to pre-registered "MYCHURCH"
+  const FIXED_SENDER_ID = "MYCHURCH";
   const [audienceTab, setAudienceTab] = useState("all");
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
-  const [senderName, setSenderName] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-
-  // Initialize sender name from church settings
-  useEffect(() => {
-    if (church && !senderName) {
-      const settings = church.settings as { sms_sender_id?: string } | null;
-      if (settings?.sms_sender_id) {
-        setSenderName(settings.sms_sender_id);
-      } else if (church.name) {
-        // Default to church name (max 11 chars, alphanumeric only)
-        const defaultSenderId = church.name
-          .replace(/[^a-zA-Z0-9\s]/g, "")
-          .replace(/\s+/g, "")
-          .substring(0, 11);
-        setSenderName(defaultSenderId);
-      }
-    }
-  }, [church]);
 
   // Filter members based on search
   const filteredMembers = useMemo(() => {
@@ -122,12 +105,11 @@ export default function SendSMSPage() {
       audienceMemberIds: audienceTab === "individual" ? selectedMemberIds : undefined,
       messageBody: message,
       subject,
-      senderName: senderName.trim() || undefined,
+      senderName: FIXED_SENDER_ID,
       recipientCount: actualRecipientCount,
     });
 
     // Reset form
-    setSenderName("");
     setSubject("");
     setMessage("");
     setSelectedGroupIds([]);
@@ -291,20 +273,6 @@ export default function SendSMSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Sender Name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sender Name</label>
-              <Input
-                placeholder="e.g. MyChurch (max 11 characters)"
-                value={senderName}
-                onChange={(e) => setSenderName(e.target.value.replace(/[^a-zA-Z0-9\s]/g, "").substring(0, 11))}
-                maxLength={11}
-              />
-              <p className="text-xs text-muted-foreground">
-                This name will appear as the sender on recipients' phones. Letters and numbers only.
-              </p>
-            </div>
-
             {/* Subject */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Subject (Optional)</label>
