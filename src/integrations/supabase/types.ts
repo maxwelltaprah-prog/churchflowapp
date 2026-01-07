@@ -1347,6 +1347,7 @@ export type Database = {
         Args: { _church_id: string; _user_id: string }
         Returns: boolean
       }
+      normalize_phone_for_auth: { Args: { phone: string }; Returns: string }
     }
     Enums: {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
