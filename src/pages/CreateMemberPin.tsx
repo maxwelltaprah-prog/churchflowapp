@@ -121,7 +121,13 @@ export default function CreateMemberPin() {
     setIsLoading(true);
 
     try {
-      const authEmail = `${memberData.phone.replace(/[^0-9]/g, "")}@churchflow.member`;
+      // Normalize phone number - remove all non-digits and convert +233 to 0 for consistency
+      let normalizedPhone = memberData.phone.replace(/[^0-9]/g, "");
+      // If starts with 233 (country code), convert to local format starting with 0
+      if (normalizedPhone.startsWith("233")) {
+        normalizedPhone = "0" + normalizedPhone.slice(3);
+      }
+      const authEmail = `${normalizedPhone}@churchflow.member`;
       
       // Create Supabase auth user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
