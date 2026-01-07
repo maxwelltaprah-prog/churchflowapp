@@ -30,14 +30,14 @@ export interface AdminUser {
 }
 
 export function useAdmins(includeInactive = false) {
-  const { profile, isChurchAdmin } = useAuth();
+  const { profile, isChurchAdmin, user } = useAuth();
 
   return useQuery({
     queryKey: ["admins", profile?.church_id, includeInactive],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
-      // 1. Fetch user_roles with member and profile info
+      // 1. Fetch user_roles with member info
       let query = supabase
         .from("user_roles")
         .select(`
@@ -48,17 +48,12 @@ export function useAdmins(includeInactive = false) {
           church_id,
           is_active,
           created_at,
-          members!left (
+          members (
             id,
             full_name,
             email,
             phone,
             photo_url
-          ),
-          profiles!left (
-            id,
-            full_name,
-            email
           )
         `)
         .eq("church_id", profile.church_id)
@@ -72,10 +67,27 @@ export function useAdmins(includeInactive = false) {
       const { data: roles, error: rolesError } = await query;
 
       if (rolesError) throw rolesError;
-      if (!roles || roles.length === 0) return [];
+      
+      // Build list with current user's role always included if they are an admin
+      let rolesList = roles || [];
+      if (rolesList.length === 0) return [];
+
+      // 2. Fetch profiles for all user_ids
+      const userIds = rolesList.map((r) => r.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      if (profilesError) {
+        console.error("Profiles fetch error:", profilesError);
+      }
+
+      // Create a map of profiles by user_id
+      const profilesMap = new Map((profiles || []).map((p) => [p.id, p]));
 
       // 2. Get all role IDs
-      const roleIds = roles.map((r) => r.id);
+      const roleIds = rolesList.map((r) => r.id);
 
       // 3. Fetch menu permissions for these roles
       const { data: menuPerms, error: menuError } = await supabase
@@ -103,11 +115,19 @@ export function useAdmins(includeInactive = false) {
       if (branchError) {
         console.error("Branch permissions error:", branchError);
       }
-
-      // 5. Build the result
-      const admins: AdminUser[] = roles.map((role) => {
-        const memberData = role.members as any;
-        const profileData = role.profiles as any;
+      // 6. Build the result
+      const admins: AdminUser[] = rolesList.map((role) => {
+        // Handle the nested data properly - Supabase returns single objects for one-to-one joins
+        const memberData = role.members as {
+          id: string;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          photo_url: string | null;
+        } | null;
+        
+        // Get profile from our map
+        const profileData = profilesMap.get(role.user_id) || null;
 
         const roleMenuPerms = (menuPerms || [])
           .filter((p) => p.user_role_id === role.id)

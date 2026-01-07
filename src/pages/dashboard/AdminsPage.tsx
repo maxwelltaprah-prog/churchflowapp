@@ -170,9 +170,6 @@ export default function AdminsPage() {
 
   const activeAdmins = admins?.filter((a) => a.is_active) || [];
   const inactiveAdmins = admins?.filter((a) => !a.is_active) || [];
-  const churchAdmins = activeAdmins.filter((a) => a.role === "church_admin");
-  const branchAdmins = activeAdmins.filter((a) => a.role === "branch_admin");
-  const ushers = activeAdmins.filter((a) => a.role === "usher");
 
   const renderAdminRow = (admin: AdminUser) => (
     <TableRow key={admin.id} className={!admin.is_active ? "opacity-60" : ""}>
@@ -273,46 +270,6 @@ export default function AdminsPage() {
           <Plus className="w-4 h-4 mr-2" />
           Add Administrator
         </Button>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Church Admins</p>
-              <p className="text-3xl font-bold text-foreground">{churchAdmins.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Full access to all branches</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <ShieldCheck className="w-5 h-5 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Branch Admins</p>
-              <p className="text-3xl font-bold text-foreground">{branchAdmins.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Limited to assigned branches</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-violet-500/10">
-              <Shield className="w-5 h-5 text-violet-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border border-border border-l-4 border-l-sky-500 bg-gradient-to-r from-sky-500/5 to-transparent hover:shadow-md transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Ushers & Staff</p>
-              <p className="text-3xl font-bold text-foreground">{ushers.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Menu-based access</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-sky-500/10">
-              <Users className="w-5 h-5 text-sky-600" />
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Administrators Table */}
