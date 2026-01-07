@@ -81,7 +81,7 @@ export default function SMSDashboardPage() {
             ) : (
               <div className="text-2xl font-bold">{totalCampaigns}</div>
             )}
-            <p className="text-xs text-muted-foreground">All time</p>
+            <p className="text-xs text-muted-foreground">In selected period</p>
           </CardContent>
         </Card>
 
@@ -149,8 +149,36 @@ export default function SMSDashboardPage() {
 
       {/* Recent Campaigns */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Campaigns</CardTitle>
+          {/* Date Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <Calendar className="h-4 w-4 mr-2" />
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "MMM d, yyyy")
+                  )
+                ) : (
+                  "Filter by date"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <CalendarComponent
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                numberOfMonths={2}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </CardHeader>
         <CardContent>
           {campaignsLoading ? (
@@ -159,9 +187,9 @@ export default function SMSDashboardPage() {
                 <Skeleton key={i} className="h-16" />
               ))}
             </div>
-          ) : campaigns && campaigns.length > 0 ? (
+          ) : filteredCampaigns.length > 0 ? (
             <div className="space-y-3">
-              {campaigns.slice(0, 10).map((campaign) => (
+              {filteredCampaigns.slice(0, 10).map((campaign) => (
                 <div
                   key={campaign.id}
                   className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
