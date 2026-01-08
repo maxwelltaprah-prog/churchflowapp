@@ -6,16 +6,16 @@ import {
   Calendar, 
   QrCode, 
   BarChart3, 
-  Bell, 
+  MessageSquare, 
   Settings,
   LogOut,
   ChevronDown,
   Church,
   ShieldCheck,
   Sparkles,
-  MessageSquare,
   UserPlus,
-  CreditCard
+  CreditCard,
+  Heart
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -44,18 +44,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChurch } from "@/hooks/useChurchData";
 
 const mainNavItems = [
-  { title: "Dashboard", url: "/app", icon: LayoutDashboard },
-  { title: "Members", url: "/app/members", icon: Users },
-  { title: "Visitors", url: "/app/visitors", icon: UserPlus },
+  { title: "Care Dashboard", url: "/app", icon: LayoutDashboard },
+  { title: "People Directory", url: "/app/members", icon: Users },
+  { title: "Guests", url: "/app/visitors", icon: UserPlus },
   { title: "Groups", url: "/app/groups", icon: UsersRound },
-  { title: "Branches", url: "/app/branches", icon: Building2 },
+  { title: "Locations", url: "/app/branches", icon: Building2 },
   { title: "Services", url: "/app/services", icon: Calendar },
-  { title: "Check-in", url: "/app/checkin", icon: QrCode },
-  { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
-  { title: "Broadcasts", url: "/app/broadcasts", icon: Bell },
+  { title: "Scan to Connect", url: "/app/checkin", icon: QrCode },
+  { title: "Engagement Insights", url: "/app/analytics", icon: BarChart3 },
+  { title: "Care Messages", url: "/app/broadcasts", icon: Heart },
   { title: "SMS", url: "/app/sms", icon: MessageSquare, adminOnly: true },
   { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, adminOnly: true },
-  { title: "Admins", url: "/app/admins", icon: ShieldCheck, adminOnly: true },
+  { title: "Roles & Access", url: "/app/admins", icon: ShieldCheck, adminOnly: true },
 ];
 
 const settingsNavItems = [
