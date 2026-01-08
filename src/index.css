@@ -133,6 +133,12 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Outfit', sans-serif;
+    background-image: 
+      radial-gradient(at 0% 0%, hsl(var(--kpi-purple) / 0.03) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, hsl(var(--kpi-teal) / 0.03) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--kpi-pink) / 0.03) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(var(--kpi-blue) / 0.03) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
