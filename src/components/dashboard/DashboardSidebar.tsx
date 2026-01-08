@@ -44,23 +44,23 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChurch } from "@/hooks/useChurchData";
 
 const mainNavItems = [
-  { title: "Care Dashboard", url: "/app", icon: LayoutDashboard },
-  { title: "People Directory", url: "/app/members", icon: Users },
-  { title: "Guests", url: "/app/visitors", icon: UserPlus },
-  { title: "Groups", url: "/app/groups", icon: UsersRound },
-  { title: "Locations", url: "/app/branches", icon: Building2 },
-  { title: "Services", url: "/app/services", icon: Calendar },
-  { title: "Scan to Connect", url: "/app/checkin", icon: QrCode },
-  { title: "Engagement Insights", url: "/app/analytics", icon: BarChart3 },
-  { title: "Care Messages", url: "/app/broadcasts", icon: Heart },
-  { title: "SMS", url: "/app/sms", icon: MessageSquare, adminOnly: true },
-  { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, adminOnly: true },
-  { title: "Roles & Access", url: "/app/admins", icon: ShieldCheck, adminOnly: true },
+  { title: "Care Dashboard", url: "/app", icon: LayoutDashboard, color: "kpi-purple" },
+  { title: "People Directory", url: "/app/members", icon: Users, color: "kpi-blue" },
+  { title: "Guests", url: "/app/visitors", icon: UserPlus, color: "kpi-teal" },
+  { title: "Groups", url: "/app/groups", icon: UsersRound, color: "kpi-pink" },
+  { title: "Locations", url: "/app/branches", icon: Building2, color: "kpi-amber" },
+  { title: "Services", url: "/app/services", icon: Calendar, color: "kpi-green" },
+  { title: "Scan to Connect", url: "/app/checkin", icon: QrCode, color: "kpi-orange" },
+  { title: "Engagement Insights", url: "/app/analytics", icon: BarChart3, color: "kpi-purple" },
+  { title: "Care Messages", url: "/app/broadcasts", icon: Heart, color: "kpi-rose" },
+  { title: "SMS", url: "/app/sms", icon: MessageSquare, color: "kpi-blue", adminOnly: true },
+  { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, color: "kpi-amber", adminOnly: true },
+  { title: "Roles & Access", url: "/app/admins", icon: ShieldCheck, color: "kpi-teal", adminOnly: true },
 ];
 
 const settingsNavItems = [
-  { title: "Billing", url: "/app/billing", icon: CreditCard, adminOnly: true },
-  { title: "Settings", url: "/app/settings", icon: Settings },
+  { title: "Billing", url: "/app/billing", icon: CreditCard, color: "kpi-green", adminOnly: true },
+  { title: "Settings", url: "/app/settings", icon: Settings, color: "kpi-purple" },
 ];
 
 export function DashboardSidebar() {
@@ -93,12 +93,27 @@ export function DashboardSidebar() {
     return "Staff";
   };
 
+  // Color class mapping for dynamic styles
+  const getColorClasses = (color: string, active: boolean) => {
+    const colorMap: Record<string, { bg: string; text: string; hover: string; glow: string }> = {
+      "kpi-purple": { bg: "bg-kpi-purple/15", text: "text-kpi-purple", hover: "hover:bg-kpi-purple/10", glow: "shadow-kpi-purple/20" },
+      "kpi-blue": { bg: "bg-kpi-blue/15", text: "text-kpi-blue", hover: "hover:bg-kpi-blue/10", glow: "shadow-kpi-blue/20" },
+      "kpi-teal": { bg: "bg-kpi-teal/15", text: "text-kpi-teal", hover: "hover:bg-kpi-teal/10", glow: "shadow-kpi-teal/20" },
+      "kpi-pink": { bg: "bg-kpi-pink/15", text: "text-kpi-pink", hover: "hover:bg-kpi-pink/10", glow: "shadow-kpi-pink/20" },
+      "kpi-amber": { bg: "bg-kpi-amber/15", text: "text-kpi-amber", hover: "hover:bg-kpi-amber/10", glow: "shadow-kpi-amber/20" },
+      "kpi-green": { bg: "bg-kpi-green/15", text: "text-kpi-green", hover: "hover:bg-kpi-green/10", glow: "shadow-kpi-green/20" },
+      "kpi-orange": { bg: "bg-kpi-orange/15", text: "text-kpi-orange", hover: "hover:bg-kpi-orange/10", glow: "shadow-kpi-orange/20" },
+      "kpi-rose": { bg: "bg-kpi-rose/15", text: "text-kpi-rose", hover: "hover:bg-kpi-rose/10", glow: "shadow-kpi-rose/20" },
+    };
+    return colorMap[color] || colorMap["kpi-purple"];
+  };
+
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border" style={{ background: 'var(--gradient-sidebar)' }}>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       <SidebarHeader className="border-b border-sidebar-border/50 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-primary flex items-center justify-center shadow-md flex-shrink-0">
-            <Church className="w-5 h-5 text-primary-foreground" />
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-kpi-purple to-kpi-blue flex items-center justify-center shadow-lg shadow-kpi-purple/30 flex-shrink-0">
+            <Church className="w-5 h-5 text-white" />
           </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">
@@ -120,28 +135,38 @@ export function DashboardSidebar() {
             <SidebarMenu className="space-y-1">
               {mainNavItems
                 .filter((item) => !('adminOnly' in item) || (item.adminOnly && isChurchAdmin()))
-                .map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/app"}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                        isActive(item.url)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm border-l-2 border-primary"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                      )}
-                    >
-                      <item.icon className={cn(
-                        "w-5 h-5 flex-shrink-0 transition-colors",
-                        isActive(item.url) ? "text-primary" : ""
-                      )} />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                .map((item) => {
+                  const active = isActive(item.url);
+                  const colors = getColorClasses(item.color, active);
+                  
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === "/app"}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
+                            active
+                              ? `${colors.bg} ${colors.text} font-medium shadow-md ${colors.glow}`
+                              : `text-sidebar-foreground/70 ${colors.hover} hover:text-sidebar-foreground`
+                          )}
+                        >
+                          <div className={cn(
+                            "p-1.5 rounded-lg transition-all",
+                            active ? `bg-white/10` : "group-hover:bg-white/5"
+                          )}>
+                            <item.icon className={cn(
+                              "w-4 h-4 flex-shrink-0 transition-colors",
+                              active ? colors.text : "group-hover:" + colors.text
+                            )} />
+                          </div>
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -154,38 +179,48 @@ export function DashboardSidebar() {
             <SidebarMenu className="space-y-1">
               {settingsNavItems
                 .filter((item) => !('adminOnly' in item) || (item.adminOnly && isChurchAdmin()))
-                .map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink
-                      to={item.url}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                        isActive(item.url)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm border-l-2 border-primary"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                      )}
-                    >
-                      <item.icon className={cn(
-                        "w-5 h-5 flex-shrink-0 transition-colors",
-                        isActive(item.url) ? "text-primary" : ""
-                      )} />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                .map((item) => {
+                  const active = isActive(item.url);
+                  const colors = getColorClasses(item.color, active);
+                  
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                        <NavLink
+                          to={item.url}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
+                            active
+                              ? `${colors.bg} ${colors.text} font-medium shadow-md ${colors.glow}`
+                              : `text-sidebar-foreground/70 ${colors.hover} hover:text-sidebar-foreground`
+                          )}
+                        >
+                          <div className={cn(
+                            "p-1.5 rounded-lg transition-all",
+                            active ? `bg-white/10` : "group-hover:bg-white/5"
+                          )}>
+                            <item.icon className={cn(
+                              "w-4 h-4 flex-shrink-0 transition-colors",
+                              active ? colors.text : "group-hover:" + colors.text
+                            )} />
+                          </div>
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border/50 p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent/50 transition-colors">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-accent text-accent-foreground text-sm font-medium">
+            <button className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-kpi-purple/10 transition-all duration-200 group">
+              <Avatar className="w-8 h-8 ring-2 ring-kpi-purple/30">
+                <AvatarFallback className="bg-gradient-to-br from-kpi-purple to-kpi-blue text-white text-sm font-medium">
                   {getInitials(profile?.full_name)}
                 </AvatarFallback>
               </Avatar>
@@ -197,7 +232,7 @@ export function DashboardSidebar() {
                     </div>
                     <div className="text-xs text-sidebar-foreground/60 truncate">{getRoleLabel()}</div>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-sidebar-foreground/50" />
+                  <ChevronDown className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-kpi-purple transition-colors" />
                 </>
               )}
             </button>
