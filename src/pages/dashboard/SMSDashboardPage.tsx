@@ -66,83 +66,83 @@ export default function SMSDashboardPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Campaigns */}
-        <Card className="border border-border border-l-4 border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-            <div className="p-2.5 rounded-xl bg-violet-500/10">
-              <MessageSquare className="h-5 w-5 text-violet-600" />
+        <Card className="bg-kpi-purple/10 border-kpi-purple/20 hover:bg-kpi-purple/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Campaigns</p>
+              {campaignsLoading ? (
+                <Skeleton className="h-8 w-16 mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-foreground">{totalCampaigns}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">In selected period</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {campaignsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{totalCampaigns}</div>
-            )}
-            <p className="text-xs text-muted-foreground">In selected period</p>
+            <div className="p-3 rounded-xl bg-kpi-purple/20">
+              <MessageSquare className="h-5 w-5 text-kpi-purple" />
+            </div>
           </CardContent>
         </Card>
 
         {/* Messages Sent */}
-        <Card className="border border-border border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Messages Sent</CardTitle>
-            <div className="p-2.5 rounded-xl bg-blue-500/10">
-              <ArrowUpRight className="h-5 w-5 text-blue-600" />
+        <Card className="bg-kpi-blue/10 border-kpi-blue/20 hover:bg-kpi-blue/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Messages Sent</p>
+              {campaignsLoading ? (
+                <Skeleton className="h-8 w-16 mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-kpi-blue">{totalSent}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Submitted to provider</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {campaignsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-blue-600">{totalSent}</div>
-            )}
-            <p className="text-xs text-muted-foreground">Submitted to provider</p>
+            <div className="p-3 rounded-xl bg-kpi-blue/20">
+              <ArrowUpRight className="h-5 w-5 text-kpi-blue" />
+            </div>
           </CardContent>
         </Card>
 
         {/* Delivered */}
-        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10">
-              <CheckCircle className="h-5 w-5 text-emerald-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {summaryLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-emerald-600">
-                {deliverySummary?.delivered ?? 0}
+        <Card className="bg-kpi-green/10 border-kpi-green/20 hover:bg-kpi-green/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Delivered</p>
+              {summaryLoading ? (
+                <Skeleton className="h-8 w-16 mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-kpi-green">
+                  {deliverySummary?.delivered ?? 0}
+                </p>
+              )}
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                <Clock className="h-3 w-3" />
+                <span>{deliverySummary?.sent ?? 0} awaiting</span>
               </div>
-            )}
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>{deliverySummary?.sent ?? 0} awaiting delivery</span>
+            </div>
+            <div className="p-3 rounded-xl bg-kpi-green/20">
+              <CheckCircle className="h-5 w-5 text-kpi-green" />
             </div>
           </CardContent>
         </Card>
 
         {/* Failed Messages */}
-        <Card className="border border-border border-l-4 border-l-rose-500 bg-gradient-to-r from-rose-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-            <div className="p-2.5 rounded-xl bg-rose-500/10">
-              <XCircle className="h-5 w-5 text-rose-600" />
+        <Card className="bg-kpi-rose/10 border-kpi-rose/20 hover:bg-kpi-rose/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Failed</p>
+              {campaignsLoading || summaryLoading ? (
+                <Skeleton className="h-8 w-16 mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-kpi-rose">
+                  {deliverySummary?.failed ?? totalFailed}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Failed to deliver</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {campaignsLoading || summaryLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-rose-600">
-                {deliverySummary?.failed ?? totalFailed}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">Failed to deliver</p>
+            <div className="p-3 rounded-xl bg-kpi-rose/20">
+              <XCircle className="h-5 w-5 text-kpi-rose" />
+            </div>
           </CardContent>
         </Card>
       </div>

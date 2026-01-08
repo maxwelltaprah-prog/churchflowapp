@@ -133,41 +133,50 @@ export default function ServicesPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Upcoming Services</CardDescription>
-            <CardTitle className="text-3xl">{services?.length || 0}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Scheduled services</p>
+        <Card className="bg-kpi-purple/10 border-kpi-purple/20 hover:bg-kpi-purple/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Upcoming Services</p>
+              <p className="text-3xl font-bold text-foreground">{services?.length || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Scheduled services</p>
+            </div>
+            <div className="p-3 rounded-xl bg-kpi-purple/20">
+              <Calendar className="w-5 h-5 text-kpi-purple" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>Today's Services</CardDescription>
-            <CardTitle className="text-3xl">
-              {services?.filter(s => isToday(new Date(s.service_date))).length || 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Active today</p>
+        <Card className="bg-kpi-green/10 border-kpi-green/20 hover:bg-kpi-green/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Today's Services</p>
+              <p className="text-3xl font-bold text-foreground">
+                {services?.filter(s => isToday(new Date(s.service_date))).length || 0}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Active today</p>
+            </div>
+            <div className="p-3 rounded-xl bg-kpi-green/20">
+              <Clock className="w-5 h-5 text-kpi-green" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardDescription>This Week</CardDescription>
-            <CardTitle className="text-3xl">
-              {services?.filter(s => {
-                const date = new Date(s.service_date);
-                const now = new Date();
-                const weekEnd = new Date(now);
-                weekEnd.setDate(now.getDate() + 7);
-                return date >= now && date <= weekEnd;
-              }).length || 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Next 7 days</p>
+        <Card className="bg-kpi-amber/10 border-kpi-amber/20 hover:bg-kpi-amber/15 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">This Week</p>
+              <p className="text-3xl font-bold text-foreground">
+                {services?.filter(s => {
+                  const date = new Date(s.service_date);
+                  const now = new Date();
+                  const weekEnd = new Date(now);
+                  weekEnd.setDate(now.getDate() + 7);
+                  return date >= now && date <= weekEnd;
+                }).length || 0}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Next 7 days</p>
+            </div>
+            <div className="p-3 rounded-xl bg-kpi-amber/20">
+              <Calendar className="w-5 h-5 text-kpi-amber" />
+            </div>
           </CardContent>
         </Card>
       </div>
