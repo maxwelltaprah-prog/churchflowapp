@@ -33,6 +33,7 @@ const routeTitles: Record<string, string> = {
   "/app/analytics/drilldown": "Member Drilldown",
   "/app/broadcasts": "Broadcasts",
   "/app/admins": "Administrators & Access",
+  "/app/billing": "Billing & Subscription",
   "/app/settings": "Settings",
 };
 
