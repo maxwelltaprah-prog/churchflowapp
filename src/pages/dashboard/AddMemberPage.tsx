@@ -18,6 +18,8 @@ import { useSetMemberGroups } from "@/hooks/useGroupMutations";
 import { useSetMemberSpiritualJourneys } from "@/hooks/useSpiritualJourneyMutations";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useMemberTierLimit } from "@/hooks/useMemberTierLimit";
+import { MemberTierWarning } from "@/components/member/MemberTierWarning";
 
 interface VisitorData {
   first_name: string;
@@ -41,6 +43,7 @@ export default function AddMemberPage() {
   const setMemberSpiritualJourneys = useSetMemberSpiritualJourneys();
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [isUpdatingVisitor, setIsUpdatingVisitor] = useState(false);
+  const tierStatus = useMemberTierLimit();
 
   const { data: availableGroups } = useActiveGroups(selectedBranchId);
   const { data: availableSpiritualJourneys } = useActiveSpiritualJourneys();
@@ -190,6 +193,9 @@ export default function AddMemberPage() {
         </Alert>
       )}
 
+      {/* Tier Limit Warning */}
+      <MemberTierWarning tierStatus={tierStatus} />
+
       {/* Form Card */}
       <Card>
         <CardHeader>
@@ -223,7 +229,7 @@ export default function AddMemberPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending || isUpdatingVisitor}
+                  disabled={createMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending || isUpdatingVisitor || !tierStatus.canAddMember}
                   className="gap-2"
                 >
                   <UserPlus className="w-4 h-4" />

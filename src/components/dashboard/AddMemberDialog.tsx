@@ -18,6 +18,8 @@ import { useActiveSpiritualJourneys } from "@/hooks/useSpiritualJourneyData";
 import { useSetMemberSpiritualJourneys } from "@/hooks/useSpiritualJourneyMutations";
 import { MemberForm } from "@/components/member/MemberForm";
 import { memberFormSchema, type MemberFormData } from "@/lib/member-form-schema";
+import { useMemberTierLimit } from "@/hooks/useMemberTierLimit";
+import { MemberTierWarning } from "@/components/member/MemberTierWarning";
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -30,6 +32,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
   const setMemberGroups = useSetMemberGroups();
   const setMemberSpiritualJourneys = useSetMemberSpiritualJourneys();
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const tierStatus = useMemberTierLimit();
   
   const { data: availableGroups } = useActiveGroups(selectedBranchId);
   const { data: availableSpiritualJourneys } = useActiveSpiritualJourneys();
@@ -115,6 +118,9 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
             Register a new member with their details.
           </DialogDescription>
         </DialogHeader>
+        {/* Tier Limit Warning */}
+        <MemberTierWarning tierStatus={tierStatus} className="mb-4" />
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <MemberForm
@@ -132,7 +138,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
               </Button>
               <Button 
                 type="submit" 
-                disabled={createMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending}
+                disabled={createMember.isPending || setMemberGroups.isPending || setMemberSpiritualJourneys.isPending || !tierStatus.canAddMember}
               >
                 {createMember.isPending ? "Adding..." : "Add Member"}
               </Button>
