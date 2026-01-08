@@ -29,3 +29,15 @@ verify_jwt = false
 
 [functions.resend-failed-sms]
 verify_jwt = true
+
+[functions.paystack-checkout]
+verify_jwt = true
+
+[functions.paystack-verify]
+verify_jwt = true
+
+[functions.paystack-webhook]
+verify_jwt = false
+
+[functions.check-expired-trials]
+verify_jwt = false
