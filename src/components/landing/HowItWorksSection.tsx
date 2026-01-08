@@ -1,34 +1,34 @@
-import { Church, GitBranch, UserPlus, QrCode, CheckCircle2 } from "lucide-react";
+import { Church, GitBranch, UserPlus, QrCode, Heart } from "lucide-react";
 
 const steps = [
   {
     icon: Church,
-    title: "Church Creates Account",
+    title: "Create Church Account",
     description: "Register your church in minutes. Your main branch is created automatically.",
     number: "01",
   },
   {
     icon: GitBranch,
-    title: "Add Sub-Branches",
-    description: "Set up additional locations with unique join codes and links for each branch.",
+    title: "Add Your Locations",
+    description: "Set up additional branches with unique join codes and links for each location.",
     number: "02",
   },
   {
     icon: UserPlus,
-    title: "Members Join",
-    description: "Members register via branch link or staff adds them. Instant QR code generated.",
+    title: "Members Join & Get Their Pass",
+    description: "Members register via branch link or staff adds them. Instant Member Pass generated.",
     number: "03",
   },
   {
     icon: QrCode,
-    title: "Scan to Check-in",
-    description: "Staff scans member QR codes at services. Fast, accurate, paperless attendance.",
+    title: "Scan to Connect",
+    description: "Members connect at services with a quick scan. Programs and resources shared instantly.",
     number: "04",
   },
   {
-    icon: CheckCircle2,
-    title: "Track & Engage",
-    description: "Real-time analytics across all branches. Identify trends and engage members.",
+    icon: Heart,
+    title: "Care with Intention",
+    description: "Engagement insights across all branches. Know who needs follow-up and celebrate milestones.",
     number: "05",
   },
 ];

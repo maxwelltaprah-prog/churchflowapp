@@ -16,30 +16,31 @@ import { TrialBanner } from "@/components/billing/TrialBanner";
 import { PaywallLock } from "@/components/billing/PaywallLock";
 
 const routeTitles: Record<string, string> = {
-  "/app": "Dashboard",
-  "/app/members": "Members",
+  "/app": "Care Dashboard",
+  "/app/members": "People Directory",
   "/app/groups": "Groups",
-  "/app/branches": "Branches",
+  "/app/branches": "Locations",
   "/app/services": "Services",
-  "/app/checkin": "Check-in",
-  "/app/analytics": "Analytics",
-  "/app/analytics/attendance": "Attendance Analytics",
+  "/app/checkin": "Scan to Connect",
+  "/app/analytics": "Engagement Insights",
+  "/app/analytics/attendance": "Engagement Analytics",
   "/app/analytics/demographics": "Demographics",
   "/app/analytics/members": "Member Growth",
   "/app/analytics/groups": "Groups & Ministries",
   "/app/analytics/groups/absentees": "Group Absentees",
   "/app/analytics/quality": "Service Quality",
-  
   "/app/analytics/drilldown": "Member Drilldown",
-  "/app/broadcasts": "Broadcasts",
-  "/app/admins": "Administrators & Access",
+  "/app/broadcasts": "Care Messages",
+  "/app/admins": "Roles & Access",
   "/app/billing": "Billing & Subscription",
   "/app/settings": "Settings",
+  "/app/visitors": "Guests",
+  "/app/sms": "SMS",
 };
 
 export function DashboardLayout() {
   const location = useLocation();
-  const currentTitle = routeTitles[location.pathname] || "Dashboard";
+  const currentTitle = routeTitles[location.pathname] || "Care Dashboard";
 
   return (
     <SidebarProvider>

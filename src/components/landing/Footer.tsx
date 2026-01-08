@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Church, Mail, Phone, MapPin } from "lucide-react";
+import { Church, Mail, Phone, Heart } from "lucide-react";
 
 export function Footer() {
   return (
@@ -14,9 +14,12 @@ export function Footer() {
               </div>
               <span className="text-xl font-bold">ChurchFlow</span>
             </Link>
-            <p className="text-primary-foreground/70 max-w-md mb-6 leading-relaxed">
-              Modern church attendance management for growing congregations. 
-              QR-based check-in, multi-branch support, and powerful analytics — all from phones.
+            <p className="text-primary-foreground/70 max-w-md mb-4 leading-relaxed">
+              Know your members. Care better.
+            </p>
+            <p className="text-primary-foreground/60 max-w-md mb-6 text-sm leading-relaxed">
+              From congregation to connection. ChurchFlow helps churches follow up with care 
+              and serve more personally—across every branch.
             </p>
             <div className="flex flex-col gap-2 text-sm text-primary-foreground/70">
               <div className="flex items-center gap-2">
@@ -87,8 +90,8 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="border-t border-primary-foreground/10 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-primary-foreground/60">
-            © {new Date().getFullYear()} ChurchFlow. All rights reserved.
+          <p className="text-sm text-primary-foreground/60 flex items-center gap-1">
+            © {new Date().getFullYear()} ChurchFlow. Built with <Heart className="w-3 h-3 text-accent" /> for churches.
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-primary-foreground/60 hover:text-primary-foreground transition-colors text-sm">

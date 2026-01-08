@@ -4,39 +4,42 @@ import {
   Smartphone, 
   Shield, 
   Users, 
-  Bell,
+  MessageSquare,
   Globe,
-  Zap
+  Zap,
+  Heart,
+  Download,
+  Clock
 } from "lucide-react";
 
 const churchFeatures = [
   {
     icon: Building2,
-    title: "Multi-Branch Management",
-    description: "One dashboard for all your locations. Create, manage, and monitor branches effortlessly.",
+    title: "Care Across Every Branch",
+    description: "One dashboard for all your locations. Know every member, serve every community.",
   },
   {
     icon: BarChart3,
-    title: "Real-time Analytics",
-    description: "Track attendance trends, compare branches, and make data-driven decisions.",
+    title: "Engagement Insights",
+    description: "See who's connected, who's drifting, and when to follow up—all in real time.",
   },
   {
-    icon: Bell,
-    title: "Broadcast Messaging",
-    description: "Send announcements to specific branches, groups, or your entire congregation.",
+    icon: MessageSquare,
+    title: "Care Messages",
+    description: "Send personalized messages that feel human—birthdays, follow-ups, encouragements.",
   },
   {
     icon: Shield,
-    title: "Role-Based Access",
-    description: "Granular permissions for church admins, branch managers, and ushers.",
+    title: "Serve as a Team",
+    description: "Granular roles for church admins, branch managers, and ushers to care together.",
   },
 ];
 
 const memberFeatures = [
   {
     icon: Smartphone,
-    title: "Personal QR Code",
-    description: "Your unique QR code for instant check-in at any service, any branch.",
+    title: "Personal Member Pass",
+    description: "Your unique QR code—Scan to Connect at any service, any branch.",
   },
   {
     icon: Users,
@@ -45,13 +48,31 @@ const memberFeatures = [
   },
   {
     icon: Zap,
-    title: "6-Second Check-in",
-    description: "Show your QR, get scanned, you're done. The fastest church check-in experience.",
+    title: "Fast Check-in, Care Signal",
+    description: "6-second connection that becomes a care signal for your church leaders.",
   },
   {
     icon: Globe,
-    title: "Cross-Branch Access",
-    description: "Visiting another location? Check in seamlessly with your same member code.",
+    title: "One Member, Every Location",
+    description: "Visiting another branch? Connect seamlessly with your same member pass.",
+  },
+];
+
+const memberHubFeatures = [
+  {
+    icon: Download,
+    title: "Download Today's Program",
+    description: "Access service programs immediately after connecting.",
+  },
+  {
+    icon: Clock,
+    title: "View Engagement History",
+    description: "See your connection journey with your church community.",
+  },
+  {
+    icon: Heart,
+    title: "Access Church Resources",
+    description: "Sermons, devotionals, and training materials—all in one place.",
   },
 ];
 
@@ -59,6 +80,40 @@ export function FeaturesSection() {
   return (
     <section id="features" className="py-24 lg:py-32 bg-secondary/50">
       <div className="container">
+        {/* Pain Points Section */}
+        <div className="mb-24">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-destructive/10 text-destructive text-sm font-medium mb-4">
+              The Challenge
+            </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
+              When people drift, you should know—<span className="text-gradient">early.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { text: "People drift quietly—leaders notice too late." },
+              { text: "Visitors slip through without clear follow-up." },
+              { text: "Birthdays and milestones get missed across branches." },
+              { text: "Messages feel generic—care should be personal." },
+            ].map((pain, index) => (
+              <div
+                key={index}
+                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-full blur-2xl" />
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <span className="text-destructive font-bold">{index + 1}</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed">{pain.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* For Churches */}
         <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -66,11 +121,11 @@ export function FeaturesSection() {
               For Churches
             </span>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              Powerful Tools for <span className="text-gradient">Church Leaders</span>
+              Tools for <span className="text-gradient">Intentional Care</span>
             </h2>
             <p className="text-lg text-muted-foreground">
-              Everything you need to manage attendance across multiple locations, 
-              with insights that help your church grow.
+              Everything you need to know your members, follow up with care, 
+              and serve more personally across every branch.
             </p>
           </div>
 
@@ -100,17 +155,17 @@ export function FeaturesSection() {
         </div>
 
         {/* For Members */}
-        <div>
+        <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="inline-block px-4 py-1.5 rounded-full bg-accent/20 text-accent text-sm font-medium mb-4">
               For Members
             </span>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              Seamless Experience for <span className="text-gradient-accent">Members</span>
+              A Welcome, <span className="text-gradient-accent">Not a Tally</span>
             </h2>
             <p className="text-lg text-muted-foreground">
-              Join your church, get your personal QR code, and check in faster than ever. 
-              It just works.
+              Join your church, get your personal Member Pass, and stay connected 
+              with your community. It just works.
             </p>
           </div>
 
@@ -131,6 +186,43 @@ export function FeaturesSection() {
                     {feature.title}
                   </h3>
                   <p className="text-muted-foreground leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Member Hub */}
+        <div>
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              Member Hub
+            </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
+              A Home for <span className="text-gradient">Your Members</span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Members feel like part of something—not just names on a list.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {memberHubFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border hover:shadow-card transition-all duration-300 hover:-translate-y-1"
+              >
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                    <feature.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     {feature.description}
                   </p>
                 </div>
