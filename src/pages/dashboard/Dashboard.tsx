@@ -125,17 +125,17 @@ export default function Dashboard() {
 
       {/* SECTION 1: KPI Cards - with deep links to analytics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} variant="highlight" />
-        <KPICard title="Members" value={kpis?.uniqueMembers ?? 0} icon={UserCheck} href={`/app/analytics/members-attended${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}${branchId ? `&branch=${branchId}` : ""}`} isLoading={kpisLoading} description="Unique check-ins" />
-        <KPICard title="New Visitors" value={kpis?.newVisitors ?? 0} icon={UserPlus} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} variant="accent" />
-        <KPICard title="Returning Visitors" value={kpis?.returningVisitors ?? 0} icon={RefreshCw} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} />
+        <KPICard title="Total Attendance" value={kpis?.totalAttendance ?? 0} icon={Users} href={buildAnalyticsLink("drilldown", dateRange, branchId, "all")} isLoading={kpisLoading} change={kpis?.change} variant="blue" />
+        <KPICard title="Members" value={kpis?.uniqueMembers ?? 0} icon={UserCheck} href={`/app/analytics/members-attended${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}${branchId ? `&branch=${branchId}` : ""}`} isLoading={kpisLoading} description="Unique check-ins" variant="purple" />
+        <KPICard title="New Visitors" value={kpis?.newVisitors ?? 0} icon={UserPlus} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} variant="teal" />
+        <KPICard title="Returning Visitors" value={kpis?.returningVisitors ?? 0} icon={RefreshCw} href={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`} isLoading={kpisLoading} variant="orange" />
       </div>
 
       {/* SECTION 2: Live Check-in Activity - Full Width */}
       <LiveCheckinFeed branchId={branchId} maxItems={10} />
 
       {/* SECTION 3: Check-in Flow Chart */}
-      <Card>
+      <Card className="border-0 bg-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <SectionHeader title="Check-in Flow" description="Arrival pattern by hour" icon={BarChart3} />
@@ -246,7 +246,7 @@ export default function Dashboard() {
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Special Updates - Birthdays & Anniversaries */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 border-0 bg-gradient-to-br from-kpi-pink/5 to-kpi-purple/5">
           <CardHeader className="pb-3">
             <SectionHeader title="Special Updates" icon={Gift} />
           </CardHeader>
@@ -441,7 +441,7 @@ export default function Dashboard() {
 
         {/* Engagement Signals - Clickable */}
         <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
-          <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full">
+          <Card className="hover:scale-[1.02] transition-all cursor-pointer h-full border-0 bg-gradient-to-br from-kpi-rose/5 to-kpi-teal/5">
             <CardHeader className="pb-3">
               <SectionHeader title="Engagement Signals" icon={AlertTriangle} />
             </CardHeader>
@@ -481,19 +481,19 @@ export default function Dashboard() {
         </Link>
 
         {/* Service Quality */}
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
           <CardHeader className="pb-3"><SectionHeader title="Service Quality" icon={Clock} /></CardHeader>
           <CardContent className="space-y-3">
-            <StatCard label="Late Arrival Rate" value={`${serviceQuality?.lateRate || 0}%`} />
-            <StatCard label="Early Arrival Rate" value={`${serviceQuality?.earlyRate || 0}%`} />
-            <StatCard label="Total Check-ins" value={serviceQuality?.totalCheckins || 0} />
+            <StatCard label="Late Arrival Rate" value={`${serviceQuality?.lateRate || 0}%`} variant="orange" />
+            <StatCard label="Early Arrival Rate" value={`${serviceQuality?.earlyRate || 0}%`} variant="green" />
+            <StatCard label="Total Check-ins" value={serviceQuality?.totalCheckins || 0} variant="blue" />
           </CardContent>
         </Card>
       </div>
 
       {/* SECTION 7-8: Groups & Demographics */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-kpi-purple/5 to-kpi-blue/5">
           <CardHeader className="pb-3"><SectionHeader title="Groups Snapshot" icon={UsersRound} action={<Link to={buildAnalyticsLink("groups", dateRange, branchId)}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
           <CardContent>
             {!groups?.topGroups?.length ? <EmptyState icon={UsersRound} title="No groups" description="Create groups to track ministry engagement" /> : (
@@ -505,7 +505,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-kpi-teal/5 to-kpi-green/5">
           <CardHeader className="pb-3"><SectionHeader title="Demographics" icon={PieChart} /></CardHeader>
           <CardContent>
             {demographics?.gender?.length ? (
@@ -535,7 +535,7 @@ export default function Dashboard() {
       </div>
 
       {/* Branch Leaderboard */}
-      <Card>
+      <Card className="border-0 bg-gradient-to-br from-kpi-blue/5 to-kpi-purple/5">
         <CardHeader className="pb-3"><SectionHeader title="Branch Leaderboard" icon={Building2} /></CardHeader>
         <CardContent>
           {!branchOps?.leaderboard?.length ? <EmptyState icon={Building2} title="No branches" description="Add branches to track" /> : (
@@ -549,7 +549,7 @@ export default function Dashboard() {
       </Card>
 
       {/* New People to Follow Up */}
-      <Card>
+      <Card className="border-0 bg-gradient-to-br from-kpi-orange/5 to-kpi-amber/5">
         <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", dateRange, branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
         <CardContent>
           {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (

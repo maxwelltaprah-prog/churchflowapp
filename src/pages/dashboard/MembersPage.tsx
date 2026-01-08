@@ -287,21 +287,21 @@ export default function MembersPage() {
     <div className="space-y-6">
       {/* Summary Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft hover:shadow-md transition-shadow">
+        <div className="bg-gradient-to-br from-kpi-blue/10 to-kpi-purple/5 rounded-2xl border border-kpi-blue/20 p-4">
           <p className="text-sm text-muted-foreground">Total Members</p>
-          <p className="text-2xl font-bold text-foreground">{statusCounts.total}</p>
+          <p className="text-2xl font-bold text-kpi-blue">{statusCounts.total}</p>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-transparent dark:from-green-500/10 rounded-xl border border-green-200/50 dark:border-green-500/30 p-4 shadow-soft hover:shadow-md transition-shadow">
+        <div className="bg-gradient-to-br from-kpi-green/10 to-kpi-teal/5 rounded-2xl border border-kpi-green/20 p-4">
           <p className="text-sm text-muted-foreground">Active</p>
-          <p className="text-2xl font-bold text-green-600">{statusCounts.active}</p>
+          <p className="text-2xl font-bold text-kpi-green">{statusCounts.active}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-soft hover:shadow-md transition-shadow">
+        <div className="bg-gradient-to-br from-kpi-orange/10 to-kpi-amber/5 rounded-2xl border border-kpi-orange/20 p-4">
           <p className="text-sm text-muted-foreground">Inactive</p>
-          <p className="text-2xl font-bold text-gray-500">{statusCounts.inactive}</p>
+          <p className="text-2xl font-bold text-kpi-orange">{statusCounts.inactive}</p>
         </div>
-        <div className="bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-500/10 rounded-xl border border-blue-200/50 dark:border-blue-500/30 p-4 shadow-soft hover:shadow-md transition-shadow">
+        <div className="bg-gradient-to-br from-kpi-purple/10 to-kpi-pink/5 rounded-2xl border border-kpi-purple/20 p-4">
           <p className="text-sm text-muted-foreground">Transferred</p>
-          <p className="text-2xl font-bold text-blue-600">{statusCounts.transferred}</p>
+          <p className="text-2xl font-bold text-kpi-purple">{statusCounts.transferred}</p>
         </div>
       </div>
 
@@ -422,7 +422,7 @@ export default function MembersPage() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden hover:shadow-md transition-shadow">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
