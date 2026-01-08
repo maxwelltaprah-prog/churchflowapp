@@ -42,6 +42,8 @@ import AdminsPage from "./pages/dashboard/AdminsPage";
 import SpiritualJourneyPage from "./pages/dashboard/SpiritualJourneyPage";
 import SMSDashboardPage from "./pages/dashboard/SMSDashboardPage";
 import SendSMSPage from "./pages/dashboard/SendSMSPage";
+import BillingPage from "./pages/dashboard/BillingPage";
+import BillingCallbackPage from "./pages/dashboard/BillingCallbackPage";
 
 // Visitor Management imports
 import VisitorsPage from "./pages/dashboard/VisitorsPage";
@@ -107,6 +109,8 @@ const App = () => (
               <Route path="sms/send" element={<SendSMSPage />} />
               <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />
               <Route path="admins" element={<AdminsPage />} />
+              <Route path="billing" element={<BillingPage />} />
+              <Route path="billing/callback" element={<BillingCallbackPage />} />
               <Route path="settings" element={<SettingsPage />} />
               
               {/* Visitor Management Routes */}

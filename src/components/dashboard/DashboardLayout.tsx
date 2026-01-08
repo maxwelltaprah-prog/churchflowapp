@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useLocation } from "react-router-dom";
 import { AdminNotifications } from "./AdminNotifications";
+import { TrialBanner } from "@/components/billing/TrialBanner";
+import { PaywallLock } from "@/components/billing/PaywallLock";
 
 const routeTitles: Record<string, string> = {
   "/app": "Dashboard",
@@ -65,8 +67,12 @@ export function DashboardLayout() {
 
           {/* Main Content */}
           <main className="flex-1 p-6">
+            <TrialBanner />
             <Outlet />
           </main>
+          
+          {/* Paywall Lock Overlay */}
+          <PaywallLock />
         </SidebarInset>
       </div>
     </SidebarProvider>
