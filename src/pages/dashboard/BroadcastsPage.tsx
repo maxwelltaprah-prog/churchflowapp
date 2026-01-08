@@ -64,19 +64,19 @@ export default function BroadcastsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border border-border border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-all">
+        <Card className="bg-kpi-purple/10 border-kpi-purple/20 hover:bg-kpi-purple/15 transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Broadcasts</p>
               <p className="text-3xl font-bold text-foreground">{broadcasts?.length || 0}</p>
               <p className="text-xs text-muted-foreground mt-1">All time</p>
             </div>
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <Megaphone className="w-5 h-5 text-primary" />
+            <div className="p-3 rounded-xl bg-kpi-purple/20">
+              <Megaphone className="w-5 h-5 text-kpi-purple" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border border-border border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="bg-kpi-amber/10 border-kpi-amber/20 hover:bg-kpi-amber/15 transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">This Month</p>
@@ -89,20 +89,20 @@ export default function BroadcastsPage() {
               </p>
               <p className="text-xs text-muted-foreground mt-1">Messages sent</p>
             </div>
-            <div className="p-2.5 rounded-xl bg-amber-500/10">
-              <Clock className="w-5 h-5 text-amber-600" />
+            <div className="p-3 rounded-xl bg-kpi-amber/20">
+              <Clock className="w-5 h-5 text-kpi-amber" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border border-border border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent hover:shadow-md transition-all">
+        <Card className="bg-kpi-green/10 border-kpi-green/20 hover:bg-kpi-green/15 transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Branches Reached</p>
               <p className="text-3xl font-bold text-foreground">{branches?.length || 0}</p>
               <p className="text-xs text-muted-foreground mt-1">Active branches</p>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10">
-              <Building2 className="w-5 h-5 text-emerald-600" />
+            <div className="p-3 rounded-xl bg-kpi-green/20">
+              <Building2 className="w-5 h-5 text-kpi-green" />
             </div>
           </CardContent>
         </Card>
