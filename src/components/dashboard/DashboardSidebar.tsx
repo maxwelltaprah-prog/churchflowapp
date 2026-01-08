@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   Sparkles,
   MessageSquare,
-  UserPlus
+  UserPlus,
+  CreditCard
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -58,6 +59,7 @@ const mainNavItems = [
 ];
 
 const settingsNavItems = [
+  { title: "Billing", url: "/app/billing", icon: CreditCard, adminOnly: true },
   { title: "Settings", url: "/app/settings", icon: Settings },
 ];
 
@@ -150,7 +152,9 @@ export function DashboardSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {settingsNavItems.map((item) => (
+              {settingsNavItems
+                .filter((item) => !('adminOnly' in item) || (item.adminOnly && isChurchAdmin()))
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
