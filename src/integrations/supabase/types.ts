@@ -1060,6 +1060,115 @@ export type Database = {
           },
         ]
       }
+      subscription_events: {
+        Row: {
+          church_id: string
+          created_at: string
+          event_id: string
+          event_type: string
+          id: string
+          payload_json: Json
+          processed_at: string
+        }
+        Insert: {
+          church_id: string
+          created_at?: string
+          event_id: string
+          event_type: string
+          id?: string
+          payload_json?: Json
+          processed_at?: string
+        }
+        Update: {
+          church_id?: string
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload_json?: Json
+          processed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          church_id: string
+          created_at: string
+          currency: string
+          current_amount_ghs: number
+          early_discount_applied: boolean
+          first_payment_completed: boolean
+          id: string
+          locked_at: string | null
+          paystack_customer_code: string | null
+          paystack_email: string | null
+          paystack_plan_code: string | null
+          paystack_subscription_code: string | null
+          status: Database["public"]["Enums"]["subscription_status"]
+          trial_end_at: string
+          trial_peak_total_branches: number
+          trial_peak_total_members: number
+          trial_start_at: string
+          updated_at: string
+        }
+        Insert: {
+          church_id: string
+          created_at?: string
+          currency?: string
+          current_amount_ghs?: number
+          early_discount_applied?: boolean
+          first_payment_completed?: boolean
+          id?: string
+          locked_at?: string | null
+          paystack_customer_code?: string | null
+          paystack_email?: string | null
+          paystack_plan_code?: string | null
+          paystack_subscription_code?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_end_at?: string
+          trial_peak_total_branches?: number
+          trial_peak_total_members?: number
+          trial_start_at?: string
+          updated_at?: string
+        }
+        Update: {
+          church_id?: string
+          created_at?: string
+          currency?: string
+          current_amount_ghs?: number
+          early_discount_applied?: boolean
+          first_payment_completed?: boolean
+          id?: string
+          locked_at?: string | null
+          paystack_customer_code?: string | null
+          paystack_email?: string | null
+          paystack_plan_code?: string | null
+          paystack_subscription_code?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_end_at?: string
+          trial_peak_total_branches?: number
+          trial_peak_total_members?: number
+          trial_start_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: true
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           branch_id: string | null
@@ -1309,6 +1418,16 @@ export type Database = {
         Args: { _branch_id: string; _church_id: string; _user_id: string }
         Returns: boolean
       }
+      check_expired_trials: { Args: never; Returns: undefined }
+      compute_subscription_price: {
+        Args: { p_branches: number; p_members: number }
+        Returns: {
+          branch_addon: number
+          extra_branches: number
+          tier_price: number
+          total_ghs: number
+        }[]
+      }
       generate_branch_code: {
         Args: { _branch_name: string; _church_slug: string }
         Returns: string
@@ -1321,6 +1440,13 @@ export type Database = {
       get_accessible_branches: {
         Args: { _church_id: string; _user_id: string }
         Returns: string[]
+      }
+      get_church_totals: {
+        Args: { p_church_id: string }
+        Returns: {
+          total_branches: number
+          total_members: number
+        }[]
       }
       get_menu_permissions: {
         Args: { _church_id: string; _user_id: string }
@@ -1371,6 +1497,12 @@ export type Database = {
         | "self_employed"
         | "unemployed"
         | "other"
+      subscription_status:
+        | "trialing"
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "expired_locked"
       visitor_status: "new" | "in_follow_up" | "converted"
     }
     CompositeTypes: {
@@ -1521,6 +1653,13 @@ export const Constants = {
         "self_employed",
         "unemployed",
         "other",
+      ],
+      subscription_status: [
+        "trialing",
+        "active",
+        "past_due",
+        "canceled",
+        "expired_locked",
       ],
       visitor_status: ["new", "in_follow_up", "converted"],
     },
