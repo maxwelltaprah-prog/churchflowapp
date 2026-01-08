@@ -12,7 +12,7 @@ interface KPICardProps {
   href?: string;
   isLoading?: boolean;
   change?: number;
-  variant?: "default" | "accent" | "muted" | "success" | "warning" | "highlight";
+  variant?: "default" | "purple" | "pink" | "teal" | "orange" | "blue" | "green" | "amber" | "rose";
 }
 
 export function KPICard({
@@ -26,28 +26,46 @@ export function KPICard({
   variant = "default"
 }: KPICardProps) {
   const variantStyles = {
-    default: "border-l-primary bg-gradient-to-r from-primary/5 to-transparent",
-    accent: "border-l-violet-500 bg-gradient-to-r from-violet-500/5 to-transparent",
-    muted: "border-l-slate-400 bg-gradient-to-r from-slate-400/5 to-transparent",
-    success: "border-l-emerald-500 bg-gradient-to-r from-emerald-500/5 to-transparent",
-    warning: "border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent",
-    highlight: "border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent ring-1 ring-primary/10"
+    default: "bg-card border-border",
+    purple: "bg-kpi-purple/10 border-kpi-purple/30",
+    pink: "bg-kpi-pink/10 border-kpi-pink/30",
+    teal: "bg-kpi-teal/10 border-kpi-teal/30",
+    orange: "bg-kpi-orange/10 border-kpi-orange/30",
+    blue: "bg-kpi-blue/10 border-kpi-blue/30",
+    green: "bg-kpi-green/10 border-kpi-green/30",
+    amber: "bg-kpi-amber/10 border-kpi-amber/30",
+    rose: "bg-kpi-rose/10 border-kpi-rose/30",
   };
 
   const iconStyles = {
     default: "bg-primary/10 text-primary",
-    accent: "bg-violet-500/10 text-violet-600",
-    muted: "bg-slate-400/10 text-slate-600",
-    success: "bg-emerald-500/10 text-emerald-600",
-    warning: "bg-amber-500/10 text-amber-600",
-    highlight: "bg-primary/15 text-primary"
+    purple: "bg-kpi-purple text-white",
+    pink: "bg-kpi-pink text-white",
+    teal: "bg-kpi-teal text-white",
+    orange: "bg-kpi-orange text-white",
+    blue: "bg-kpi-blue text-white",
+    green: "bg-kpi-green text-white",
+    amber: "bg-kpi-amber text-white",
+    rose: "bg-kpi-rose text-white",
+  };
+
+  const valueStyles = {
+    default: "text-foreground",
+    purple: "text-kpi-purple",
+    pink: "text-kpi-pink",
+    teal: "text-kpi-teal",
+    orange: "text-kpi-orange",
+    blue: "text-kpi-blue",
+    green: "text-kpi-green",
+    amber: "text-kpi-amber",
+    rose: "text-kpi-rose",
   };
 
   const content = (
     <div className={cn(
-      "rounded-xl border border-border border-l-4 p-5 transition-all duration-200 hover:shadow-md",
+      "rounded-2xl border p-5 transition-all duration-200",
       variantStyles[variant],
-      href && "hover:-translate-y-0.5 cursor-pointer"
+      href && "hover:scale-[1.02] cursor-pointer"
     )}>
       {isLoading ? (
         <div className="space-y-3">
@@ -63,11 +81,11 @@ export function KPICard({
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-foreground">{value}</span>
+            <span className={cn("text-3xl font-bold", valueStyles[variant])}>{value}</span>
             {change !== undefined && change !== 0 && (
               <span className={cn(
                 "flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full",
-                change > 0 ? "text-green-600 bg-green-100 dark:bg-green-500/20" : "text-red-500 bg-red-100 dark:bg-red-500/20"
+                change > 0 ? "text-kpi-green bg-kpi-green/10" : "text-kpi-rose bg-kpi-rose/10"
               )}>
                 {change > 0 ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
                 {change > 0 ? "+" : ""}{change}%
@@ -78,7 +96,7 @@ export function KPICard({
             <p className="text-xs text-muted-foreground mt-1">{description}</p>
           )}
           {href && (
-            <div className="mt-3 flex items-center text-xs text-primary font-medium group-hover:underline">
+            <div className="mt-3 flex items-center text-xs text-primary font-medium">
               View details <ChevronRight className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-0.5" />
             </div>
           )}
@@ -101,12 +119,33 @@ interface StatCardProps {
   description?: string;
   change?: number;
   isLoading?: boolean;
+  variant?: "default" | "purple" | "pink" | "teal" | "orange" | "blue" | "green";
 }
 
-export function StatCard({ label, value, icon: Icon, description, change, isLoading }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, description, change, isLoading, variant = "default" }: StatCardProps) {
+  const bgStyles = {
+    default: "bg-muted/50",
+    purple: "bg-kpi-purple/10",
+    pink: "bg-kpi-pink/10",
+    teal: "bg-kpi-teal/10",
+    orange: "bg-kpi-orange/10",
+    blue: "bg-kpi-blue/10",
+    green: "bg-kpi-green/10",
+  };
+
+  const valueStyles = {
+    default: "text-foreground",
+    purple: "text-kpi-purple",
+    pink: "text-kpi-pink",
+    teal: "text-kpi-teal",
+    orange: "text-kpi-orange",
+    blue: "text-kpi-blue",
+    green: "text-kpi-green",
+  };
+
   if (isLoading) {
     return (
-      <div className="p-4 rounded-lg bg-muted/30 border border-border">
+      <div className="p-4 rounded-xl bg-muted/30">
         <Skeleton className="h-3 w-16 mb-2" />
         <Skeleton className="h-6 w-12" />
       </div>
@@ -114,17 +153,17 @@ export function StatCard({ label, value, icon: Icon, description, change, isLoad
   }
 
   return (
-    <div className="p-4 rounded-lg bg-muted/30 border border-border">
+    <div className={cn("p-4 rounded-xl", bgStyles[variant])}>
       <div className="flex items-center gap-2 mb-1">
         {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-xl font-bold text-foreground">{value}</span>
+        <span className={cn("text-xl font-bold", valueStyles[variant])}>{value}</span>
         {change !== undefined && change !== 0 && (
           <span className={cn(
             "text-xs font-medium",
-            change > 0 ? "text-green-600" : "text-red-500"
+            change > 0 ? "text-kpi-green" : "text-kpi-rose"
           )}>
             {change > 0 ? "+" : ""}{change}%
           </span>
@@ -150,8 +189,8 @@ export function SectionHeader({ title, description, action, icon: Icon }: Sectio
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         {Icon && (
-          <div className="p-1.5 rounded-md bg-primary/10">
-            <Icon className="w-4 h-4 text-primary" />
+          <div className="p-1.5 rounded-lg bg-primary text-white">
+            <Icon className="w-4 h-4" />
           </div>
         )}
         <div>
@@ -188,7 +227,7 @@ interface ProgressBarProps {
   label: string;
   value: number;
   max: number;
-  color?: "primary" | "accent" | "success" | "warning" | "destructive";
+  color?: "primary" | "purple" | "pink" | "teal" | "orange" | "blue" | "green";
 }
 
 export function ProgressBar({ label, value, max, color = "primary" }: ProgressBarProps) {
@@ -196,10 +235,12 @@ export function ProgressBar({ label, value, max, color = "primary" }: ProgressBa
   
   const colorStyles = {
     primary: "bg-primary",
-    accent: "bg-accent",
-    success: "bg-green-500",
-    warning: "bg-amber-500",
-    destructive: "bg-destructive"
+    purple: "bg-kpi-purple",
+    pink: "bg-kpi-pink",
+    teal: "bg-kpi-teal",
+    orange: "bg-kpi-orange",
+    blue: "bg-kpi-blue",
+    green: "bg-kpi-green",
   };
 
   return (
@@ -233,7 +274,7 @@ interface ListItemProps {
 export function ListItem({ name, value, subtitle, badge, badgeVariant = "secondary", onClick, href, icon: Icon }: ListItemProps) {
   const content = (
     <div className={cn(
-      "flex items-center justify-between p-3 rounded-lg bg-muted/30 transition-colors",
+      "flex items-center justify-between p-3 rounded-xl bg-muted/30 transition-colors",
       (onClick || href) && "hover:bg-muted cursor-pointer"
     )}>
       <div className="flex items-center gap-3 min-w-0">
@@ -249,7 +290,7 @@ export function ListItem({ name, value, subtitle, badge, badgeVariant = "seconda
             "px-2 py-0.5 text-xs font-medium rounded-full",
             badgeVariant === "default" && "bg-primary/10 text-primary",
             badgeVariant === "secondary" && "bg-muted text-muted-foreground",
-            badgeVariant === "destructive" && "bg-destructive/10 text-destructive",
+            badgeVariant === "destructive" && "bg-kpi-rose/10 text-kpi-rose",
             badgeVariant === "outline" && "border border-border text-muted-foreground"
           )}>
             {badge}
