@@ -222,10 +222,12 @@ export default function CheckinPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* QR Scanner Card */}
-        <Card className="lg:row-span-2">
+        <Card className="lg:row-span-2 border-0 bg-gradient-to-br from-kpi-purple/5 to-kpi-blue/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5 text-primary" />
+              <div className="p-2 rounded-lg bg-kpi-purple text-white">
+                <Camera className="w-4 h-4" />
+              </div>
               QR Scanner
             </CardTitle>
             <CardDescription>
@@ -242,10 +244,10 @@ export default function CheckinPage() {
                   onStop={() => setIsScanning(false)}
                 />
               ) : (
-                <div className="aspect-square max-w-md mx-auto bg-secondary/50 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center">
+                <div className="aspect-square max-w-md mx-auto bg-muted/30 rounded-2xl border-2 border-dashed border-kpi-purple/30 flex flex-col items-center justify-center">
                   <div className="text-center space-y-4 p-8">
-                    <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                      <QrCode className="w-10 h-10 text-primary" />
+                    <div className="w-20 h-20 mx-auto rounded-2xl bg-kpi-purple/10 flex items-center justify-center">
+                      <QrCode className="w-10 h-10 text-kpi-purple" />
                     </div>
                     <div>
                       <p className="font-medium text-foreground">Ready to scan</p>
@@ -257,12 +259,13 @@ export default function CheckinPage() {
                       size="lg" 
                       onClick={() => setIsScanning(true)}
                       disabled={!selectedService}
+                      className="bg-kpi-purple hover:bg-kpi-purple/90"
                     >
                       <Camera className="w-5 h-5 mr-2" />
                       Start Scanning
                     </Button>
                     {!selectedService && (
-                      <p className="text-xs text-amber-600">Please select a service first</p>
+                      <p className="text-xs text-kpi-orange">Please select a service first</p>
                     )}
                   </div>
                 </div>
@@ -272,10 +275,12 @@ export default function CheckinPage() {
         </Card>
 
         {/* Manual Entry Card */}
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-kpi-teal/5 to-kpi-green/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5 text-accent" />
+              <div className="p-2 rounded-lg bg-kpi-teal text-white">
+                <Search className="w-4 h-4" />
+              </div>
               Manual Entry
             </CardTitle>
           </CardHeader>
@@ -305,6 +310,7 @@ export default function CheckinPage() {
                   <Button 
                     onClick={handleManualCheckin}
                     disabled={!manualCode.trim() || !selectedService || findMember.isPending}
+                    className="bg-kpi-teal hover:bg-kpi-teal/90"
                   >
                     {findMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
                   </Button>
@@ -325,6 +331,7 @@ export default function CheckinPage() {
                   <Button 
                     onClick={handleVisitorCheckin}
                     disabled={!visitorPhone.trim() || !selectedService || findVisitor.isPending || recordVisitorCheckin.isPending}
+                    className="bg-kpi-teal hover:bg-kpi-teal/90"
                   >
                     {(findVisitor.isPending || recordVisitorCheckin.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
                   </Button>
@@ -338,10 +345,12 @@ export default function CheckinPage() {
         </Card>
 
         {/* Today's Stats */}
-        <Card className="bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5">
+        <Card className="border-0 bg-gradient-to-br from-kpi-blue/5 to-kpi-orange/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
+              <div className="p-2 rounded-lg bg-kpi-blue text-white">
+                <Users className="w-4 h-4" />
+              </div>
               Service Check-ins
             </CardTitle>
             <CardDescription>
@@ -350,16 +359,16 @@ export default function CheckinPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
-                <p className="text-3xl font-bold text-primary">{checkedInCount}</p>
+              <div className="p-4 bg-kpi-blue/10 rounded-xl">
+                <p className="text-3xl font-bold text-kpi-blue">{checkedInCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">Members</p>
               </div>
-              <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                <p className="text-3xl font-bold text-amber-600">{visitorCheckedInCount}</p>
+              <div className="p-4 bg-kpi-orange/10 rounded-xl">
+                <p className="text-3xl font-bold text-kpi-orange">{visitorCheckedInCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">Visitors</p>
               </div>
-              <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                <p className="text-3xl font-bold text-emerald-600">
+              <div className="p-4 bg-kpi-green/10 rounded-xl">
+                <p className="text-3xl font-bold text-kpi-green">
                   {selectedServiceData 
                     ? format(new Date(selectedServiceData.service_date), "MMM d")
                     : "—"
@@ -373,7 +382,7 @@ export default function CheckinPage() {
       </div>
 
       {/* Recent Check-ins */}
-      <Card>
+      <Card className="border-0">
         <CardHeader>
           <CardTitle>Recent Check-ins</CardTitle>
           <CardDescription>Members who checked in for this service</CardDescription>
