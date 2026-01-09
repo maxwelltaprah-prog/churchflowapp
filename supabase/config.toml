@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.cleanup-expired-otps]
 verify_jwt = false
+
+[functions.send-password-reset-otp]
+verify_jwt = false
+
+[functions.verify-and-reset-password]
+verify_jwt = false
