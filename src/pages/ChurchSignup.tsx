@@ -124,8 +124,8 @@ export default function ChurchSignup() {
         description: "Welcome to ChurchFlow. Redirecting to your dashboard...",
       });
 
-      // Navigate immediately - user is already signed in from createChurchWithAdmin
-      navigate("/app");
+      // Force full reload to refresh auth context with new profile data
+      window.location.href = "/app";
     } catch (error: any) {
       console.error("Error:", error);
       toast({
