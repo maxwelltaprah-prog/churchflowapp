@@ -190,10 +190,16 @@ export function useTrialDaysRemaining() {
 }
 
 // Check if app should be locked
+// During testing phase (trialing), the app is NEVER locked
 export function useIsAppLocked() {
   const { data: subscription, isLoading } = useSubscription();
 
   if (isLoading) return { isLocked: false, isLoading: true };
+
+  // Testing phase: never lock the app
+  if (subscription?.status === "trialing") {
+    return { isLocked: false, isLoading: false, status: subscription.status };
+  }
 
   const lockedStatuses: SubscriptionStatus[] = [
     "expired_locked",
