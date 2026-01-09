@@ -1420,6 +1420,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_day_born: {
+        Args: { dob: string }
+        Returns: Database["public"]["Enums"]["day_of_week"]
+      }
       can_access_branch: {
         Args: { _branch_id: string; _church_id: string; _user_id: string }
         Returns: boolean
