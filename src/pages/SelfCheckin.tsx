@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, Loader2, Church, Hash, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight, Phone, UserPlus } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Church, Phone, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ServiceUpload } from "@/hooks/useServiceUploads";
@@ -22,27 +21,25 @@ interface ServiceData {
   branches?: { name: string } | null;
 }
 
-interface MemberMatch {
+interface PersonMatch {
   id: string;
   full_name: string;
+  type: "member" | "visitor";
 }
 
 type UserType = "member" | "visitor";
 
 export default function SelfCheckin() {
   const { serviceId } = useParams<{ serviceId: string }>();
-  const navigate = useNavigate();
   const [service, setService] = useState<ServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [memberCode, setMemberCode] = useState("");
-  const [visitorPhone, setVisitorPhone] = useState("");
+  const [phone, setPhone] = useState("");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; name?: string } | null>(null);
-  const [userType, setUserType] = useState<UserType>("member");
   
   // Disambiguation state
-  const [matchingMembers, setMatchingMembers] = useState<MemberMatch[]>([]);
+  const [matchingPeople, setMatchingPeople] = useState<PersonMatch[]>([]);
   const [showDisambiguation, setShowDisambiguation] = useState(false);
   
   // Downloads state
@@ -92,30 +89,34 @@ export default function SelfCheckin() {
     }
   };
 
-  const handleMemberCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 15);
-    setMemberCode(value);
+    setPhone(value);
     if (showDisambiguation) {
       setShowDisambiguation(false);
-      setMatchingMembers([]);
+      setMatchingPeople([]);
     }
   };
 
-  const handleMemberCheckin = async (selectedMemberId?: string) => {
-    if (memberCode.length < 9 || !serviceId) return;
+  const handleCheckin = async (selectedId?: string, selectedType?: UserType) => {
+    if (phone.length < 9 || !serviceId) return;
 
     setChecking(true);
     setResult(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", {
-        body: {
-          action: "checkin",
-          serviceId,
-          memberCode: memberCode.trim(),
-          memberId: selectedMemberId,
-        },
-      });
+      const body: any = {
+        action: "unified_checkin",
+        serviceId,
+        phone: phone.trim(),
+      };
+
+      if (selectedId && selectedType) {
+        body.selectedId = selectedId;
+        body.selectedType = selectedType;
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", { body });
 
       if (fnError) {
         console.error("checkin error", fnError);
@@ -125,10 +126,11 @@ export default function SelfCheckin() {
 
       const status = (data as any)?.status as string | undefined;
       const name = (data as any)?.name as string | undefined;
-      const members = (data as any)?.members as MemberMatch[] | undefined;
+      const matches = (data as any)?.matches as PersonMatch[] | undefined;
+      const userType = (data as any)?.userType as UserType | undefined;
 
-      if (status === "disambiguation_required" && members) {
-        setMatchingMembers(members);
+      if (status === "disambiguation_required" && matches) {
+        setMatchingPeople(matches);
         setShowDisambiguation(true);
         setChecking(false);
         return;
@@ -143,19 +145,22 @@ export default function SelfCheckin() {
         });
 
         const memberIdFromFn = (data as any)?.memberId as string | undefined;
+        const visitorIdFromFn = (data as any)?.visitorId as string | undefined;
+        
         setCheckedInMemberId(memberIdFromFn ?? null);
-        setCheckedInUserType("member");
+        setCheckedInVisitorId(visitorIdFromFn ?? null);
+        setCheckedInUserType(userType ?? null);
 
-        setMemberCode("");
+        setPhone("");
         setShowDisambiguation(false);
-        setMatchingMembers([]);
+        setMatchingPeople([]);
         if (!isAlreadyIn) {
           toast.success("Checked in successfully!");
         }
 
         setShowDownloads(true);
         setServiceUploads([]);
-        loadServiceDownloads(memberIdFromFn, undefined, "member");
+        loadServiceDownloads(memberIdFromFn, visitorIdFromFn, userType);
         return;
       }
 
@@ -163,63 +168,6 @@ export default function SelfCheckin() {
       setResult({ success: false, message: errMsg || "Unable to check in." });
     } catch (err) {
       console.error("Check-in error:", err);
-      setResult({ success: false, message: "An error occurred. Please try again." });
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const handleVisitorCheckin = async () => {
-    if (visitorPhone.length < 4 || !serviceId) return;
-
-    setChecking(true);
-    setResult(null);
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("self-checkin", {
-        body: {
-          action: "visitor_checkin",
-          serviceId,
-          phone: visitorPhone.trim(),
-        },
-      });
-
-      if (fnError) {
-        console.error("visitor checkin error", fnError);
-        setResult({ success: false, message: "Failed to check in. Please try again." });
-        return;
-      }
-
-      const status = (data as any)?.status as string | undefined;
-      const name = (data as any)?.name as string | undefined;
-      const visitorIdFromFn = (data as any)?.visitorId as string | undefined;
-      const errMsg = (data as any)?.error as string | undefined;
-
-      if (status === "checked_in" || status === "already_checked_in") {
-        const isAlreadyIn = status === "already_checked_in";
-        setResult({ 
-          success: true, 
-          message: isAlreadyIn ? "You're already checked in!" : "Check-in successful!", 
-          name 
-        });
-
-        setCheckedInVisitorId(visitorIdFromFn ?? null);
-        setCheckedInUserType("visitor");
-
-        setVisitorPhone("");
-        if (!isAlreadyIn) {
-          toast.success("Checked in successfully!");
-        }
-
-        setShowDownloads(true);
-        setServiceUploads([]);
-        loadServiceDownloads(undefined, visitorIdFromFn, "visitor");
-        return;
-      }
-
-      setResult({ success: false, message: errMsg || "Phone number not found." });
-    } catch (err) {
-      console.error("Visitor check-in error:", err);
       setResult({ success: false, message: "An error occurred. Please try again." });
     } finally {
       setChecking(false);
@@ -257,7 +205,6 @@ export default function SelfCheckin() {
       setServiceUploads(uploads || []);
       setShowDownloads(true);
 
-      // Make sure the downloads section is visible right after check-in
       window.setTimeout(() => {
         downloadsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 50);
@@ -273,7 +220,6 @@ export default function SelfCheckin() {
   const handleOpen = async (upload: ServiceUpload) => {
     if (!serviceId || (!checkedInMemberId && !checkedInVisitorId)) return;
 
-    // Open a placeholder window immediately to avoid popup blockers on mobile
     const win = window.open("about:blank", "_blank", "noopener,noreferrer");
 
     try {
@@ -359,14 +305,14 @@ export default function SelfCheckin() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleSelectMember = (memberId: string) => {
-    handleMemberCheckin(memberId);
+  const handleSelectPerson = (person: PersonMatch) => {
+    handleCheckin(person.id, person.type);
   };
 
   const handleCancelDisambiguation = () => {
     setShowDisambiguation(false);
-    setMatchingMembers([]);
-    setMemberCode("");
+    setMatchingPeople([]);
+    setPhone("");
   };
 
   if (loading) {
@@ -426,115 +372,31 @@ export default function SelfCheckin() {
           </CardHeader>
         </Card>
 
-        {/* Check-in Form with Tabs */}
+        {/* Check-in Form */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
-              <Hash className="w-5 h-5 text-primary" />
+              <Phone className="w-5 h-5 text-primary" />
               Self Check-in
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Tabs value={userType} onValueChange={(v) => setUserType(v as UserType)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="member" className="gap-2">
-                  <Users className="w-4 h-4" />
-                  Member
-                </TabsTrigger>
-                <TabsTrigger value="visitor" className="gap-2">
-                  <UserPlus className="w-4 h-4" />
-                  Visitor
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="member" className="space-y-4 mt-4">
-                <p className="text-sm text-muted-foreground text-center">
-                  Enter your phone number to check in
-                </p>
-                {!showDisambiguation ? (
-                  <>
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Enter your phone number"
-                        value={memberCode}
-                        onChange={handleMemberCodeChange}
-                        onKeyDown={(e) => e.key === "Enter" && memberCode.length >= 9 && handleMemberCheckin()}
-                        className="text-center text-xl font-mono tracking-wide h-14"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={15}
-                        disabled={checking}
-                      />
-                    </div>
-
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      onClick={() => handleMemberCheckin()}
-                      disabled={memberCode.length < 9 || checking}
-                    >
-                      {checking ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Checking In...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Check In
-                        </>
-                      )}
-                    </Button>
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-center p-3 bg-secondary/50 rounded-lg">
-                      <Users className="w-6 h-6 mx-auto text-primary mb-2" />
-                      <p className="text-sm font-medium">Multiple members found</p>
-                      <p className="text-xs text-muted-foreground">Please select your name below</p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {matchingMembers.map((member) => (
-                        <Button
-                          key={member.id}
-                          variant="outline"
-                          className="w-full justify-start h-auto py-3"
-                          onClick={() => handleSelectMember(member.id)}
-                          disabled={checking}
-                        >
-                          <div className="text-left">
-                            <p className="font-medium">{member.full_name}</p>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={handleCancelDisambiguation}
-                    >
-                      <ArrowLeft className="w-4 h-4 mr-2" />
-                      Enter different code
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="visitor" className="space-y-4 mt-4">
-                <p className="text-sm text-muted-foreground text-center">
-                  Enter your phone number to check in
-                </p>
+            <p className="text-sm text-muted-foreground text-center">
+              Enter your phone number to check in
+            </p>
+            
+            {!showDisambiguation ? (
+              <>
                 <div className="space-y-2">
                   <Input
-                    placeholder="Phone number"
-                    value={visitorPhone}
-                    onChange={(e) => setVisitorPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
-                    onKeyDown={(e) => e.key === "Enter" && visitorPhone.length >= 4 && handleVisitorCheckin()}
-                    className="text-center text-xl h-14"
-                    inputMode="tel"
+                    placeholder="Enter your phone number"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    onKeyDown={(e) => e.key === "Enter" && phone.length >= 9 && handleCheckin()}
+                    className="text-center text-xl font-mono tracking-wide h-14"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={15}
                     disabled={checking}
                   />
                 </div>
@@ -542,8 +404,8 @@ export default function SelfCheckin() {
                 <Button 
                   className="w-full" 
                   size="lg"
-                  onClick={handleVisitorCheckin}
-                  disabled={visitorPhone.length < 4 || checking}
+                  onClick={() => handleCheckin()}
+                  disabled={phone.length < 9 || checking}
                 >
                   {checking ? (
                     <>
@@ -557,17 +419,42 @@ export default function SelfCheckin() {
                     </>
                   )}
                 </Button>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                  <Users className="w-6 h-6 mx-auto text-primary mb-2" />
+                  <p className="text-sm font-medium">Multiple matches found</p>
+                  <p className="text-xs text-muted-foreground">Please select your name below</p>
+                </div>
                 
-                {result && !result.success && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    Not registered?{" "}
-                    <Link to={`/app/visitors/new`} className="text-primary underline">
-                      Register as a visitor
-                    </Link>
-                  </p>
-                )}
-              </TabsContent>
-            </Tabs>
+                <div className="space-y-2">
+                  {matchingPeople.map((person) => (
+                    <Button
+                      key={`${person.type}-${person.id}`}
+                      variant="outline"
+                      className="w-full justify-start h-auto py-3"
+                      onClick={() => handleSelectPerson(person)}
+                      disabled={checking}
+                    >
+                      <div className="text-left">
+                        <p className="font-medium">{person.full_name}</p>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleCancelDisambiguation}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Enter different number
+                </Button>
+              </div>
+            )}
 
             {/* Result Message */}
             {result && (
@@ -687,7 +574,7 @@ export default function SelfCheckin() {
 
             {!showDisambiguation && !result && (
               <p className="text-xs text-center text-muted-foreground">
-                Don't know your code? It's the last 4 digits of your registered phone number.
+                Use your registered phone number to check in.
               </p>
             )}
           </CardContent>
