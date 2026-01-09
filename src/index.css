@@ -5,6 +5,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
   :root {
     /* Sophisticated dark slate base (default dark theme) */
     --background: 222 30% 12%;
