@@ -111,7 +111,7 @@ export default function ChurchSignup() {
 
       setIsLoading(true);
 
-      // Create church account
+      // Create church account - this also signs up and signs in the user
       await createChurchWithAdmin({
         churchName: formData.churchName,
         adminName: formData.adminName,
@@ -124,7 +124,8 @@ export default function ChurchSignup() {
         description: "Welcome to ChurchFlow. Redirecting to your dashboard...",
       });
 
-      setTimeout(() => navigate("/app"), 1500);
+      // Navigate immediately - user is already signed in from createChurchWithAdmin
+      navigate("/app");
     } catch (error: any) {
       console.error("Error:", error);
       toast({
