@@ -17,21 +17,25 @@ const churchFeatures = [
     icon: Building2,
     title: "Care Across Every Branch",
     description: "One dashboard for all your locations. Know every member, serve every community.",
+    color: "indigo",
   },
   {
     icon: BarChart3,
     title: "Engagement Insights",
     description: "See who's connected, who's drifting, and when to follow up—all in real time.",
+    color: "purple",
   },
   {
     icon: MessageSquare,
     title: "Care Messages",
     description: "Send personalized messages that feel human—birthdays, follow-ups, encouragements.",
+    color: "rose",
   },
   {
     icon: Shield,
     title: "Serve as a Team",
     description: "Granular roles for church admins, branch managers, and ushers to care together.",
+    color: "teal",
   },
 ];
 
@@ -40,21 +44,25 @@ const memberFeatures = [
     icon: Smartphone,
     title: "Personal Member Pass",
     description: "Your unique QR code—Scan to Connect at any service, any branch.",
+    color: "amber",
   },
   {
     icon: Users,
     title: "Simple Registration",
     description: "Join via branch link or with help from church staff. No app download needed.",
+    color: "emerald",
   },
   {
     icon: Zap,
     title: "Fast Check-in, Care Signal",
     description: "6-second connection that becomes a care signal for your church leaders.",
+    color: "orange",
   },
   {
     icon: Globe,
     title: "One Member, Every Location",
     description: "Visiting another branch? Connect seamlessly with your same member pass.",
+    color: "blue",
   },
 ];
 
@@ -76,18 +84,30 @@ const memberHubFeatures = [
   },
 ];
 
+const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
+  indigo: { bg: "bg-indigo-100", text: "text-indigo-600", border: "border-indigo-200" },
+  purple: { bg: "bg-purple-100", text: "text-purple-600", border: "border-purple-200" },
+  rose: { bg: "bg-rose-100", text: "text-rose-600", border: "border-rose-200" },
+  teal: { bg: "bg-teal-100", text: "text-teal-600", border: "border-teal-200" },
+  amber: { bg: "bg-amber-100", text: "text-amber-600", border: "border-amber-200" },
+  emerald: { bg: "bg-emerald-100", text: "text-emerald-600", border: "border-emerald-200" },
+  orange: { bg: "bg-orange-100", text: "text-orange-600", border: "border-orange-200" },
+  blue: { bg: "bg-blue-100", text: "text-blue-600", border: "border-blue-200" },
+};
+
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 lg:py-32 bg-secondary/50">
+    <section id="features" className="py-24 lg:py-32 bg-slate-50">
       <div className="container">
         {/* Pain Points Section */}
         <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-destructive/10 text-destructive text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-rose-100 text-rose-700 text-sm font-medium mb-4">
               The Challenge
             </span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              When people drift, you should know—<span className="text-gradient">early.</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
+              When people drift, you should know—
+              <span className="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">early.</span>
             </h2>
           </div>
 
@@ -100,14 +120,14 @@ export function FeaturesSection() {
             ].map((pain, index) => (
               <div
                 key={index}
-                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border"
+                className="group relative bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-rose-200 transition-all"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-full blur-2xl" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-100/50 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                    <span className="text-destructive font-bold">{index + 1}</span>
+                  <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center mb-4">
+                    <span className="text-rose-600 font-bold">{index + 1}</span>
                   </div>
-                  <p className="text-muted-foreground leading-relaxed">{pain.text}</p>
+                  <p className="text-slate-600 leading-relaxed">{pain.text}</p>
                 </div>
               </div>
             ))}
@@ -117,93 +137,104 @@ export function FeaturesSection() {
         {/* For Churches */}
         <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-4">
               For Churches
             </span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              Tools for <span className="text-gradient">Intentional Care</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
+              Tools for{" "}
+              <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Intentional Care
+              </span>
             </h2>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-slate-600">
               Everything you need to know your members, follow up with care, 
               and serve more personally across every branch.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {churchFeatures.map((feature, index) => (
-              <div
-                key={index}
-                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border hover:shadow-card transition-all duration-300 hover:-translate-y-1"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-accent opacity-5 rounded-full blur-2xl group-hover:opacity-10 transition-opacity" />
-                
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
-                    <feature.icon className="w-7 h-7 text-primary" />
+            {churchFeatures.map((feature, index) => {
+              const colors = colorClasses[feature.color];
+              return (
+                <div
+                  key={index}
+                  className="group relative bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="relative">
+                    <div className={`w-14 h-14 rounded-xl ${colors.bg} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                      <feature.icon className={`w-7 h-7 ${colors.text}`} />
+                    </div>
+                    
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {feature.title}
+                    </h3>
+                    <p className="text-slate-600 leading-relaxed">
+                      {feature.description}
+                    </p>
                   </div>
-                  
-                  <h3 className="text-xl font-semibold text-foreground mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* For Members */}
         <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-accent/20 text-accent text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-amber-100 text-amber-700 text-sm font-medium mb-4">
               For Members
             </span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              A Welcome, <span className="text-gradient-accent">Not a Tally</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
+              A Welcome,{" "}
+              <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                Not a Tally
+              </span>
             </h2>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-slate-600">
               Join your church, get your personal Member Pass, and stay connected 
               with your community. It just works.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {memberFeatures.map((feature, index) => (
-              <div
-                key={index}
-                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border hover:shadow-card transition-all duration-300 hover:-translate-y-1"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-primary opacity-5 rounded-full blur-2xl group-hover:opacity-10 transition-opacity" />
-                
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-5 group-hover:bg-accent/20 transition-colors">
-                    <feature.icon className="w-7 h-7 text-accent" />
+            {memberFeatures.map((feature, index) => {
+              const colors = colorClasses[feature.color];
+              return (
+                <div
+                  key={index}
+                  className="group relative bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="relative">
+                    <div className={`w-14 h-14 rounded-xl ${colors.bg} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
+                      <feature.icon className={`w-7 h-7 ${colors.text}`} />
+                    </div>
+                    
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {feature.title}
+                    </h3>
+                    <p className="text-slate-600 leading-relaxed">
+                      {feature.description}
+                    </p>
                   </div>
-                  
-                  <h3 className="text-xl font-semibold text-foreground mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Member Hub */}
         <div>
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-purple-100 text-purple-700 text-sm font-medium mb-4">
               Member Hub
             </span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-              A Home for <span className="text-gradient">Your Members</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
+              A Home for{" "}
+              <span className="bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
+                Your Members
+              </span>
             </h2>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-lg text-slate-600">
               Members feel like part of something—not just names on a list.
             </p>
           </div>
@@ -212,17 +243,17 @@ export function FeaturesSection() {
             {memberHubFeatures.map((feature, index) => (
               <div
                 key={index}
-                className="group relative bg-card rounded-2xl p-6 shadow-soft border border-border hover:shadow-card transition-all duration-300 hover:-translate-y-1"
+                className="group relative bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
               >
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                    <feature.icon className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <feature.icon className="w-6 h-6 text-purple-600" />
                   </div>
                   
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {feature.description}
                   </p>
                 </div>
