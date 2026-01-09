@@ -19,11 +19,14 @@ import {
   CreditCard,
   Users,
   Building2,
-  Clock,
+  Beaker,
   Sparkles,
   CheckCircle2,
   AlertTriangle,
   Lock,
+  MessageSquare,
+  Gift,
+  ArrowRight,
 } from "lucide-react";
 
 export default function BillingPage() {
@@ -57,7 +60,7 @@ export default function BillingPage() {
       string,
       { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
     > = {
-      trialing: { label: "Trial", variant: "secondary" },
+      trialing: { label: "Testing Phase", variant: "secondary" },
       active: { label: "Active", variant: "default" },
       past_due: { label: "Past Due", variant: "destructive" },
       canceled: { label: "Canceled", variant: "destructive" },
@@ -85,8 +88,8 @@ export default function BillingPage() {
         description="Manage your church subscription and billing"
       />
 
-      {/* Subscription Status Card */}
-      <Card>
+      {/* Testing Phase Status Card */}
+      <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50/50 to-purple-50/50">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-semibold">
             Subscription Status
@@ -101,29 +104,65 @@ export default function BillingPage() {
             </div>
           ) : subscription?.status === "trialing" ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-lg">
-                <Clock className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="font-medium">
-                    {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
-                    in your trial
+              {/* Testing Phase Banner */}
+              <div className="flex items-start gap-4 p-4 bg-white rounded-lg border border-indigo-100">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                  <Beaker className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-slate-900">
+                      You're in the Testing Phase
+                    </p>
+                    <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                      All Features Free
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Enjoy full access to all ChurchFlow features. No billing during this period.
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Trial ends on{" "}
-                    {format(new Date(subscription.trial_end_at), "MMMM d, yyyy")}
-                  </p>
+                  
+                  {/* Feedback CTA */}
+                  <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <Gift className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-700">
+                        <span className="font-medium">Share your feedback</span> and receive a{" "}
+                        <span className="font-semibold text-purple-600">special discount</span>{" "}
+                        when production begins!
+                      </p>
+                    </div>
+                    <a href="mailto:info@easychurchflow.com?subject=ChurchFlow Feedback">
+                      <Button size="sm" variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-100">
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        Send Feedback
+                      </Button>
+                    </a>
+                  </div>
                 </div>
               </div>
 
-              {pricing?.eligible_for_discount && (
-                <div className="flex items-center gap-2 text-sm text-primary">
-                  <Sparkles className="h-4 w-4" />
-                  <span>
-                    Subscribe before trial ends and get{" "}
-                    <strong>10% off your first month!</strong>
-                  </span>
+              {/* What Happens Next */}
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                  <ArrowRight className="h-4 w-4 text-indigo-600" />
+                  What happens after the testing phase?
+                </h4>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
+                    <p>Production begins with a <strong>14-day free trial</strong> to continue exploring</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
+                    <p>After the trial, subscription billing starts based on your usage</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">★</div>
+                    <p><strong className="text-purple-700">Feedback providers</strong> get a special discount on their first months!</p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           ) : subscription?.status === "active" ? (
             <div className="flex items-center gap-3 p-4 bg-green-500/10 rounded-lg">
@@ -193,7 +232,7 @@ export default function BillingPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Trial Peak Usage
+                Peak Usage (for future pricing)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -223,7 +262,7 @@ export default function BillingPage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Your subscription will be based on peak usage during trial
+                    After testing, subscription pricing will be based on your peak usage
                   </p>
                 </div>
               )}
@@ -232,8 +271,63 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Pricing Breakdown */}
-      {pricing && (
+      {/* Pricing Preview (for testing phase) */}
+      {pricing && subscription?.status === "trialing" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              Future Pricing Preview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This is what your pricing would be after the testing phase, based on your current peak usage.
+              No payment is required during the testing phase.
+            </p>
+            <div className="space-y-2 p-4 bg-slate-50 rounded-lg">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {getTierName(pricing.tier_price)} Plan (
+                  {pricing.members_for_pricing < 150
+                    ? "<150"
+                    : pricing.members_for_pricing <= 5000
+                    ? "150-5000"
+                    : "5000+"}{" "}
+                  members)
+                </span>
+                <span>GHS {pricing.tier_price}</span>
+              </div>
+
+              {pricing.extra_branches > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Additional Branches ({pricing.extra_branches} × GHS 100)
+                  </span>
+                  <span>GHS {pricing.branch_addon}</span>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="flex justify-between font-semibold text-lg">
+                <span>Estimated Monthly Total</span>
+                <span>GHS {pricing.total_ghs}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-100">
+              <Gift className="h-5 w-5 text-purple-600" />
+              <p className="text-sm text-purple-700">
+                <strong>Provide feedback</strong> and get a special discount when production begins!
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Pricing Breakdown */}
+      {pricing && subscription?.status !== "trialing" && (
         <Card>
           <CardHeader>
             <CardTitle>Your Pricing</CardTitle>
@@ -289,8 +383,7 @@ export default function BillingPage() {
               )}
             </div>
 
-            {(subscription?.status === "trialing" ||
-              subscription?.status === "expired_locked" ||
+            {(subscription?.status === "expired_locked" ||
               subscription?.status === "canceled") && (
               <Button
                 size="lg"
