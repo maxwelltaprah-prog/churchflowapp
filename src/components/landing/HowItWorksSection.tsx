@@ -78,8 +78,20 @@ const colorClasses = {
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="py-24 lg:py-32 bg-white">
-      <div className="container">
+    <section id="how-it-works" className="py-24 lg:py-32 relative overflow-hidden">
+      {/* Creative background */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-indigo-50/30 to-white" />
+        
+        {/* Decorative shapes */}
+        <div className="absolute top-20 right-10 w-72 h-72 bg-gradient-to-br from-purple-200/40 to-pink-200/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-10 w-64 h-64 bg-gradient-to-br from-teal-200/30 to-cyan-200/20 rounded-full blur-3xl" />
+        
+        {/* Subtle diagonal lines */}
+        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_49.5%,rgba(99,102,241,0.03)_49.5%,rgba(99,102,241,0.03)_50.5%,transparent_50.5%)] bg-[size:40px_40px]" />
+      </div>
+      
+      <div className="container relative z-10">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-4 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-4">

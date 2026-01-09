@@ -211,9 +211,16 @@
     background-attachment: fixed;
   }
 
-  /* Light theme clean background */
+  /* Light theme creative background with subtle mesh gradient */
   .light-body {
-    background: linear-gradient(180deg, hsl(220 14% 98%) 0%, hsl(0 0% 100%) 100%);
+    background: 
+      radial-gradient(ellipse 80% 50% at 20% 0%, hsl(234 89% 95%) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 80% 10%, hsl(330 81% 96%) 0%, transparent 40%),
+      radial-gradient(ellipse 50% 50% at 10% 60%, hsl(172 66% 94%) 0%, transparent 40%),
+      radial-gradient(ellipse 70% 60% at 90% 80%, hsl(38 92% 95%) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, hsl(262 83% 97%) 0%, transparent 50%),
+      linear-gradient(180deg, hsl(220 14% 99%) 0%, hsl(0 0% 100%) 100%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {

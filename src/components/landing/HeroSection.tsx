@@ -4,12 +4,28 @@ import { Link } from "react-router-dom";
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-indigo-50/30 overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-indigo-200/40 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-20 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl animate-float-delayed" />
-        <div className="absolute bottom-20 right-1/4 w-64 h-64 bg-orange-200/25 rounded-full blur-3xl animate-pulse-slow" />
+    <section className="relative min-h-screen overflow-hidden">
+      {/* Rich layered background */}
+      <div className="absolute inset-0">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60" />
+        
+        {/* Mesh gradient overlay */}
+        <div className="absolute inset-0 opacity-60">
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),transparent)]" />
+        </div>
+        
+        {/* Decorative blobs */}
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-indigo-300/50 to-purple-400/40 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/3 -left-32 w-[400px] h-[400px] bg-gradient-to-br from-teal-200/40 to-cyan-300/30 rounded-full blur-3xl animate-float-delayed" />
+        <div className="absolute bottom-0 right-1/4 w-[350px] h-[350px] bg-gradient-to-br from-rose-200/40 to-pink-300/30 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-20 left-1/4 w-[300px] h-[300px] bg-gradient-to-br from-amber-200/30 to-orange-300/20 rounded-full blur-3xl" />
+        
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+        
+        {/* Top decorative line */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
       </div>
 
       <div className="container relative z-10 pt-32 pb-20 lg:pt-40 lg:pb-32">
