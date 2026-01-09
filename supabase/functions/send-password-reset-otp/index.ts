@@ -82,8 +82,12 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Send OTP email
+    // NOTE: Resend requires a verified sending domain for custom FROM addresses.
+    // We default to Resend's testing domain unless you configure RESEND_FROM.
+    const fromAddress = Deno.env.get("RESEND_FROM") || "ChurchFlow <onboarding@resend.dev>";
+
     const emailResponse = await resend.emails.send({
-      from: "ChurchFlow <noreply@churchflow.app>",
+      from: fromAddress,
       to: [email],
       subject: "Reset your password - ChurchFlow",
       html: `
