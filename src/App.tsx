@@ -38,7 +38,7 @@ import EngagementSignalsPage from "./pages/dashboard/analytics/EngagementSignals
 import MembersAttendedPage from "./pages/dashboard/analytics/MembersAttendedPage";
 import DayBornDrilldownPage from "./pages/dashboard/analytics/DayBornDrilldownPage";
 
-import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
+
 import AdminsPage from "./pages/dashboard/AdminsPage";
 import SpiritualJourneyPage from "./pages/dashboard/SpiritualJourneyPage";
 import SMSDashboardPage from "./pages/dashboard/SMSDashboardPage";
@@ -106,7 +106,6 @@ const App = () => (
               <Route path="analytics/drilldown" element={<MemberDrilldownPage />} />
               <Route path="analytics/day-born" element={<DayBornDrilldownPage />} />
               <Route path="analytics/members-attended" element={<MembersAttendedPage />} />
-              <Route path="broadcasts" element={<BroadcastsPage />} />
               <Route path="sms" element={<SMSDashboardPage />} />
               <Route path="sms/send" element={<SendSMSPage />} />
               <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />

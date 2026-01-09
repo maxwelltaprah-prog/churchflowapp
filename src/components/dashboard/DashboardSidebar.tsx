@@ -6,7 +6,6 @@ import {
   Calendar, 
   QrCode, 
   BarChart3, 
-  MessageSquare, 
   Settings,
   LogOut,
   ChevronDown,
@@ -52,8 +51,7 @@ const mainNavItems = [
   { title: "Services", url: "/app/services", icon: Calendar, color: "kpi-green" },
   { title: "Scan to Connect", url: "/app/checkin", icon: QrCode, color: "kpi-orange" },
   { title: "Engagement Insights", url: "/app/analytics", icon: BarChart3, color: "kpi-purple" },
-  { title: "Care Messages", url: "/app/broadcasts", icon: Heart, color: "kpi-rose" },
-  { title: "SMS", url: "/app/sms", icon: MessageSquare, color: "kpi-blue", adminOnly: true },
+  { title: "Care Messages", url: "/app/sms", icon: Heart, color: "kpi-rose", adminOnly: true },
   { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, color: "kpi-amber", adminOnly: true },
   { title: "Roles & Access", url: "/app/admins", icon: ShieldCheck, color: "kpi-teal", adminOnly: true },
 ];
