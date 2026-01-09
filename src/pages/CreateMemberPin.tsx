@@ -46,56 +46,33 @@ export default function CreateMemberPin() {
     try {
       const normalizedPhone = phone.replace(/\D/g, "");
       
-      // Find member by phone who doesn't have a user_id yet
-      const { data: members, error: memberError } = await supabase
-        .from("members")
-        .select("id, full_name, phone, approval_status, user_id")
-        .eq("is_active", true);
+      // Use secure edge function to verify phone without exposing member data
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-member-phone`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ phone: normalizedPhone, action: "create_pin" }),
+        }
+      );
 
-      if (memberError) throw memberError;
+      const result = await response.json();
 
-      // Filter to find member with matching phone
-      const matchedMember = members?.find(m => {
-        const memberPhone = m.phone?.replace(/\D/g, "") || "";
-        return memberPhone === normalizedPhone || 
-               memberPhone.endsWith(normalizedPhone) || 
-               normalizedPhone.endsWith(memberPhone);
-      });
-
-      if (!matchedMember) {
-        toast.error("No member found with this phone number. Please contact your church administrator.");
-        return;
-      }
-
-      // Check if already has account
-      if (matchedMember.user_id) {
-        toast.error("You already have an account. Please use the Sign In page instead.");
-        return;
-      }
-
-      // Check approval status
-      if (matchedMember.approval_status === "pending") {
-        toast.error("Your membership is still pending approval. Please wait for an administrator to approve your registration.");
-        return;
-      }
-
-      if (matchedMember.approval_status === "rejected") {
-        toast.error("Your membership application was not approved. Please contact your church administrator.");
-        return;
-      }
-
-      if (!matchedMember.phone) {
-        toast.error("Phone number not found in your record. Please contact your church administrator.");
+      if (!result.success) {
+        toast.error(result.error || "Phone verification failed");
         return;
       }
 
       setMemberData({
-        id: matchedMember.id,
-        full_name: matchedMember.full_name,
-        phone: matchedMember.phone,
+        id: result.member_id,
+        full_name: result.member_name,
+        phone: result.member_phone,
       });
       setStep("pin");
-      toast.success(`Welcome, ${matchedMember.full_name}! Now create your PIN.`);
+      toast.success(`Welcome, ${result.member_name}! Now create your PIN.`);
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {

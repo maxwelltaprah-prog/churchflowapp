@@ -52,63 +52,36 @@ export default function MemberLogin() {
     setIsLoading(true);
 
     try {
-      // Find member by exact phone match (normalized)
+      // Use secure edge function to verify phone without exposing member data
       const normalizedPhone = memberCode.replace(/\D/g, "");
-      const { data: members, error: memberError } = await supabase
-        .from("members")
-        .select("id, full_name, phone, approval_status, user_id")
-        .eq("is_active", true)
-        .not("user_id", "is", null);
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-member-phone`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ phone: normalizedPhone, action: "login" }),
+        }
+      );
 
-      if (memberError) throw memberError;
+      const result = await response.json();
 
-      // Filter to find member with matching phone (exact match with normalization)
-      const matchedMember = members?.find(m => {
-        const memberPhone = m.phone?.replace(/\D/g, "") || "";
-        return memberPhone === normalizedPhone || 
-               memberPhone.endsWith(normalizedPhone) || 
-               normalizedPhone.endsWith(memberPhone);
-      });
-
-      if (!matchedMember) {
+      if (!result.success) {
         toast({
-          title: "Member not found",
-          description: "No account found with this phone number. Please check and try again.",
+          title: result.approval_status === "pending" ? "Pending approval" : 
+                 result.approval_status === "rejected" ? "Membership rejected" :
+                 result.has_account === false ? "Account not set up" : "Login failed",
+          description: result.error || "The phone number or PIN is incorrect. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
-      // Check approval status
-      if (matchedMember.approval_status === "pending") {
-        toast({
-          title: "Pending approval",
-          description: "Your membership is still pending approval. Please wait for an administrator to approve your registration.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (matchedMember.approval_status === "rejected") {
-        toast({
-          title: "Membership rejected",
-          description: "Your membership application was not approved. Please contact your church administrator.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!matchedMember.user_id || !matchedMember.phone) {
-        toast({
-          title: "Account not set up",
-          description: "Your account is not fully set up. Please contact your church administrator.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Normalize phone number - remove all non-digits and convert +233 to 0 for consistency
-      let authPhoneNormalized = matchedMember.phone.replace(/[^0-9]/g, "");
+      // Now attempt to sign in with the verified phone
+      let authPhoneNormalized = result.member_phone.replace(/[^0-9]/g, "");
       // If starts with 233 (country code), convert to local format starting with 0
       if (authPhoneNormalized.startsWith("233")) {
         authPhoneNormalized = "0" + authPhoneNormalized.slice(3);
@@ -131,7 +104,7 @@ export default function MemberLogin() {
 
       toast({
         title: "Welcome back!",
-        description: `Logged in as ${matchedMember.full_name}`,
+        description: `Logged in as ${result.member_name}`,
       });
       navigate("/member");
     } catch (error: any) {

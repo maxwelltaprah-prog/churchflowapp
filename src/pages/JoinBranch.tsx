@@ -171,15 +171,25 @@ export default function JoinBranch() {
     setIsLoading(true);
     
     try {
-      // Check if phone already exists in this church
-      const { data: existingMember } = await supabase
-        .from("members")
-        .select("id")
-        .eq("phone", data.phone.trim())
-        .eq("church_id", branchInfo.church_id)
-        .maybeSingle();
+      // Check if phone already exists in this church using secure edge function
+      const checkResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-phone-exists`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ 
+            phone: data.phone.trim(), 
+            church_id: branchInfo.church_id 
+          }),
+        }
+      );
 
-      if (existingMember) {
+      const checkResult = await checkResponse.json();
+
+      if (checkResult.exists) {
         toast({
           title: "Phone number already registered",
           description: "This phone number is already registered. Please login instead.",
