@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, User, Building2, Bell, Shield, Loader2, Moon, Sun, Monitor } from "lucide-react";
+import { Settings, User, Building2, Bell, Shield, Loader2, Moon, Sun, Monitor, PlayCircle } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import { useUpdateChurchSettings, useUpdateProfile } from "@/hooks/useChurchMuta
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOnboardingTour } from "@/components/dashboard/OnboardingTour";
 
 export default function SettingsPage() {
   const { data: church, isLoading: churchLoading } = useChurch();
@@ -54,6 +55,9 @@ export default function SettingsPage() {
 
   // Theme
   const { theme, setTheme } = useTheme();
+  
+  // Onboarding tour
+  const { resetTour } = useOnboardingTour();
 
   // Initialize form values when data loads
   useEffect(() => {
@@ -360,6 +364,30 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground pt-2">
                 Your preference is saved automatically and will persist across sessions.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-kpi-purple bg-gradient-to-r from-kpi-purple/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-kpi-purple/10">
+                  <PlayCircle className="w-5 h-5 text-kpi-purple" />
+                </div>
+                Welcome Tour
+              </CardTitle>
+              <CardDescription>
+                Revisit the onboarding tour to learn about key features
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline" 
+                onClick={resetTour}
+                className="border-kpi-purple/30 hover:bg-kpi-purple/10 hover:border-kpi-purple"
+              >
+                <PlayCircle className="w-4 h-4 mr-2" />
+                Replay Welcome Tour
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
