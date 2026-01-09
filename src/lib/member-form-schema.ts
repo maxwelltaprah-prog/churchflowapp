@@ -24,6 +24,7 @@ export const memberFormSchema = z.object({
   date_of_birth: z.string()
     .min(1, "Date of birth is required")
     .refine(validateDateOfBirth, "Please enter a valid date of birth"),
+  day_born: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional().nullable(),
   membership_status: z.enum(["active", "inactive", "transferred"]),
   branch_id: z.string().min(1, "Please select a branch"),
   

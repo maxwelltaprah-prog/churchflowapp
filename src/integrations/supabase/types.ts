@@ -470,6 +470,7 @@ export type Database = {
           created_at: string
           date_joined: string | null
           date_of_birth: string | null
+          day_born: Database["public"]["Enums"]["day_of_week"] | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -507,6 +508,7 @@ export type Database = {
           created_at?: string
           date_joined?: string | null
           date_of_birth?: string | null
+          day_born?: Database["public"]["Enums"]["day_of_week"] | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -544,6 +546,7 @@ export type Database = {
           created_at?: string
           date_joined?: string | null
           date_of_birth?: string | null
+          day_born?: Database["public"]["Enums"]["day_of_week"] | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -1336,6 +1339,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           date_of_birth: string | null
+          day_born: Database["public"]["Enums"]["day_of_week"] | null
           email: string | null
           first_name: string
           first_visit_date: string
@@ -1355,6 +1359,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
+          day_born?: Database["public"]["Enums"]["day_of_week"] | null
           email?: string | null
           first_name: string
           first_visit_date?: string
@@ -1374,6 +1379,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
+          day_born?: Database["public"]["Enums"]["day_of_week"] | null
           email?: string | null
           first_name?: string
           first_visit_date?: string
@@ -1479,6 +1485,14 @@ export type Database = {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
       approval_status: "pending" | "approved" | "rejected"
       checkin_method: "staff_scan" | "self_scan"
+      day_of_week:
+        | "sunday"
+        | "monday"
+        | "tuesday"
+        | "wednesday"
+        | "thursday"
+        | "friday"
+        | "saturday"
       followup_type: "sms" | "phone_call" | "visit" | "other"
       gender_type: "male" | "female" | "prefer_not_to_say"
       how_heard:
@@ -1634,6 +1648,15 @@ export const Constants = {
       app_role: ["church_admin", "branch_admin", "usher", "member"],
       approval_status: ["pending", "approved", "rejected"],
       checkin_method: ["staff_scan", "self_scan"],
+      day_of_week: [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ],
       followup_type: ["sms", "phone_call", "visit", "other"],
       gender_type: ["male", "female", "prefer_not_to_say"],
       how_heard: [
