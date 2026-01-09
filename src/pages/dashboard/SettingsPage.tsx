@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Settings, User, Building2, Bell, Shield, Loader2 } from "lucide-react";
+import { Settings, User, Building2, Bell, Shield, Loader2, Moon, Sun, Monitor } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -50,6 +51,9 @@ export default function SettingsPage() {
   const [notifyNewMembers, setNotifyNewMembers] = useState(true);
   const [dailySummary, setDailySummary] = useState(true);
   const [weeklyReport, setWeeklyReport] = useState(false);
+
+  // Theme
+  const { theme, setTheme } = useTheme();
 
   // Initialize form values when data loads
   useEffect(() => {
@@ -145,8 +149,9 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted/50">
+        <TabsList className="grid w-full max-w-lg grid-cols-4 bg-muted/50">
           <TabsTrigger value="general" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">General</TabsTrigger>
+          <TabsTrigger value="appearance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Appearance</TabsTrigger>
           <TabsTrigger value="registration" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Registration</TabsTrigger>
           <TabsTrigger value="notifications" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Notifications</TabsTrigger>
         </TabsList>
@@ -280,6 +285,81 @@ export default function SettingsPage() {
                   Change Password
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Appearance Settings */}
+        <TabsContent value="appearance" className="space-y-6">
+          <Card className="border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-500/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/10">
+                  <Sun className="w-5 h-5 text-indigo-600" />
+                </div>
+                Theme Preference
+              </CardTitle>
+              <CardDescription>
+                Choose how the dashboard looks for you
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    theme === "light"
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-3 rounded-full ${theme === "light" ? "bg-primary/20" : "bg-muted"}`}>
+                    <Sun className={`w-6 h-6 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`font-medium ${theme === "light" ? "text-primary" : "text-foreground"}`}>Light</p>
+                    <p className="text-xs text-muted-foreground">Bright and clear</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    theme === "dark"
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-3 rounded-full ${theme === "dark" ? "bg-primary/20" : "bg-muted"}`}>
+                    <Moon className={`w-6 h-6 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`font-medium ${theme === "dark" ? "text-primary" : "text-foreground"}`}>Dark</p>
+                    <p className="text-xs text-muted-foreground">Easy on the eyes</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setTheme("system")}
+                  className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    theme === "system"
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-3 rounded-full ${theme === "system" ? "bg-primary/20" : "bg-muted"}`}>
+                    <Monitor className={`w-6 h-6 ${theme === "system" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`font-medium ${theme === "system" ? "text-primary" : "text-foreground"}`}>System</p>
+                    <p className="text-xs text-muted-foreground">Matches device</p>
+                  </div>
+                </button>
+              </div>
+
+              <p className="text-sm text-muted-foreground pt-2">
+                Your preference is saved automatically and will persist across sessions.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
