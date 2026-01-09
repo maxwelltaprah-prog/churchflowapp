@@ -45,21 +45,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Verify the requesting user is a church admin
-    const { data: roles } = await userClient
-      .from("user_roles")
-      .select("role, church_id")
-      .eq("user_id", requestingUser.id)
-      .eq("role", "church_admin");
-
-    if (!roles || roles.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Only church admins can reset member PINs" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Parse request body
+    // Parse request body first to get userId for validation
     const { userId, newPin }: ResetPinRequest = await req.json();
 
     if (!userId || !newPin) {
@@ -73,6 +59,35 @@ serve(async (req: Request): Promise<Response> => {
       return new Response(
         JSON.stringify({ error: "PIN must be at least 6 digits" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get the target member's church_id
+    const { data: targetMember, error: targetMemberError } = await userClient
+      .from("members")
+      .select("church_id")
+      .eq("user_id", userId)
+      .single();
+
+    if (targetMemberError || !targetMember) {
+      return new Response(
+        JSON.stringify({ error: "User is not a member" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify the requesting user is a church admin for the SAME church as the target member
+    const { data: roles } = await userClient
+      .from("user_roles")
+      .select("role, church_id")
+      .eq("user_id", requestingUser.id)
+      .eq("role", "church_admin")
+      .eq("church_id", targetMember.church_id);
+
+    if (!roles || roles.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "You can only reset PINs for members in your church" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
