@@ -247,9 +247,167 @@ export default function Dashboard() {
       </Card>
 
       {/* SECTION 3-6: Metrics Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Engagement Signals - Clickable */}
+        <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
+          <Card className="hover:scale-[1.02] transition-all cursor-pointer h-full border-0 bg-gradient-to-br from-kpi-rose/5 to-kpi-teal/5">
+            <CardHeader className="pb-3">
+              <SectionHeader title="Engagement Signals" icon={AlertTriangle} />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {engagementLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="flex items-center gap-2">
+                      <UserMinus className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-foreground">Missed 3+ Services</span>
+                    </div>
+                    <Badge variant="destructive" className="text-lg px-3">
+                      {engagement?.missedCount || 0}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-foreground">Returnees</span>
+                    </div>
+                    <Badge className="bg-green-600 hover:bg-green-700 text-lg px-3">
+                      {engagement?.returneeCount || 0}
+                    </Badge>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center text-xs text-primary font-medium pt-1">
+                View details <ChevronRight className="w-3 h-3 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Service Quality */}
+        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
+          <CardHeader className="pb-3"><SectionHeader title="Service Quality" icon={Clock} /></CardHeader>
+          <CardContent className="space-y-3">
+            <StatCard label="Late Arrival Rate" value={`${serviceQuality?.lateRate || 0}%`} variant="orange" />
+            <StatCard label="Early Arrival Rate" value={`${serviceQuality?.earlyRate || 0}%`} variant="green" />
+            <StatCard label="Total Check-ins" value={serviceQuality?.totalCheckins || 0} variant="blue" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* SECTION 7-8: Groups & Demographics */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-0 bg-gradient-to-br from-kpi-purple/5 to-kpi-blue/5">
+          <CardHeader className="pb-3"><SectionHeader title="Groups Snapshot" icon={UsersRound} action={<Link to={buildAnalyticsLink("groups", dateRange, branchId)}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+          <CardContent>
+            {!groups?.topGroups?.length ? <EmptyState icon={UsersRound} title="No groups" description="Create groups to track ministry engagement" /> : (
+              <div className="space-y-2">
+                {groups.topGroups.map((g) => <ListItem key={g.id} name={g.name} value={g.members} href={buildAnalyticsLink("groups", dateRange, branchId)} />)}
+                <div className="pt-2 text-sm text-muted-foreground">{groups.noGroupPercent}% of attendees have no group assigned</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-gradient-to-br from-kpi-teal/5 to-kpi-green/5">
+          <CardHeader className="pb-3"><SectionHeader title="Demographics" icon={PieChart} /></CardHeader>
+          <CardContent>
+            {demographics?.gender?.length ? (
+              <div className="flex items-center gap-6">
+                <div className="h-[120px] w-[120px] flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPie>
+                      <Pie data={demographics.gender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={50}>
+                        {demographics.gender.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {demographics.gender.map((item, i) => (
+                    <div key={item.name} className="flex items-center gap-2 text-sm">
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-muted-foreground">{item.name}</span>
+                      <span className="font-medium ml-auto">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : <EmptyState icon={PieChart} title="No data" description="Demographics will appear here" />}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* SECTION 8: Day Born Distribution - Card grid like Groups Snapshot */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
+          <CardHeader className="pb-3">
+            <SectionHeader 
+              title="Day Born Snapshot" 
+              icon={Star} 
+              action={
+                <Link to="/app/analytics/groups">
+                  <Button variant="ghost" size="sm">View all</Button>
+                </Link>
+              }
+            />
+          </CardHeader>
+          <CardContent>
+            {dayBornLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : !dayBornData?.some(d => d.count > 0) ? (
+              <EmptyState icon={Star} title="No day born data" description="Day born info will appear when members have this field set" />
+            ) : (
+              <div className="space-y-2">
+                {dayBornData
+                  .filter(d => d.count > 0)
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 5)
+                  .map((dayData) => (
+                    <div
+                      key={dayData.day}
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set("day", dayData.day);
+                        if (branchId) params.set("branch", branchId);
+                        if (serviceIds.length > 0) params.set("services", serviceIds.join(","));
+                        navigate(`/app/analytics/day-born?${params.toString()}`);
+                      }}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: dayData.color }}
+                        />
+                        <span className="text-sm font-medium">{dayData.label}-born</span>
+                      </div>
+                      <Badge variant="secondary" className="text-sm">
+                        {dayData.count}
+                      </Badge>
+                    </div>
+                  ))}
+                {dayBornData.filter(d => d.count > 0).length > 5 && (
+                  <div className="pt-2 text-sm text-muted-foreground">
+                    +{dayBornData.filter(d => d.count > 0).length - 5} more days
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Special Updates - Birthdays & Anniversaries */}
-        <Card className="lg:col-span-1 border-0 bg-gradient-to-br from-kpi-pink/5 to-kpi-purple/5">
+        <Card className="border-0 bg-gradient-to-br from-kpi-pink/5 to-kpi-purple/5">
           <CardHeader className="pb-3">
             <SectionHeader title="Special Updates" icon={Gift} />
           </CardHeader>
@@ -448,164 +606,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Engagement Signals - Clickable */}
-        <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
-          <Card className="hover:scale-[1.02] transition-all cursor-pointer h-full border-0 bg-gradient-to-br from-kpi-rose/5 to-kpi-teal/5">
-            <CardHeader className="pb-3">
-              <SectionHeader title="Engagement Signals" icon={AlertTriangle} />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {engagementLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <div className="flex items-center gap-2">
-                      <UserMinus className="w-4 h-4 text-red-600" />
-                      <span className="text-sm font-medium text-foreground">Missed 3+ Services</span>
-                    </div>
-                    <Badge variant="destructive" className="text-lg px-3">
-                      {engagement?.missedCount || 0}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-foreground">Returnees</span>
-                    </div>
-                    <Badge className="bg-green-600 hover:bg-green-700 text-lg px-3">
-                      {engagement?.returneeCount || 0}
-                    </Badge>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center text-xs text-primary font-medium pt-1">
-                View details <ChevronRight className="w-3 h-3 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Service Quality */}
-        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
-          <CardHeader className="pb-3"><SectionHeader title="Service Quality" icon={Clock} /></CardHeader>
-          <CardContent className="space-y-3">
-            <StatCard label="Late Arrival Rate" value={`${serviceQuality?.lateRate || 0}%`} variant="orange" />
-            <StatCard label="Early Arrival Rate" value={`${serviceQuality?.earlyRate || 0}%`} variant="green" />
-            <StatCard label="Total Check-ins" value={serviceQuality?.totalCheckins || 0} variant="blue" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* SECTION 7-8: Groups & Demographics */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-0 bg-gradient-to-br from-kpi-purple/5 to-kpi-blue/5">
-          <CardHeader className="pb-3"><SectionHeader title="Groups Snapshot" icon={UsersRound} action={<Link to={buildAnalyticsLink("groups", dateRange, branchId)}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
-          <CardContent>
-            {!groups?.topGroups?.length ? <EmptyState icon={UsersRound} title="No groups" description="Create groups to track ministry engagement" /> : (
-              <div className="space-y-2">
-                {groups.topGroups.map((g) => <ListItem key={g.id} name={g.name} value={g.members} href={buildAnalyticsLink("groups", dateRange, branchId)} />)}
-                <div className="pt-2 text-sm text-muted-foreground">{groups.noGroupPercent}% of attendees have no group assigned</div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 bg-gradient-to-br from-kpi-teal/5 to-kpi-green/5">
-          <CardHeader className="pb-3"><SectionHeader title="Demographics" icon={PieChart} /></CardHeader>
-          <CardContent>
-            {demographics?.gender?.length ? (
-              <div className="flex items-center gap-6">
-                <div className="h-[120px] w-[120px] flex-shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie data={demographics.gender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={50}>
-                        {demographics.gender.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {demographics.gender.map((item, i) => (
-                    <div key={item.name} className="flex items-center gap-2 text-sm">
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-muted-foreground">{item.name}</span>
-                      <span className="font-medium ml-auto">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : <EmptyState icon={PieChart} title="No data" description="Demographics will appear here" />}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* SECTION 8: Day Born Distribution - Card grid like Groups Snapshot */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
-          <CardHeader className="pb-3">
-            <SectionHeader 
-              title="Day Born Snapshot" 
-              icon={Star} 
-              action={
-                <Link to="/app/analytics/groups">
-                  <Button variant="ghost" size="sm">View all</Button>
-                </Link>
-              }
-            />
-          </CardHeader>
-          <CardContent>
-            {dayBornLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : !dayBornData?.some(d => d.count > 0) ? (
-              <EmptyState icon={Star} title="No day born data" description="Day born info will appear when members have this field set" />
-            ) : (
-              <div className="space-y-2">
-                {dayBornData
-                  .filter(d => d.count > 0)
-                  .sort((a, b) => b.count - a.count)
-                  .slice(0, 5)
-                  .map((dayData) => (
-                    <div
-                      key={dayData.day}
-                      onClick={() => {
-                        const params = new URLSearchParams();
-                        params.set("day", dayData.day);
-                        if (branchId) params.set("branch", branchId);
-                        if (serviceIds.length > 0) params.set("services", serviceIds.join(","));
-                        navigate(`/app/analytics/day-born?${params.toString()}`);
-                      }}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: dayData.color }}
-                        />
-                        <span className="text-sm font-medium">{dayData.label}-born</span>
-                      </div>
-                      <Badge variant="secondary" className="text-sm">
-                        {dayData.count}
-                      </Badge>
-                    </div>
-                  ))}
-                {dayBornData.filter(d => d.count > 0).length > 5 && (
-                  <div className="pt-2 text-sm text-muted-foreground">
-                    +{dayBornData.filter(d => d.count > 0).length - 5} more days
-                  </div>
-                )}
-              </div>
             )}
           </CardContent>
         </Card>
