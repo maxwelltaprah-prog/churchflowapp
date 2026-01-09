@@ -63,7 +63,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Send OTP email
     const emailResponse = await resend.emails.send({
-      from: "ChurchFlow <onboarding@resend.dev>",
+      from: "ChurchFlow <noreply@churchflow.app>",
       to: [email],
       subject: "Verify your email - ChurchFlow",
       html: `
@@ -100,7 +100,22 @@ serve(async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("OTP email sent:", emailResponse);
+    console.log("OTP email response:", emailResponse);
+
+    // Check if email was sent successfully
+    if (emailResponse.error) {
+      console.error("Resend error:", emailResponse.error);
+      // Delete the OTP since email failed
+      await supabase
+        .from("signup_otps")
+        .delete()
+        .eq("email", email.toLowerCase());
+      
+      return new Response(
+        JSON.stringify({ error: "Failed to send verification email. Please try again later." }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: "OTP sent successfully" }),

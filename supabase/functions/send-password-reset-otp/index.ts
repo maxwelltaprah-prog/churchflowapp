@@ -83,7 +83,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Send OTP email
     const emailResponse = await resend.emails.send({
-      from: "ChurchFlow <onboarding@resend.dev>",
+      from: "ChurchFlow <noreply@churchflow.app>",
       to: [email],
       subject: "Reset your password - ChurchFlow",
       html: `
@@ -120,7 +120,22 @@ serve(async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Reset OTP email sent:", emailResponse);
+    console.log("Reset OTP email response:", emailResponse);
+
+    // Check if email was sent successfully
+    if (emailResponse.error) {
+      console.error("Resend error:", emailResponse.error);
+      // Delete the OTP since email failed
+      await supabase
+        .from("password_reset_otps")
+        .delete()
+        .eq("email", email.toLowerCase());
+      
+      return new Response(
+        JSON.stringify({ error: "Failed to send reset email. Please try again later." }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: "Reset code sent successfully" }),
