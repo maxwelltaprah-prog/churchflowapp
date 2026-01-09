@@ -41,3 +41,12 @@ verify_jwt = false
 
 [functions.check-expired-trials]
 verify_jwt = false
+
+[functions.send-signup-otp]
+verify_jwt = false
+
+[functions.verify-signup-otp]
+verify_jwt = false
+
+[functions.cleanup-expired-otps]
+verify_jwt = false
