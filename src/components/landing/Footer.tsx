@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
-import { Church, Mail, Phone, Heart } from "lucide-react";
-
+import { Church, Mail, Heart } from "lucide-react";
 export function Footer() {
   return (
     <footer className="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white overflow-hidden">
@@ -27,15 +26,11 @@ export function Footer() {
               From congregation to connection. ChurchFlow helps churches follow up with care 
               and serve more personally—across every branch.
             </p>
-            <div className="flex flex-col gap-2 text-sm text-slate-400">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <span>support@churchflow.app</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                <span>+1 (555) 123-4567</span>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Mail className="w-4 h-4" />
+              <a href="mailto:info@easychurchflow.com" className="hover:text-white transition-colors">
+                info@easychurchflow.com
+              </a>
             </div>
           </div>
 
@@ -99,17 +94,12 @@ export function Footer() {
           <p className="text-sm text-slate-500 flex items-center gap-1">
             © {new Date().getFullYear()} ChurchFlow. Built with <Heart className="w-3 h-3 text-rose-500" /> for churches.
           </p>
-          <div className="flex items-center gap-6">
-            <a href="#" className="text-slate-500 hover:text-white transition-colors text-sm">
-              Facebook
-            </a>
-            <a href="#" className="text-slate-500 hover:text-white transition-colors text-sm">
-              Twitter
-            </a>
-            <a href="#" className="text-slate-500 hover:text-white transition-colors text-sm">
-              Instagram
-            </a>
-          </div>
+          <a 
+            href="mailto:info@easychurchflow.com" 
+            className="text-slate-500 hover:text-white transition-colors text-sm"
+          >
+            Contact Support
+          </a>
         </div>
       </div>
     </footer>
