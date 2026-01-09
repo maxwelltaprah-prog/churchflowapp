@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw, MessageSquare } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,8 @@ import { useBranchAccess } from "@/hooks/useBranchAccess";
 import { DateRange } from "react-day-picker";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { SendVisitorSMSDialog } from "@/components/visitors/SendVisitorSMSDialog";
+import { Visitor } from "@/hooks/useVisitorsData";
 
 const howHeardLabels: Record<string, string> = {
   friend_family: "Family",
@@ -122,6 +124,10 @@ export default function VisitorsPage() {
   // Popover states
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  
+  // SMS Dialog state
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
+  const [selectedVisitorForSMS, setSelectedVisitorForSMS] = useState<Visitor | null>(null);
 
   // Initialize filters from URL params on mount
   useEffect(() => {
@@ -887,6 +893,17 @@ export default function VisitorsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => {
+                                setSelectedVisitorForSMS(visitor as Visitor);
+                                setSmsDialogOpen(true);
+                              }}
+                              title="Send SMS"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => navigate(`/app/visitors/${visitor.id}/followup`)}
                             >
                               <Phone className="w-4 h-4" />
@@ -915,6 +932,18 @@ export default function VisitorsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* SMS Dialog */}
+      {selectedVisitorForSMS && (
+        <SendVisitorSMSDialog
+          open={smsDialogOpen}
+          onOpenChange={(open) => {
+            setSmsDialogOpen(open);
+            if (!open) setSelectedVisitorForSMS(null);
+          }}
+          visitor={selectedVisitorForSMS}
+        />
+      )}
     </div>
   );
 }
