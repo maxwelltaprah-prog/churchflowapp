@@ -1104,6 +1104,9 @@ export type Database = {
       subscriptions: {
         Row: {
           church_id: string
+          complementary_sms_cycle_start: string | null
+          complementary_sms_quota: number
+          complementary_sms_used: number
           created_at: string
           currency: string
           current_amount_ghs: number
@@ -1124,6 +1127,9 @@ export type Database = {
         }
         Insert: {
           church_id: string
+          complementary_sms_cycle_start?: string | null
+          complementary_sms_quota?: number
+          complementary_sms_used?: number
           created_at?: string
           currency?: string
           current_amount_ghs?: number
@@ -1144,6 +1150,9 @@ export type Database = {
         }
         Update: {
           church_id?: string
+          complementary_sms_cycle_start?: string | null
+          complementary_sms_quota?: number
+          complementary_sms_used?: number
           created_at?: string
           currency?: string
           current_amount_ghs?: number
@@ -1438,6 +1447,10 @@ export type Database = {
           total_ghs: number
         }[]
       }
+      deduct_complementary_sms: {
+        Args: { p_church_id: string; p_count: number }
+        Returns: Json
+      }
       generate_branch_code: {
         Args: { _branch_name: string; _church_slug: string }
         Returns: string
@@ -1457,6 +1470,10 @@ export type Database = {
           total_branches: number
           total_members: number
         }[]
+      }
+      get_complementary_sms_status: {
+        Args: { p_church_id: string }
+        Returns: Json
       }
       get_menu_permissions: {
         Args: { _church_id: string; _user_id: string }

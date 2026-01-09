@@ -3,6 +3,38 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+export interface ComplementarySMSStatus {
+  success: boolean;
+  eligible: boolean;
+  tier: "starter" | "growth" | "enterprise";
+  remaining: number;
+  quota: number;
+  used: number;
+  cycle_start: string | null;
+  days_until_reset: number;
+  error?: string;
+}
+
+export function useComplementarySMSStatus() {
+  const { profile } = useAuth();
+  const churchId = profile?.church_id;
+
+  return useQuery({
+    queryKey: ["complementary-sms-status", churchId],
+    queryFn: async (): Promise<ComplementarySMSStatus | null> => {
+      if (!churchId) return null;
+      
+      const { data, error } = await supabase
+        .rpc("get_complementary_sms_status", { p_church_id: churchId });
+
+      if (error) throw error;
+      return data as unknown as ComplementarySMSStatus;
+    },
+    enabled: !!churchId,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+}
+
 export function useSMSWallet() {
   const { profile } = useAuth();
   const churchId = profile?.church_id;
