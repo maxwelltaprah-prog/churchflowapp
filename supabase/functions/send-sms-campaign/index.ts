@@ -124,6 +124,32 @@ serve(async (req) => {
       throw new Error("No recipients with valid phone numbers found");
     }
 
+    // Check complementary SMS quota for eligible tiers
+    const { data: smsStatus, error: smsStatusError } = await supabase
+      .rpc("get_complementary_sms_status", { p_church_id: churchId });
+
+    if (smsStatusError) {
+      console.error("Error checking SMS status:", smsStatusError);
+    }
+
+    const isEligibleForComplementary = smsStatus?.eligible === true;
+    const remainingCredits = smsStatus?.remaining || 0;
+    const totalRecipients = uniqueRecipients.length;
+
+    console.log("Complementary SMS status:", { 
+      isEligibleForComplementary, 
+      remainingCredits, 
+      totalRecipients,
+      tier: smsStatus?.tier 
+    });
+
+    // Block SMS if no credits remaining for eligible tiers
+    if (isEligibleForComplementary && remainingCredits < totalRecipients) {
+      throw new Error(
+        `Insufficient complementary SMS credits. You have ${remainingCredits} credits remaining but need ${totalRecipients}. Your credits will reset at the start of your next billing cycle.`
+      );
+    }
+
     // Create campaign record
     const { data: campaign, error: campaignError } = await supabase
       .from("sms_campaigns")
@@ -282,6 +308,21 @@ serve(async (req) => {
         completed_at: new Date().toISOString(),
       })
       .eq("id", campaign.id);
+
+    // Deduct complementary SMS for successful sends (only for eligible tiers)
+    if (isEligibleForComplementary && sentCount > 0) {
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc("deduct_complementary_sms", { 
+          p_church_id: churchId, 
+          p_count: sentCount 
+        });
+
+      if (deductError) {
+        console.error("Error deducting complementary SMS:", deductError);
+      } else {
+        console.log("Complementary SMS deducted:", deductResult);
+      }
+    }
 
     console.log(`Campaign completed: ${sentCount} sent, ${failedCount} failed`);
 

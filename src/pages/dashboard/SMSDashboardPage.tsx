@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useSMSCampaigns, useDeliveryStatusSummary } from "@/hooks/useSMSData";
 import { useResendFailedSMS } from "@/hooks/useSMSMutations";
 import { PageHeader } from "@/components/dashboard/PageHeader";
+import { ComplementarySMSCard } from "@/components/sms/ComplementarySMSCard";
 
 export default function SMSDashboardPage() {
   const navigate = useNavigate();
@@ -53,8 +54,8 @@ export default function SMSDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="SMS Dashboard"
-        description="Manage your SMS campaigns"
+        title="Care Messages"
+        description="Manage your SMS campaigns and complementary credits"
         icon={MessageSquare}
         backTo="/app"
         actions={
@@ -64,6 +65,9 @@ export default function SMSDashboardPage() {
           </Button>
         }
       />
+
+      {/* Complementary SMS Card */}
+      <ComplementarySMSCard />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
