@@ -14,7 +14,10 @@ import {
   Sparkles,
   UserPlus,
   CreditCard,
-  Heart
+  Heart,
+  Sun,
+  Moon,
+  Monitor
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -41,6 +44,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChurch } from "@/hooks/useChurchData";
+import { useTheme } from "@/hooks/useTheme";
 
 const mainNavItems = [
   { title: "Care Dashboard", url: "/app", icon: LayoutDashboard, color: "kpi-purple" },
@@ -68,6 +72,27 @@ export function DashboardSidebar() {
   const navigate = useNavigate();
   const { profile, signOut, isChurchAdmin } = useAuth();
   const { data: church } = useChurch();
+  const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  };
+
+  const getThemeIcon = () => {
+    if (theme === "light") return Sun;
+    if (theme === "dark") return Moon;
+    return Monitor;
+  };
+
+  const getThemeLabel = () => {
+    if (theme === "light") return "Light mode";
+    if (theme === "dark") return "Dark mode";
+    return "System theme";
+  };
+
+  const ThemeIcon = getThemeIcon();
 
   const isActive = (path: string) => {
     if (path === "/app") {
@@ -236,6 +261,10 @@ export function DashboardSidebar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={cycleTheme}>
+              <ThemeIcon className="w-4 h-4 mr-2" />
+              {getThemeLabel()}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/app/settings")}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
