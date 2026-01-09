@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Clock, ChevronRight, Building2,
   TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift, CalendarHeart, Star
@@ -47,6 +47,7 @@ function buildAnalyticsLink(
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { profile, isChurchAdmin } = useAuth();
   const [branchId, setBranchId] = useState<string | undefined>();
   const [serviceIds, setServiceIds] = useState<string[]>([]);
@@ -551,7 +552,7 @@ export default function Dashboard() {
         <CardHeader className="pb-3">
           <SectionHeader 
             title="Day Born Distribution" 
-            description="Attendees by day of the week they were born"
+            description="Click a bar to see members born on that day"
             icon={Star} 
           />
         </CardHeader>
@@ -563,7 +564,21 @@ export default function Dashboard() {
           ) : (
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dayBornData} layout="vertical" margin={{ left: 10, right: 30 }}>
+                <BarChart 
+                  data={dayBornData} 
+                  layout="vertical" 
+                  margin={{ left: 10, right: 30 }}
+                  onClick={(data) => {
+                    if (data?.activePayload?.[0]?.payload?.day) {
+                      const params = new URLSearchParams();
+                      params.set("day", data.activePayload[0].payload.day);
+                      if (branchId) params.set("branch", branchId);
+                      if (serviceIds.length > 0) params.set("services", serviceIds.join(","));
+                      navigate(`/app/analytics/day-born?${params.toString()}`);
+                    }
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={true} vertical={false} />
                   <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis 
@@ -583,16 +598,17 @@ export default function Dashboard() {
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
                     }}
                     labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-                    formatter={(value: number) => [`${value} member${value !== 1 ? "s" : ""}`, "Count"]}
+                    formatter={(value: number) => [`${value} member${value !== 1 ? "s" : ""} • Click to view`, "Count"]}
                     cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                   />
                   <Bar 
                     dataKey="count" 
                     radius={[0, 4, 4, 0]}
                     maxBarSize={30}
+                    className="cursor-pointer"
                   >
                     {dayBornData?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity" />
                     ))}
                   </Bar>
                 </BarChart>
