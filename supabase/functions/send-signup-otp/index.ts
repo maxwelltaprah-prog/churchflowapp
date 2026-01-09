@@ -61,9 +61,11 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Send OTP email
+    // Send OTP email using configured sender or fallback
+    const fromAddress = Deno.env.get("RESEND_FROM") || "ChurchFlow <onboarding@resend.dev>";
+    
     const emailResponse = await resend.emails.send({
-      from: "ChurchFlow <noreply@churchflow.app>",
+      from: fromAddress,
       to: [email],
       subject: "Verify your email - ChurchFlow",
       html: `
