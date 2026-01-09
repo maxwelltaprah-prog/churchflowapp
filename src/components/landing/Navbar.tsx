@@ -26,6 +26,9 @@ export function Navbar() {
             <a href="#features" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">
               Features
             </a>
+            <a href="#faq" className="text-slate-600 hover:text-slate-900 transition-colors font-medium">
+              FAQ
+            </a>
           </div>
 
           {/* Desktop CTAs */}
@@ -73,6 +76,13 @@ export function Navbar() {
                 onClick={() => setIsOpen(false)}
               >
                 Features
+              </a>
+              <a
+                href="#faq"
+                className="text-slate-600 hover:text-slate-900 transition-colors font-medium px-2 py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                FAQ
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-slate-200">
                 <Link to="/member/login" onClick={() => setIsOpen(false)}>
