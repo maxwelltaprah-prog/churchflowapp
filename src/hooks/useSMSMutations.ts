@@ -12,6 +12,9 @@ export function useSendSMSCampaign() {
       audienceType: string;
       audienceGroupIds?: string[];
       audienceMemberIds?: string[];
+      audienceVisitorIds?: string[];
+      visitorPhone?: string;
+      visitorName?: string;
       messageBody: string;
       subject?: string;
       senderName?: string;
@@ -26,6 +29,9 @@ export function useSendSMSCampaign() {
           audienceType: data.audienceType,
           audienceGroupIds: data.audienceGroupIds,
           audienceMemberIds: data.audienceMemberIds,
+          audienceVisitorIds: data.audienceVisitorIds,
+          visitorPhone: data.visitorPhone,
+          visitorName: data.visitorName,
           messageBody: data.messageBody,
           subject: data.subject,
           senderName: data.senderName,

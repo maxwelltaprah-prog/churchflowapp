@@ -55,10 +55,13 @@ export function SendVisitorSMSDialog({ open, onOpenChange, visitor }: SendVisito
       // Personalize message with first name
       const personalizedMessage = data.message.replace(/\{name\}/g, visitor.first_name);
 
-      // Send SMS via the campaign function using "individual" type
+      // Send SMS via the campaign function using "visitor" type with phone number
       await sendSMS.mutateAsync({
-        audienceType: "individual",
+        audienceType: "visitor",
         audienceMemberIds: [],
+        audienceVisitorIds: [visitor.id],
+        visitorPhone: visitor.phone,
+        visitorName: `${visitor.first_name} ${visitor.last_name}`,
         messageBody: personalizedMessage,
         recipientCount: 1,
       });

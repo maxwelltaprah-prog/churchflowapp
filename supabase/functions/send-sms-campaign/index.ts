@@ -28,13 +28,16 @@ serve(async (req) => {
       audienceType,
       audienceGroupIds,
       audienceMemberIds,
+      audienceVisitorIds,
+      visitorPhone,
+      visitorName,
       messageBody,
       subject,
       senderName,
       recipientCount,
     } = await req.json();
 
-    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount, senderName });
+    console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount, senderName, visitorPhone });
 
     // Use custom sender name if provided, otherwise generate from church name
     let smsSenderId: string;
@@ -113,6 +116,27 @@ serve(async (req) => {
 
       if (error) throw error;
       recipients = data || [];
+    } else if (audienceType === "visitor" && visitorPhone) {
+      // Handle single visitor SMS
+      recipients = [{
+        id: audienceVisitorIds?.[0] || "visitor",
+        full_name: visitorName || "Visitor",
+        phone: visitorPhone,
+      }];
+    } else if (audienceType === "visitors" && audienceVisitorIds?.length) {
+      // Handle multiple visitors
+      const { data, error } = await supabase
+        .from("visitors")
+        .select("id, first_name, last_name, phone")
+        .in("id", audienceVisitorIds)
+        .not("phone", "is", null);
+
+      if (error) throw error;
+      recipients = (data || []).map(v => ({
+        id: v.id,
+        full_name: `${v.first_name} ${v.last_name}`,
+        phone: v.phone,
+      }));
     }
 
     // Deduplicate by phone number
