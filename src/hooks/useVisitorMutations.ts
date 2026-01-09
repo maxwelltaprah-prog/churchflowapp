@@ -11,6 +11,7 @@ interface CreateVisitorData {
   address?: string;
   gender?: "male" | "female" | "prefer_not_to_say";
   date_of_birth?: string;
+  day_born?: "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
   first_visit_date: string;
   how_heard: "friend_family" | "social_media" | "walk_in" | "outreach" | "other";
   branch_id: string;

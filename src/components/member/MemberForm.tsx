@@ -38,6 +38,16 @@ const GENDER_OPTIONS = [
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
 
+const DAY_BORN_OPTIONS = [
+  { value: "sunday", label: "Sunday" },
+  { value: "monday", label: "Monday" },
+  { value: "tuesday", label: "Tuesday" },
+  { value: "wednesday", label: "Wednesday" },
+  { value: "thursday", label: "Thursday" },
+  { value: "friday", label: "Friday" },
+  { value: "saturday", label: "Saturday" },
+];
+
 const MEMBERSHIP_STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
@@ -181,6 +191,32 @@ export function MemberForm({
             )}
           />
         </div>
+
+        {/* Day Born */}
+        <FormField
+          control={form.control}
+          name="day_born"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Day Born</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
+                <FormControl>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Select day born" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {DAY_BORN_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Membership Status */}
         <FormField

@@ -28,6 +28,16 @@ import { useBranches } from "@/hooks/useChurchData";
 import { useVisitor } from "@/hooks/useVisitorsData";
 import { useUpdateVisitor } from "@/hooks/useVisitorMutations";
 
+const DAY_BORN_OPTIONS = [
+  { value: "sunday", label: "Sunday" },
+  { value: "monday", label: "Monday" },
+  { value: "tuesday", label: "Tuesday" },
+  { value: "wednesday", label: "Wednesday" },
+  { value: "thursday", label: "Thursday" },
+  { value: "friday", label: "Friday" },
+  { value: "saturday", label: "Saturday" },
+];
+
 const visitorFormSchema = z.object({
   first_name: z.string().min(1, "First name is required").max(50),
   last_name: z.string().min(1, "Last name is required").max(50),
@@ -36,6 +46,7 @@ const visitorFormSchema = z.object({
   address: z.string().max(200).optional(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).optional(),
   date_of_birth: z.string().optional(),
+  day_born: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional(),
   first_visit_date: z.string().min(1, "First visit date is required"),
   how_heard: z.enum(["friend_family", "social_media", "walk_in", "outreach", "other"], {
     required_error: "Please select how they heard about us",
@@ -62,6 +73,7 @@ export default function EditVisitorPage() {
       address: "",
       gender: undefined,
       date_of_birth: "",
+      day_born: undefined,
       first_visit_date: "",
       how_heard: undefined,
       branch_id: "",
@@ -78,6 +90,7 @@ export default function EditVisitorPage() {
         address: visitor.address || "",
         gender: visitor.gender || undefined,
         date_of_birth: visitor.date_of_birth || "",
+        day_born: (visitor as any).day_born || undefined,
         first_visit_date: visitor.first_visit_date,
         how_heard: visitor.how_heard,
         branch_id: visitor.branch_id,
@@ -94,6 +107,7 @@ export default function EditVisitorPage() {
       phone: data.phone,
       gender: data.gender,
       date_of_birth: data.date_of_birth || undefined,
+      day_born: data.day_born || undefined,
       first_visit_date: data.first_visit_date,
       how_heard: data.how_heard,
       branch_id: data.branch_id,
@@ -215,6 +229,31 @@ export default function EditVisitorPage() {
                         <FormControl>
                           <Input {...field} type="date" />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="day_born"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Day Born</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select day born" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {DAY_BORN_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
