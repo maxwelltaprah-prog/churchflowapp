@@ -758,6 +758,33 @@ export type Database = {
           },
         ]
       }
+      signup_otps: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       sms_campaigns: {
         Row: {
           audience_group_ids: string[] | null
@@ -1438,6 +1465,7 @@ export type Database = {
         Returns: boolean
       }
       check_expired_trials: { Args: never; Returns: undefined }
+      cleanup_expired_otps: { Args: never; Returns: undefined }
       compute_subscription_price: {
         Args: { p_branches: number; p_members: number }
         Returns: {
