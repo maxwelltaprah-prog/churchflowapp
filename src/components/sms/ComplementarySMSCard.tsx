@@ -34,7 +34,7 @@ export function ComplementarySMSCard() {
                 <Badge variant="outline" className="text-xs">Starter</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Upgrade to Growth or Enterprise for 900 free SMS/month
+                Get 100 free SMS/month (Starter) or 900 with Growth/Enterprise
               </p>
             </div>
           </div>
@@ -95,7 +95,7 @@ export function ComplementarySMSCard() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>SMS Credits Exhausted</AlertTitle>
           <AlertDescription>
-            You've used all 900 complementary SMS credits for this billing cycle. 
+            You've used all {quota} complementary SMS credits for this billing cycle. 
             Your credits will automatically reset in {days_until_reset} days at the start of your next cycle.
           </AlertDescription>
         </Alert>
