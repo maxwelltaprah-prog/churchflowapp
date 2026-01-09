@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, LabelList } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranches } from "@/hooks/useChurchData";
 import {
@@ -547,76 +547,69 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* SECTION 8: Day Born Distribution */}
-      <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
-        <CardHeader className="pb-3">
-          <SectionHeader 
-            title="Day Born Distribution" 
-            description="Click a bar to see members born on that day"
-            icon={Star} 
-          />
-        </CardHeader>
-        <CardContent>
-          {dayBornLoading ? (
-            <Skeleton className="h-[200px] w-full" />
-          ) : !dayBornData?.some(d => d.count > 0) ? (
-            <EmptyState icon={Star} title="No day born data" description="Day born info will appear when members have this field set" />
-          ) : (
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={dayBornData} 
-                  layout="vertical" 
-                  margin={{ left: 10, right: 30 }}
-                  onClick={(data) => {
-                    if (data?.activePayload?.[0]?.payload?.day) {
-                      const params = new URLSearchParams();
-                      params.set("day", data.activePayload[0].payload.day);
-                      if (branchId) params.set("branch", branchId);
-                      if (serviceIds.length > 0) params.set("services", serviceIds.join(","));
-                      navigate(`/app/analytics/day-born?${params.toString()}`);
-                    }
-                  }}
-                  style={{ cursor: "pointer" }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={true} vertical={false} />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis 
-                    type="category" 
-                    dataKey="label" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false}
-                    width={80}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))", 
-                      border: "1px solid hsl(var(--border))", 
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
-                    }}
-                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-                    formatter={(value: number) => [`${value} member${value !== 1 ? "s" : ""} • Click to view`, "Count"]}
-                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
-                  />
-                  <Bar 
-                    dataKey="count" 
-                    radius={[0, 4, 4, 0]}
-                    maxBarSize={30}
-                    className="cursor-pointer"
-                  >
-                    {dayBornData?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* SECTION 8: Day Born Distribution - Card grid like Groups Snapshot */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
+          <CardHeader className="pb-3">
+            <SectionHeader 
+              title="Day Born Snapshot" 
+              icon={Star} 
+              action={
+                <Link to="/app/analytics/groups">
+                  <Button variant="ghost" size="sm">View all</Button>
+                </Link>
+              }
+            />
+          </CardHeader>
+          <CardContent>
+            {dayBornLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : !dayBornData?.some(d => d.count > 0) ? (
+              <EmptyState icon={Star} title="No day born data" description="Day born info will appear when members have this field set" />
+            ) : (
+              <div className="space-y-2">
+                {dayBornData
+                  .filter(d => d.count > 0)
+                  .sort((a, b) => b.count - a.count)
+                  .slice(0, 5)
+                  .map((dayData) => (
+                    <div
+                      key={dayData.day}
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set("day", dayData.day);
+                        if (branchId) params.set("branch", branchId);
+                        if (serviceIds.length > 0) params.set("services", serviceIds.join(","));
+                        navigate(`/app/analytics/day-born?${params.toString()}`);
+                      }}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: dayData.color }}
+                        />
+                        <span className="text-sm font-medium">{dayData.label}-born</span>
+                      </div>
+                      <Badge variant="secondary" className="text-sm">
+                        {dayData.count}
+                      </Badge>
+                    </div>
+                  ))}
+                {dayBornData.filter(d => d.count > 0).length > 5 && (
+                  <div className="pt-2 text-sm text-muted-foreground">
+                    +{dayBornData.filter(d => d.count > 0).length - 5} more days
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Branch Leaderboard */}
       <Card className="border-0 bg-gradient-to-br from-kpi-blue/5 to-kpi-purple/5">
