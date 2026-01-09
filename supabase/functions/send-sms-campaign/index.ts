@@ -35,6 +35,7 @@ serve(async (req) => {
       subject,
       senderName,
       recipientCount,
+      useFirstName,
     } = await req.json();
 
     console.log("Starting SMS campaign:", { churchId, audienceType, recipientCount, senderName, visitorPhone });
@@ -160,7 +161,7 @@ serve(async (req) => {
         audience_group_ids: audienceGroupIds || [],
         audience_member_ids: audienceMemberIds || [],
         message_body: messageBody,
-        use_first_name: false,
+        use_first_name: useFirstName || false,
         recipient_count: uniqueRecipients.length,
         segments: 1,
         credits_deducted: 0,
@@ -174,15 +175,24 @@ serve(async (req) => {
     // Create jobs for each recipient
     const isVisitorCampaign = audienceType === "visitor" || audienceType === "visitors";
     
-    const jobs = uniqueRecipients.map((recipient) => ({
-      church_id: churchId,
-      campaign_id: campaign.id,
-      member_id: isVisitorCampaign ? null : recipient.id, // null for visitors since they're not members
-      member_name: recipient.full_name,
-      phone_number: recipient.phone,
-      personalized_message: messageBody,
-      status: "pending",
-    }));
+    const jobs = uniqueRecipients.map((recipient) => {
+      // Get first name for personalization
+      const firstName = recipient.full_name.split(" ")[0] || "Friend";
+      // If useFirstName is enabled, prepend the greeting
+      const personalizedMessage = useFirstName 
+        ? `Hi ${firstName}, ${messageBody}`
+        : messageBody;
+
+      return {
+        church_id: churchId,
+        campaign_id: campaign.id,
+        member_id: isVisitorCampaign ? null : recipient.id, // null for visitors since they're not members
+        member_name: recipient.full_name,
+        phone_number: recipient.phone,
+        personalized_message: personalizedMessage,
+        status: "pending",
+      };
+    });
 
     const { error: jobsError } = await supabase.from("sms_jobs").insert(jobs);
 

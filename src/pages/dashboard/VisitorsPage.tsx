@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw, MessageSquare } from "lucide-react";
+import { Plus, Eye, Edit, Phone, Users, UserPlus, PhoneCall, UserCheck, Search, CalendarDays, Clock, RefreshCw, ClipboardList, Building2, Download, RotateCcw, MessageSquare, Heart } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,7 @@ import { DateRange } from "react-day-picker";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SendVisitorSMSDialog } from "@/components/visitors/SendVisitorSMSDialog";
+import { BulkVisitorSMSDialog } from "@/components/visitors/BulkVisitorSMSDialog";
 import { Visitor } from "@/hooks/useVisitorsData";
 
 const howHeardLabels: Record<string, string> = {
@@ -128,6 +129,10 @@ export default function VisitorsPage() {
   // SMS Dialog state
   const [smsDialogOpen, setSmsDialogOpen] = useState(false);
   const [selectedVisitorForSMS, setSelectedVisitorForSMS] = useState<Visitor | null>(null);
+  
+  // Bulk selection state
+  const [selectedVisitorIds, setSelectedVisitorIds] = useState<Set<string>>(new Set());
+  const [bulkSmsDialogOpen, setBulkSmsDialogOpen] = useState(false);
 
   // Initialize filters from URL params on mount
   useEffect(() => {
@@ -451,6 +456,33 @@ export default function VisitorsPage() {
     setSelectedStartPeriod(null);
     setSelectedEndPeriod(null);
   };
+
+  // Bulk selection helpers
+  const toggleVisitorSelection = (visitorId: string) => {
+    setSelectedVisitorIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(visitorId)) {
+        newSet.delete(visitorId);
+      } else {
+        newSet.add(visitorId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedVisitorIds.size === filteredVisitors.length) {
+      setSelectedVisitorIds(new Set());
+    } else {
+      setSelectedVisitorIds(new Set(filteredVisitors.map(v => v.id)));
+    }
+  };
+
+  const selectedVisitors = useMemo(() => {
+    return filteredVisitors.filter(v => selectedVisitorIds.has(v.id));
+  }, [filteredVisitors, selectedVisitorIds]);
+
+  const clearSelection = () => setSelectedVisitorIds(new Set());
 
   // Export visitors to CSV
   const exportToCSV = () => {
@@ -786,6 +818,34 @@ export default function VisitorsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Bulk Actions Bar */}
+            {selectedVisitorIds.size > 0 && (
+              <div className="flex items-center gap-3 p-3 mb-4 bg-primary/10 rounded-lg border border-primary/20">
+                <Checkbox 
+                  checked={selectedVisitorIds.size === filteredVisitors.length && filteredVisitors.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-sm font-medium">
+                  {selectedVisitorIds.size} guest{selectedVisitorIds.size > 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => setBulkSmsDialogOpen(true)}
+                  className="gap-2 ml-auto"
+                >
+                  <Heart className="w-4 h-4" />
+                  Send Care Message
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
+
             {/* Search and Status Filters */}
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
               <div className="relative flex-1">
@@ -817,6 +877,12 @@ export default function VisitorsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-12">
+                      <Checkbox 
+                        checked={selectedVisitorIds.size === filteredVisitors.length && filteredVisitors.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>NAME</TableHead>
                     <TableHead>CONTACT</TableHead>
                     <TableHead>FIRST VISIT</TableHead>
@@ -827,19 +893,25 @@ export default function VisitorsPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         Loading visitors...
                       </TableCell>
                     </TableRow>
                   ) : filteredVisitors?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No visitors found
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredVisitors?.map((visitor) => (
-                      <TableRow key={visitor.id} className="hover:bg-muted/30">
+                      <TableRow key={visitor.id} className={cn("hover:bg-muted/30", selectedVisitorIds.has(visitor.id) && "bg-primary/5")}>
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedVisitorIds.has(visitor.id)}
+                            onCheckedChange={() => toggleVisitorSelection(visitor.id)}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
@@ -944,6 +1016,14 @@ export default function VisitorsPage() {
           visitor={selectedVisitorForSMS}
         />
       )}
+
+      {/* Bulk SMS Dialog */}
+      <BulkVisitorSMSDialog
+        open={bulkSmsDialogOpen}
+        onOpenChange={setBulkSmsDialogOpen}
+        visitors={selectedVisitors}
+        onSuccess={clearSelection}
+      />
     </div>
   );
 }

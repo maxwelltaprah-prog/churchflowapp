@@ -19,6 +19,7 @@ export function useSendSMSCampaign() {
       subject?: string;
       senderName?: string;
       recipientCount: number;
+      useFirstName?: boolean;
     }) => {
       if (!profile?.church_id || !user?.id) throw new Error("Not authenticated");
 
@@ -36,6 +37,7 @@ export function useSendSMSCampaign() {
           subject: data.subject,
           senderName: data.senderName,
           recipientCount: data.recipientCount,
+          useFirstName: data.useFirstName ?? false,
         },
       });
 
