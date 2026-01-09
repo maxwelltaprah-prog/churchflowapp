@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Activity, Radio, Clock, ChevronRight, ChevronDown, 
-  Smartphone, QrCode, Zap, Filter, Building2 
+  Smartphone, QrCode, Zap, Filter, Building2, HelpCircle 
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -292,7 +298,19 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
                 </span>
               </div>
               <div>
-                <h3 className="font-bold text-lg">Live Check-ins</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-bold text-lg">Live Check-ins</h3>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-4 h-4 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[220px] text-xs">
+                        Real-time feed of member arrivals. Click any row to view details. Filters let you focus on specific branches or services.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <p className="text-sm text-muted-foreground">Real-time arrivals across branches</p>
               </div>
             </div>

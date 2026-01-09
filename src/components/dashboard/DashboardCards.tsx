@@ -1,7 +1,13 @@
 import { Link } from "react-router-dom";
-import { LucideIcon, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { LucideIcon, ChevronRight, TrendingUp, TrendingDown, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // =================== KPI Card ===================
 interface KPICardProps {
@@ -13,6 +19,7 @@ interface KPICardProps {
   isLoading?: boolean;
   change?: number;
   variant?: "default" | "purple" | "pink" | "teal" | "orange" | "blue" | "green" | "amber" | "rose";
+  tooltip?: string;
 }
 
 export function KPICard({
@@ -23,7 +30,8 @@ export function KPICard({
   href,
   isLoading,
   change,
-  variant = "default"
+  variant = "default",
+  tooltip
 }: KPICardProps) {
   const variantStyles = {
     default: "bg-card border-border",
@@ -75,7 +83,21 @@ export function KPICard({
       ) : (
         <>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-muted-foreground">{title}</span>
+              {tooltip && (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      {tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             <div className={cn("p-2.5 rounded-xl", iconStyles[variant])}>
               <Icon className="w-5 h-5" />
             </div>
@@ -120,9 +142,10 @@ interface StatCardProps {
   change?: number;
   isLoading?: boolean;
   variant?: "default" | "purple" | "pink" | "teal" | "orange" | "blue" | "green";
+  tooltip?: string;
 }
 
-export function StatCard({ label, value, icon: Icon, description, change, isLoading, variant = "default" }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, description, change, isLoading, variant = "default", tooltip }: StatCardProps) {
   const bgStyles = {
     default: "bg-muted/50",
     purple: "bg-kpi-purple/10",
@@ -157,6 +180,18 @@ export function StatCard({ label, value, icon: Icon, description, change, isLoad
       <div className="flex items-center gap-2 mb-1">
         {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        {tooltip && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3 h-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[180px] text-xs">
+                {tooltip}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
       <div className="flex items-baseline gap-2">
         <span className={cn("text-xl font-bold", valueStyles[variant])}>{value}</span>
@@ -182,9 +217,10 @@ interface SectionHeaderProps {
   description?: string;
   action?: React.ReactNode;
   icon?: LucideIcon;
+  tooltip?: string;
 }
 
-export function SectionHeader({ title, description, action, icon: Icon }: SectionHeaderProps) {
+export function SectionHeader({ title, description, action, icon: Icon, tooltip }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -194,7 +230,21 @@ export function SectionHeader({ title, description, action, icon: Icon }: Sectio
           </div>
         )}
         <div>
-          <h3 className="font-semibold text-foreground">{title}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-semibold text-foreground">{title}</h3>
+            {tooltip && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-xs">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
       </div>
