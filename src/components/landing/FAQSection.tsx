@@ -7,23 +7,27 @@ import {
 
 const faqCategories = [
   {
-    title: "Pricing & Trial",
+    title: "Testing Phase & Pricing",
     faqs: [
       {
-        question: "How does the trial work?",
-        answer: "We offer a 1-month free trial with full access to all features—no payment required. During this period, we'd love your feedback at info@easychurchflow.com. After your 1-month trial ends, you'll get an additional 14-day free trial before billing begins."
+        question: "What is the testing phase?",
+        answer: "We're currently in a 1-month testing phase where all features are completely free. This helps us refine the platform with real feedback from churches like yours before we enter production."
       },
       {
-        question: "When does billing start?",
-        answer: "Billing only starts after your 1-month feedback trial AND the 14-day free trial have both ended. That's over 6 weeks of free access! We'll notify you before any charges apply."
+        question: "What features are available during testing?",
+        answer: "All features are fully available during the testing phase—member management, attendance tracking, QR check-ins, analytics, SMS, and more. There are no limitations."
       },
       {
-        question: "How do I provide feedback during the trial?",
-        answer: "Simply email us at info@easychurchflow.com with your thoughts, suggestions, or questions. We actively review all feedback to improve the platform for churches like yours."
+        question: "How can I provide feedback?",
+        answer: "We'd love to hear from you! Email your feedback, suggestions, or questions to info@easychurchflow.com. Your input directly shapes how we improve ChurchFlow."
       },
       {
-        question: "What happens after the trial?",
-        answer: "After your 1-month trial, you automatically enter a 14-day free trial. If you choose to subscribe, pricing is based on your member count: GHS 99/month for up to 150 members, GHS 299/month for up to 5,000 members, and GHS 599/month for larger congregations. Additional branches are GHS 100/month each."
+        question: "What's the special discount for feedback?",
+        answer: "Churches that provide constructive feedback during the testing phase will receive a special discount when production begins. This is our way of thanking early adopters who help us build a better product."
+      },
+      {
+        question: "What happens after the testing phase?",
+        answer: "After the 1-month testing phase, production begins with a 14-day free trial followed by subscription billing. Pricing is based on member count: GHS 99/month (up to 150 members), GHS 299/month (up to 5,000 members), or GHS 599/month (larger congregations). Additional branches are GHS 100/month each."
       }
     ]
   },
