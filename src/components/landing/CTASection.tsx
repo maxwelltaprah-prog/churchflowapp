@@ -82,7 +82,7 @@ export function CTASection() {
               <Link to="/signup/church">
                 <Button size="xl" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 hover:scale-[1.02]">
                   <Church className="w-5 h-5" />
-                  Create Church Account
+                  Start 14-Day Free Trial
                   <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>

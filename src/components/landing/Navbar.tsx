@@ -42,7 +42,7 @@ export function Navbar() {
             </Link>
             <Link to="/signup/church">
               <Button size="default" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25">
-                Get Started
+                Start Free Trial
               </Button>
             </Link>
           </div>
@@ -87,7 +87,7 @@ export function Navbar() {
                 </Link>
                 <Link to="/signup/church" onClick={() => setIsOpen(false)}>
                   <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                    Get Started
+                    Start Free Trial
                   </Button>
                 </Link>
               </div>
