@@ -43,6 +43,7 @@ import { useGroups, useGroupStats, type Group } from "@/hooks/useGroupsData";
 import { useToggleGroupActive, useDeleteGroup, useReorderGroups } from "@/hooks/useGroupMutations";
 import { AddGroupDialog } from "@/components/dashboard/AddGroupDialog";
 import { EditGroupDialog } from "@/components/dashboard/EditGroupDialog";
+import { GroupMembersDrawer } from "@/components/dashboard/GroupMembersDrawer";
 
 export default function GroupsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +51,7 @@ export default function GroupsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editGroup, setEditGroup] = useState<Group | null>(null);
   const [deleteGroup, setDeleteGroup] = useState<Group | null>(null);
+  const [viewMembersGroup, setViewMembersGroup] = useState<Group | null>(null);
 
   const { data: branches } = useBranches();
   const { data: groups, isLoading } = useGroups();
@@ -229,8 +231,12 @@ export default function GroupsPage() {
               </TableHeader>
               <TableBody>
                 {filteredGroups.map((group, index) => (
-                  <TableRow key={group.id}>
-                    <TableCell>
+                  <TableRow 
+                    key={group.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setViewMembersGroup(group)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-col gap-1">
                         <Button
                           variant="ghost"
@@ -269,13 +275,13 @@ export default function GroupsPage() {
                         {groupStats?.[group.id] || 0}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <Switch
                         checked={group.is_active}
                         onCheckedChange={() => handleToggleActive(group)}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -322,6 +328,11 @@ export default function GroupsPage() {
         open={!!editGroup}
         onOpenChange={(open) => !open && setEditGroup(null)}
         group={editGroup}
+      />
+      <GroupMembersDrawer
+        group={viewMembersGroup}
+        open={!!viewMembersGroup}
+        onOpenChange={(open) => !open && setViewMembersGroup(null)}
       />
 
       {/* Delete Confirmation */}
