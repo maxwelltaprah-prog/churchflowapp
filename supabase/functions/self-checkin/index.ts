@@ -1,8 +1,9 @@
 // Self check-in public function (no login required)
 // Supports:
 // - action: "get_service" (serviceId)
-// - action: "checkin" (serviceId, memberCode) - memberCode is full phone number
-// - action: "visitor_checkin" (serviceId, phone) - phone is full phone number for visitors
+// - action: "unified_checkin" (serviceId, phone) - searches members first, then visitors
+// - action: "checkin" (serviceId, memberCode) - memberCode is full phone number (legacy)
+// - action: "visitor_checkin" (serviceId, phone) - phone is full phone number for visitors (legacy)
 // - action: "get_downloads" (serviceId, memberId OR visitorId) - returns unexpired uploads (only if checked in)
 // - action: "get_download_url" (serviceId, memberId OR visitorId, uploadId) - returns a signed URL for download/open
 // If multiple members match, returns disambiguation list
@@ -14,11 +15,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "get_service" | "checkin" | "visitor_checkin" | "get_downloads" | "get_download_url";
+type Action = "get_service" | "checkin" | "visitor_checkin" | "unified_checkin" | "get_downloads" | "get_download_url";
 
 interface MemberMatch {
   id: string;
   full_name: string;
+  type: "member" | "visitor";
 }
 
 Deno.serve(async (req) => {
@@ -94,10 +96,349 @@ Deno.serve(async (req) => {
       });
     }
 
+    // New unified check-in action - searches members first, then visitors
+    if (action === "unified_checkin") {
+      const serviceId: string | undefined = body?.serviceId;
+      const phoneRaw: string | undefined = body?.phone;
+      const selectedId: string | undefined = body?.selectedId;
+      const selectedType: "member" | "visitor" | undefined = body?.selectedType;
+
+      if (!serviceId || !phoneRaw) {
+        return new Response(JSON.stringify({ error: "Missing serviceId or phone" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const phone = phoneRaw.trim().replace(/\D/g, "");
+
+      if (phone.length < 9) {
+        return new Response(JSON.stringify({ error: "Please enter your full phone number" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get service details
+      const { data: service, error: serviceErr } = await supabase
+        .from("services")
+        .select("id, church_id, branch_id, is_active")
+        .eq("id", serviceId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (serviceErr) {
+        console.error("service lookup error", serviceErr);
+        return new Response(JSON.stringify({ error: "Failed to load service" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!service) {
+        return new Response(JSON.stringify({ error: "Service not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // If a specific person was selected (disambiguation resolved)
+      if (selectedId && selectedType) {
+        if (selectedType === "member") {
+          const { data: member, error: memberErr } = await supabase
+            .from("members")
+            .select("id, full_name, branch_id, is_active, approval_status")
+            .eq("id", selectedId)
+            .eq("church_id", service.church_id)
+            .maybeSingle();
+
+          if (memberErr || !member) {
+            return new Response(JSON.stringify({ error: "Member not found" }), {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          if (!member.is_active || member.approval_status !== "approved") {
+            return new Response(JSON.stringify({ error: "Membership is not active" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          // Check existing attendance
+          const { data: existing } = await supabase
+            .from("attendance")
+            .select("id")
+            .eq("service_id", service.id)
+            .eq("member_id", member.id)
+            .maybeSingle();
+
+          if (existing) {
+            return new Response(
+              JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const isCrossBranch = member.branch_id !== service.branch_id;
+
+          const { error: insertErr } = await supabase.from("attendance").insert({
+            church_id: service.church_id,
+            branch_id: service.branch_id,
+            service_id: service.id,
+            member_id: member.id,
+            checkin_method: "self_scan",
+            is_cross_branch: isCrossBranch,
+            member_home_branch_id: isCrossBranch ? member.branch_id : null,
+          });
+
+          if (insertErr) {
+            if (insertErr.code === "23505") {
+              return new Response(
+                JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+            return new Response(JSON.stringify({ error: "Failed to check in" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          return new Response(
+            JSON.stringify({ status: "checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        } else {
+          // Visitor
+          const { data: visitor, error: visitorErr } = await supabase
+            .from("visitors")
+            .select("id, first_name, last_name")
+            .eq("id", selectedId)
+            .eq("church_id", service.church_id)
+            .maybeSingle();
+
+          if (visitorErr || !visitor) {
+            return new Response(JSON.stringify({ error: "Visitor not found" }), {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          const visitorName = `${visitor.first_name} ${visitor.last_name}`;
+
+          // Check existing check-in
+          const { data: existing } = await supabase
+            .from("visitor_checkins")
+            .select("id")
+            .eq("service_id", service.id)
+            .eq("visitor_id", visitor.id)
+            .maybeSingle();
+
+          if (existing) {
+            return new Response(
+              JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const { error: insertErr } = await supabase.from("visitor_checkins").insert({
+            church_id: service.church_id,
+            visitor_id: visitor.id,
+            service_id: service.id,
+            checkin_method: "qr",
+          });
+
+          if (insertErr) {
+            if (insertErr.code === "23505") {
+              return new Response(
+                JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+            return new Response(JSON.stringify({ error: "Failed to check in" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          return new Response(
+            JSON.stringify({ status: "checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
+      // Search members first
+      const { data: matchingMembers, error: memberErr } = await supabase
+        .from("members")
+        .select("id, full_name, phone, branch_id, is_active, approval_status")
+        .eq("church_id", service.church_id)
+        .eq("is_active", true)
+        .eq("approval_status", "approved");
+
+      if (memberErr) {
+        console.error("member lookup error", memberErr);
+        return new Response(JSON.stringify({ error: "Failed to search" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Filter members by phone match
+      const filteredMembers = matchingMembers?.filter(m => {
+        const memberPhone = m.phone?.replace(/\D/g, "") || "";
+        return memberPhone === phone || 
+               memberPhone.endsWith(phone) || 
+               phone.endsWith(memberPhone);
+      }) || [];
+
+      // Search visitors
+      const { data: matchingVisitors, error: visitorErr } = await supabase
+        .from("visitors")
+        .select("id, first_name, last_name, phone")
+        .eq("church_id", service.church_id);
+
+      if (visitorErr) {
+        console.error("visitor lookup error", visitorErr);
+        return new Response(JSON.stringify({ error: "Failed to search" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Filter visitors by phone match
+      const filteredVisitors = matchingVisitors?.filter(v => {
+        const visitorPhone = v.phone?.replace(/\D/g, "") || "";
+        return visitorPhone === phone || 
+               visitorPhone.endsWith(phone) || 
+               phone.endsWith(visitorPhone);
+      }) || [];
+
+      // Combine results
+      const allMatches: MemberMatch[] = [
+        ...filteredMembers.map(m => ({ id: m.id, full_name: m.full_name, type: "member" as const })),
+        ...filteredVisitors.map(v => ({ id: v.id, full_name: `${v.first_name} ${v.last_name}`, type: "visitor" as const })),
+      ];
+
+      if (allMatches.length === 0) {
+        return new Response(JSON.stringify({ error: "Phone number not found. Please check and try again." }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // If multiple matches found, return disambiguation
+      if (allMatches.length > 1) {
+        return new Response(
+          JSON.stringify({ status: "disambiguation_required", matches: allMatches }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Single match - proceed with check-in
+      const match = allMatches[0];
+
+      if (match.type === "member") {
+        const member = filteredMembers[0];
+
+        // Check existing attendance
+        const { data: existing } = await supabase
+          .from("attendance")
+          .select("id")
+          .eq("service_id", service.id)
+          .eq("member_id", member.id)
+          .maybeSingle();
+
+        if (existing) {
+          return new Response(
+            JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const isCrossBranch = member.branch_id !== service.branch_id;
+
+        const { error: insertErr } = await supabase.from("attendance").insert({
+          church_id: service.church_id,
+          branch_id: service.branch_id,
+          service_id: service.id,
+          member_id: member.id,
+          checkin_method: "self_scan",
+          is_cross_branch: isCrossBranch,
+          member_home_branch_id: isCrossBranch ? member.branch_id : null,
+        });
+
+        if (insertErr) {
+          if (insertErr.code === "23505") {
+            return new Response(
+              JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          return new Response(JSON.stringify({ error: "Failed to check in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ status: "checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } else {
+        // Visitor
+        const visitor = filteredVisitors[0];
+        const visitorName = `${visitor.first_name} ${visitor.last_name}`;
+
+        // Check existing check-in
+        const { data: existing } = await supabase
+          .from("visitor_checkins")
+          .select("id")
+          .eq("service_id", service.id)
+          .eq("visitor_id", visitor.id)
+          .maybeSingle();
+
+        if (existing) {
+          return new Response(
+            JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const { error: insertErr } = await supabase.from("visitor_checkins").insert({
+          church_id: service.church_id,
+          visitor_id: visitor.id,
+          service_id: service.id,
+          checkin_method: "qr",
+        });
+
+        if (insertErr) {
+          if (insertErr.code === "23505") {
+            return new Response(
+              JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          return new Response(JSON.stringify({ error: "Failed to check in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ status: "checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    // Legacy member check-in action
     if (action === "checkin") {
       const serviceId: string | undefined = body?.serviceId;
       const memberCodeRaw: string | undefined = body?.memberCode;
-      const memberId: string | undefined = body?.memberId; // For disambiguation
+      const memberId: string | undefined = body?.memberId;
 
       if (!serviceId || !memberCodeRaw) {
         return new Response(JSON.stringify({ error: "Missing serviceId or memberCode" }), {
@@ -108,7 +449,6 @@ Deno.serve(async (req) => {
 
       const memberCode = memberCodeRaw.trim().replace(/\D/g, "");
 
-      // Validate memberCode is a valid phone number (at least 9 digits)
       if (memberCode.length < 9) {
         return new Response(JSON.stringify({ error: "Please enter your full phone number" }), {
           status: 400,
@@ -140,7 +480,6 @@ Deno.serve(async (req) => {
 
       let member = null;
 
-      // If memberId is provided (disambiguation resolved), use it directly
       if (memberId) {
         const { data: memberById, error: memberByIdErr } = await supabase
           .from("members")
@@ -154,7 +493,6 @@ Deno.serve(async (req) => {
         }
         member = memberById;
       } else {
-        // Find members by phone number (exact match or partial match)
         const { data: matchingMembers, error: memberErr } = await supabase
           .from("members")
           .select("id, full_name, phone, branch_id, is_active, approval_status")
@@ -170,7 +508,6 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Filter for phone number match
         const filteredMembers = matchingMembers?.filter(m => {
           const memberPhone = m.phone?.replace(/\D/g, "") || "";
           return memberPhone === memberCode || 
@@ -185,9 +522,8 @@ Deno.serve(async (req) => {
           });
         }
 
-        // If multiple members match, return disambiguation
         if (filteredMembers.length > 1) {
-          const members: MemberMatch[] = filteredMembers.map(m => ({
+          const members = filteredMembers.map(m => ({
             id: m.id,
             full_name: m.full_name,
           }));
@@ -198,7 +534,6 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Single match
         member = filteredMembers[0];
       }
 
@@ -223,7 +558,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Already checked in?
       const { data: existing, error: existingErr } = await supabase
         .from("attendance")
         .select("id")
@@ -256,7 +590,6 @@ Deno.serve(async (req) => {
 
       if (insertErr) {
         console.error("insert attendance error", insertErr);
-        // Duplicate (unique constraint) safety
         if (insertErr.code === "23505") {
           return new Response(
             JSON.stringify({ status: "already_checked_in", name: member.full_name, memberId: member.id, userType: "member" }),
@@ -276,7 +609,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // New visitor check-in action
+    // Legacy visitor check-in action
     if (action === "visitor_checkin") {
       const serviceId: string | undefined = body?.serviceId;
       const phoneRaw: string | undefined = body?.phone;
@@ -288,7 +621,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Normalize phone number (remove spaces, dashes, keep only digits)
       const phone = phoneRaw.replace(/[\s\-\(\)]/g, "").trim();
 
       if (phone.length < 4) {
@@ -320,7 +652,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Find visitor by phone number (exact match or ending with)
       const { data: matchingVisitors, error: visitorErr } = await supabase
         .from("visitors")
         .select("id, first_name, last_name, phone")
@@ -335,7 +666,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Filter for exact phone match
       const visitor = matchingVisitors?.find(v => {
         const normalizedVisitorPhone = v.phone?.replace(/[\s\-\(\)]/g, "").trim() || "";
         return normalizedVisitorPhone === phone || normalizedVisitorPhone.endsWith(phone) || phone.endsWith(normalizedVisitorPhone);
@@ -350,7 +680,6 @@ Deno.serve(async (req) => {
 
       const visitorName = `${visitor.first_name} ${visitor.last_name}`;
 
-      // Already checked in?
       const { data: existing, error: existingErr } = await supabase
         .from("visitor_checkins")
         .select("id")
@@ -369,7 +698,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Insert visitor check-in
       const { error: insertErr } = await supabase.from("visitor_checkins").insert({
         church_id: service.church_id,
         visitor_id: visitor.id,
@@ -379,7 +707,6 @@ Deno.serve(async (req) => {
 
       if (insertErr) {
         console.error("insert visitor checkin error", insertErr);
-        // Duplicate (unique constraint) safety
         if (insertErr.code === "23505") {
           return new Response(
             JSON.stringify({ status: "already_checked_in", name: visitorName, visitorId: visitor.id, userType: "visitor" }),
@@ -411,7 +738,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if user (member or visitor) has checked in
       let hasCheckedIn = false;
 
       if (memberId) {
@@ -490,7 +816,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if user (member or visitor) has checked in
       let hasCheckedIn = false;
 
       if (memberId) {
@@ -534,7 +859,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Ensure upload exists and is still valid
       const now = new Date().toISOString();
       const { data: upload, error: uploadErr } = await supabase
         .from("service_uploads")
