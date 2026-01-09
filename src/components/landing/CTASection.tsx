@@ -63,7 +63,7 @@ export function CTASection() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              Get started for free
+              1 Month Free — No Billing Required
             </div>
 
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
@@ -73,16 +73,25 @@ export function CTASection() {
               </span>
             </h2>
 
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-10">
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-6">
               Set up in minutes and serve people more personally. 
               Know your members. Care better.
             </p>
+
+            {/* Trial info box */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 max-w-xl mx-auto mb-8">
+              <p className="text-sm text-indigo-800">
+                <strong>How it works:</strong> Start with a full-access 1-month trial. No payment needed. 
+                Share feedback at <span className="font-semibold">info@easychurchflow.com</span>. 
+                After the trial, enjoy a 14-day free trial before subscription kicks in.
+              </p>
+            </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup/church">
                 <Button size="xl" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 hover:scale-[1.02]">
                   <Church className="w-5 h-5" />
-                  Start 14-Day Free Trial
+                  Start Free 1-Month Trial
                   <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>

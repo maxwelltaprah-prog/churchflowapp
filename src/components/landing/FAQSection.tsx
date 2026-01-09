@@ -7,6 +7,27 @@ import {
 
 const faqCategories = [
   {
+    title: "Pricing & Trial",
+    faqs: [
+      {
+        question: "How does the trial work?",
+        answer: "We offer a 1-month free trial with full access to all features—no payment required. During this period, we'd love your feedback at info@easychurchflow.com. After your 1-month trial ends, you'll get an additional 14-day free trial before billing begins."
+      },
+      {
+        question: "When does billing start?",
+        answer: "Billing only starts after your 1-month feedback trial AND the 14-day free trial have both ended. That's over 6 weeks of free access! We'll notify you before any charges apply."
+      },
+      {
+        question: "How do I provide feedback during the trial?",
+        answer: "Simply email us at info@easychurchflow.com with your thoughts, suggestions, or questions. We actively review all feedback to improve the platform for churches like yours."
+      },
+      {
+        question: "What happens after the trial?",
+        answer: "After your 1-month trial, you automatically enter a 14-day free trial. If you choose to subscribe, pricing is based on your member count: GHS 99/month for up to 150 members, GHS 299/month for up to 5,000 members, and GHS 599/month for larger congregations. Additional branches are GHS 100/month each."
+      }
+    ]
+  },
+  {
     title: "Overview",
     faqs: [
       {
