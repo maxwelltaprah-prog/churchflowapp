@@ -8,7 +8,6 @@ import {
   Church, 
   ArrowLeft, 
   QrCode, 
-  User, 
   Phone, 
   ChevronRight,
   Building2,
@@ -17,19 +16,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -38,12 +26,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { generateMemberCode, generateQRToken } from "@/lib/church-service";
 import { selfRegisterSchema, type SelfRegisterFormData } from "@/lib/member-form-schema";
 import { padPin } from "@/lib/pin-utils";
+import { MemberForm } from "@/components/member/MemberForm";
 
 // Fetch groups for a branch
 async function fetchBranchGroups(branchId: string) {
@@ -76,7 +63,6 @@ export default function JoinBranch() {
   const [branchCode, setBranchCode] = useState(initialCode);
   const [branchInfo, setBranchInfo] = useState<{ id: string; church_id: string; name: string } | null>(null);
   const [showPin, setShowPin] = useState(false);
-  const [optionalOpen, setOptionalOpen] = useState(false);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
   const [availableSpiritualJourneys, setAvailableSpiritualJourneys] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +76,7 @@ export default function JoinBranch() {
       phone: "",
       gender: undefined,
       date_of_birth: "",
+      day_born: null,
       membership_status: "active",
       group_ids: [],
       spiritual_journey_ids: [],
@@ -100,8 +87,12 @@ export default function JoinBranch() {
       occupation: null,
       email: "",
       is_baptized: null,
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      emergency_contact_relationship: "",
       pin: "",
       confirmPin: "",
+      date_joined: new Date().toISOString().split("T")[0],
     },
   });
 
@@ -115,20 +106,17 @@ export default function JoinBranch() {
     }
   }, [branchInfo?.id, branchInfo?.church_id]);
 
-  const handleCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (branchCode.length < 4) {
-      toast({
-        title: "Invalid Code",
-        description: "Please enter a valid branch code.",
-        variant: "destructive",
-      });
-      return;
+  // Auto-validate branch code if provided in URL
+  useEffect(() => {
+    if (initialCode && !branchInfo) {
+      validateBranchCode(initialCode);
     }
+  }, [initialCode]);
 
+  const validateBranchCode = async (code: string) => {
     setIsLoading(true);
     try {
-      const normalizedCode = branchCode.trim().toUpperCase();
+      const normalizedCode = code.trim().toUpperCase();
       const { data: branchData, error } = await supabase
         .from("branches")
         .select("id, church_id, name")
@@ -142,6 +130,7 @@ export default function JoinBranch() {
           description: "Please check the code and try again.",
           variant: "destructive",
         });
+        setStep("code");
         return;
       }
 
@@ -153,9 +142,23 @@ export default function JoinBranch() {
         description: error.message || "Something went wrong",
         variant: "destructive",
       });
+      setStep("code");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (branchCode.length < 4) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter a valid branch code.",
+        variant: "destructive",
+      });
+      return;
+    }
+    await validateBranchCode(branchCode);
   };
 
   const onSubmit = async (data: SelfRegisterFormData) => {
@@ -220,7 +223,7 @@ export default function JoinBranch() {
       const memberCode = generateMemberCode(branchCode);
       const qrToken = generateQRToken();
 
-      // Create member record
+      // Create member record with all fields from form
       const memberInsertData: Record<string, unknown> = {
         church_id: branchInfo.church_id,
         branch_id: branchInfo.id,
@@ -230,16 +233,21 @@ export default function JoinBranch() {
         email: data.email?.trim() || null,
         gender: data.gender,
         date_of_birth: data.date_of_birth,
+        day_born: data.day_born || null,
         membership_status: data.membership_status,
         member_type: data.member_type || null,
         how_heard: data.how_heard || null,
         residential_area: data.residential_area?.trim() || null,
         marital_status: data.marital_status || null,
         occupation: data.occupation || null,
+        is_baptized: data.is_baptized ?? null,
+        emergency_contact_name: data.emergency_contact_name?.trim() || null,
+        emergency_contact_phone: data.emergency_contact_phone?.trim() || null,
+        emergency_contact_relationship: data.emergency_contact_relationship?.trim() || null,
         member_code: memberCode,
         qr_code_token: qrToken,
         approval_status: "pending",
-        date_joined: new Date().toISOString().split("T")[0],
+        date_joined: data.date_joined || new Date().toISOString().split("T")[0],
       };
 
       const { data: newMember, error: memberError } = await supabase
@@ -463,169 +471,16 @@ export default function JoinBranch() {
                     </div>
                   )}
 
-                  {/* Time estimate */}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 rounded-lg p-3">
-                    <Clock className="w-4 h-4" />
-                    <span>Takes about 1 minute</span>
-                  </div>
+                  {/* Use the shared MemberForm component */}
+                  <MemberForm
+                    form={form}
+                    availableGroups={availableGroups}
+                    availableSpiritualJourneys={availableSpiritualJourneys}
+                    mode="self-register"
+                    showAdminFields={false}
+                  />
 
-                  {/* SECTION A: Basic Info (Required) */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Basic Information
-                    </h3>
-
-                    <FormField
-                      control={form.control}
-                      name="full_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter your full name" className="h-12" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="tel" 
-                              placeholder="+233 XX XXX XXXX" 
-                              className="h-12" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">This will be used for login</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                              <FormControl>
-                                <SelectTrigger className="h-12">
-                                  <SelectValue placeholder="Select" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="date_of_birth"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Date of Birth *</FormLabel>
-                            <FormControl>
-                              <Input type="date" className="h-12" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="membership_status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Membership Status *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger className="h-12">
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                              <SelectItem value="transferred">Transferred</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Spiritual Journey Section (Required) */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Spiritual Journey
-                    </h3>
-
-                    {availableSpiritualJourneys.length > 0 && (
-                      <FormField
-                        control={form.control}
-                        name="spiritual_journey_ids"
-                        render={() => (
-                          <FormItem>
-                            <FormLabel>Spiritual Milestones *</FormLabel>
-                            <div className="border rounded-md p-3 space-y-2 max-h-[150px] overflow-y-auto bg-background">
-                              {availableSpiritualJourneys.map((journey) => (
-                                <FormField
-                                  key={journey.id}
-                                  control={form.control}
-                                  name="spiritual_journey_ids"
-                                  render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-2 space-y-0">
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={field.value?.includes(journey.id)}
-                                          onCheckedChange={(checked) => {
-                                            const currentValue = field.value || [];
-                                            if (checked) {
-                                              field.onChange([...currentValue, journey.id]);
-                                            } else {
-                                              field.onChange(
-                                                currentValue.filter((id) => id !== journey.id)
-                                              );
-                                            }
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <FormLabel className="text-sm font-normal cursor-pointer">
-                                        {journey.name}
-                                      </FormLabel>
-                                    </FormItem>
-                                  )}
-                                />
-                              ))}
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-
-                  {/* Account Security Section */}
+                  {/* Account Security Section - PIN fields */}
                   <div className="space-y-4 pt-4 border-t border-border">
                     <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                       <Lock className="w-4 h-4" />
@@ -689,253 +544,33 @@ export default function JoinBranch() {
                     />
                   </div>
 
-                  {/* OPTIONAL SECTIONS (Collapsed) */}
-                  <Collapsible open={optionalOpen} onOpenChange={setOptionalOpen}>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-between h-12 border border-dashed border-border hover:border-primary/50"
-                      >
-                        <span className="flex items-center gap-2 text-muted-foreground">
-                          <Users className="w-4 h-4" />
-                          Add more details (optional)
-                        </span>
-                        {optionalOpen ? (
-                          <ChevronUp className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent className="space-y-4 pt-4">
-                      {/* Church Connection */}
-                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
-                        <h4 className="text-sm font-medium text-foreground">Church Connection</h4>
-
-                        {availableGroups.length > 0 && (
-                          <FormField
-                            control={form.control}
-                            name="group_ids"
-                            render={() => (
-                              <FormItem>
-                                <FormLabel>Ministry / Group</FormLabel>
-                                <div className="border rounded-md p-3 space-y-2 max-h-[120px] overflow-y-auto bg-background">
-                                  {availableGroups.map((group) => (
-                                    <FormField
-                                      key={group.id}
-                                      control={form.control}
-                                      name="group_ids"
-                                      render={({ field }) => (
-                                        <FormItem className="flex items-center space-x-2 space-y-0">
-                                          <FormControl>
-                                            <Checkbox
-                                              checked={field.value?.includes(group.id)}
-                                              onCheckedChange={(checked) => {
-                                                const currentValue = field.value || [];
-                                                if (checked) {
-                                                  field.onChange([...currentValue, group.id]);
-                                                } else {
-                                                  field.onChange(
-                                                    currentValue.filter((id) => id !== group.id)
-                                                  );
-                                                }
-                                              }}
-                                            />
-                                          </FormControl>
-                                          <FormLabel className="text-sm font-normal cursor-pointer">
-                                            {group.name}
-                                          </FormLabel>
-                                        </FormItem>
-                                      )}
-                                    />
-                                  ))}
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
-
-                        <FormField
-                          control={form.control}
-                          name="member_type"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Member Type</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
-                                <FormControl>
-                                  <SelectTrigger className="h-12">
-                                    <SelectValue placeholder="Select type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="regular">Regular Attender</SelectItem>
-                                  <SelectItem value="occasional">Occasional Attender</SelectItem>
-                                  <SelectItem value="worker">Worker / Volunteer</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="how_heard"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>How did you hear about us?</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
-                                <FormControl>
-                                  <SelectTrigger className="h-12">
-                                    <SelectValue placeholder="Select option" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="friend_family">Friend / Family</SelectItem>
-                                  <SelectItem value="social_media">Social Media</SelectItem>
-                                  <SelectItem value="walk_in">Walk-in</SelectItem>
-                                  <SelectItem value="outreach">Outreach</SelectItem>
-                                  <SelectItem value="other">Other</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Location & Life Stage */}
-                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
-                        <h4 className="text-sm font-medium text-foreground">Location & Life Stage</h4>
-
-                        <FormField
-                          control={form.control}
-                          name="residential_area"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Residential Area</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="e.g., East Legon, Accra" 
-                                  className="h-12" 
-                                  {...field}
-                                  value={field.value || ""}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="marital_status"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Marital Status</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || ""}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12">
-                                      <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="single">Single</SelectItem>
-                                    <SelectItem value="married">Married</SelectItem>
-                                    <SelectItem value="divorced">Divorced</SelectItem>
-                                    <SelectItem value="widowed">Widowed</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name="occupation"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Occupation</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || ""}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-12">
-                                      <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="student">Student</SelectItem>
-                                    <SelectItem value="public_sector">Public Sector</SelectItem>
-                                    <SelectItem value="private_sector">Private Sector</SelectItem>
-                                    <SelectItem value="self_employed">Self-Employed</SelectItem>
-                                    <SelectItem value="unemployed">Unemployed</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <FormField
-                          control={form.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="email" 
-                                  placeholder="email@example.com" 
-                                  className="h-12" 
-                                  {...field}
-                                  value={field.value || ""}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  <div className="pt-4">
-                    <Button
-                      type="submit"
-                      variant="hero"
-                      size="lg"
-                      className="w-full"
-                      disabled={isLoading}
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setStep("code");
+                        setBranchInfo(null);
+                        form.reset();
+                      }}
                     >
-                      {isLoading ? "Creating Account..." : "Complete Registration"}
+                      Back
+                    </Button>
+                    <Button type="submit" variant="hero" disabled={isLoading}>
+                      {isLoading ? "Registering..." : "Complete Registration"}
                     </Button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setStep("code")}
-                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    ← Back to branch code
-                  </button>
                 </form>
               </Form>
             )}
+          </div>
 
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-muted-foreground">
-                Already registered?{" "}
-                <Link to="/member/login" className="text-primary font-medium hover:underline">
-                  Sign in
-                </Link>
-              </p>
-            </div>
+          {/* Login link */}
+          <div className="text-center mt-6 text-sm text-muted-foreground">
+            Already registered?{" "}
+            <Link to="/member/login" className="text-primary hover:underline font-medium">
+              Login here
+            </Link>
           </div>
         </div>
       </div>
