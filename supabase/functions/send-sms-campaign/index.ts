@@ -172,10 +172,12 @@ serve(async (req) => {
     if (campaignError) throw campaignError;
 
     // Create jobs for each recipient
+    const isVisitorCampaign = audienceType === "visitor" || audienceType === "visitors";
+    
     const jobs = uniqueRecipients.map((recipient) => ({
       church_id: churchId,
       campaign_id: campaign.id,
-      member_id: recipient.id,
+      member_id: isVisitorCampaign ? null : recipient.id, // null for visitors since they're not members
       member_name: recipient.full_name,
       phone_number: recipient.phone,
       personalized_message: messageBody,
