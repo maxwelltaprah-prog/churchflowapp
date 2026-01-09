@@ -36,6 +36,7 @@ import MemberDrilldownPage from "./pages/dashboard/analytics/MemberDrilldownPage
 import GroupAbsenteesPage from "./pages/dashboard/analytics/GroupAbsenteesPage";
 import EngagementSignalsPage from "./pages/dashboard/analytics/EngagementSignalsPage";
 import MembersAttendedPage from "./pages/dashboard/analytics/MembersAttendedPage";
+import DayBornDrilldownPage from "./pages/dashboard/analytics/DayBornDrilldownPage";
 
 import BroadcastsPage from "./pages/dashboard/BroadcastsPage";
 import AdminsPage from "./pages/dashboard/AdminsPage";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="analytics/engagement" element={<EngagementSignalsPage />} />
               
               <Route path="analytics/drilldown" element={<MemberDrilldownPage />} />
+              <Route path="analytics/day-born" element={<DayBornDrilldownPage />} />
               <Route path="analytics/members-attended" element={<MembersAttendedPage />} />
               <Route path="broadcasts" element={<BroadcastsPage />} />
               <Route path="sms" element={<SMSDashboardPage />} />
