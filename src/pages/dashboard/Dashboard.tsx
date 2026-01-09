@@ -291,7 +291,12 @@ export default function Dashboard() {
                                   <Cake className="w-3 h-3 text-pink-500" />
                                 )}
                               </div>
-                              <span className="text-xs font-medium truncate">{member.full_name}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-medium truncate">{member.full_name}</span>
+                                {member.day_born && (
+                                  <span className="text-[10px] text-pink-600 capitalize">{member.day_born}-born</span>
+                                )}
+                              </div>
                             </div>
                             <span className="text-[10px] text-muted-foreground flex-shrink-0">
                               {format(parseISO(member.birthday_date), "MMM d")}
@@ -328,7 +333,12 @@ export default function Dashboard() {
                                   <Cake className="w-3 h-3 text-pink-500" />
                                 )}
                               </div>
-                              <span className="text-xs font-medium truncate">{member.full_name}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-medium truncate">{member.full_name}</span>
+                                {member.day_born && (
+                                  <span className="text-[10px] text-pink-600 capitalize">{member.day_born}-born</span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {isToday(parseISO(member.birthday_date)) && (
