@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, UserPlus, Clock, ChevronRight, Building2,
-  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift, CalendarHeart
+  TrendingUp, Phone, RefreshCw, BarChart3, PieChart, UsersRound, UserMinus, AlertTriangle, UserCheck, Cake, Gift, CalendarHeart, Star
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
 import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
 import { useBirthdayData } from "@/hooks/useBirthdayData";
 import { useAnniversaryData } from "@/hooks/useAnniversaryData";
+import { useDayBornDistribution } from "@/hooks/useDayBornDistribution";
 import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
@@ -102,6 +103,7 @@ export default function Dashboard() {
   const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
   const { data: birthdays, isLoading: birthdaysLoading } = useBirthdayData(branchId);
   const { data: anniversaries, isLoading: anniversariesLoading } = useAnniversaryData(branchId);
+  const { data: dayBornData, isLoading: dayBornLoading } = useDayBornDistribution(branchId, serviceIds);
 
   const showBranchFilter = isChurchAdmin() && (branches?.length || 0) > 1;
 
@@ -543,6 +545,62 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* SECTION 8: Day Born Distribution */}
+      <Card className="border-0 bg-gradient-to-br from-kpi-amber/5 to-kpi-orange/5">
+        <CardHeader className="pb-3">
+          <SectionHeader 
+            title="Day Born Distribution" 
+            description="Attendees by day of the week they were born"
+            icon={Star} 
+          />
+        </CardHeader>
+        <CardContent>
+          {dayBornLoading ? (
+            <Skeleton className="h-[200px] w-full" />
+          ) : !dayBornData?.some(d => d.count > 0) ? (
+            <EmptyState icon={Star} title="No day born data" description="Day born info will appear when members have this field set" />
+          ) : (
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dayBornData} layout="vertical" margin={{ left: 10, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={true} vertical={false} />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="label" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false}
+                    width={80}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))", 
+                      border: "1px solid hsl(var(--border))", 
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                    }}
+                    labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                    formatter={(value: number) => [`${value} member${value !== 1 ? "s" : ""}`, "Count"]}
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    radius={[0, 4, 4, 0]}
+                    maxBarSize={30}
+                  >
+                    {dayBornData?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Branch Leaderboard */}
       <Card className="border-0 bg-gradient-to-br from-kpi-blue/5 to-kpi-purple/5">
