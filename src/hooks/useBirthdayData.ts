@@ -13,6 +13,7 @@ export interface BirthdayMember {
   branch_name: string | null;
   birthday_date: string; // This year's birthday date
   is_past: boolean;
+  day_born: string | null;
 }
 
 export function useBirthdayData(branchId?: string) {
@@ -36,7 +37,7 @@ export function useBirthdayData(branchId?: string) {
       // Fetch all members with date_of_birth
       let query = supabase
         .from("members")
-        .select("id, full_name, date_of_birth, phone, photo_url, branch_id, branches(name)")
+        .select("id, full_name, date_of_birth, day_born, phone, photo_url, branch_id, branches(name)")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
         .not("date_of_birth", "is", null);
@@ -74,7 +75,8 @@ export function useBirthdayData(branchId?: string) {
             photo_url: member.photo_url,
             branch_name: member.branches?.name || null,
             birthday_date: format(birthdayThisYear, "yyyy-MM-dd"),
-            is_past: true
+            is_past: true,
+            day_born: member.day_born || null,
           });
         }
         // Check if birthday falls within today or next 7 days
@@ -87,7 +89,8 @@ export function useBirthdayData(branchId?: string) {
             photo_url: member.photo_url,
             branch_name: member.branches?.name || null,
             birthday_date: format(birthdayThisYear, "yyyy-MM-dd"),
-            is_past: false
+            is_past: false,
+            day_born: member.day_born || null,
           });
         }
       });

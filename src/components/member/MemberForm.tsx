@@ -175,20 +175,38 @@ export function MemberForm({
           <FormField
             control={form.control}
             name="date_of_birth"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Date of Birth *</FormLabel>
-                <FormControl>
-                  <Input
-                    type="date"
-                    className="h-12"
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              // Auto-calculate day born when date changes
+              const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                field.onChange(e);
+                const dateValue = e.target.value;
+                if (dateValue) {
+                  const date = new Date(dateValue);
+                  const dayIndex = date.getDay();
+                  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+                  const currentDayBorn = form.getValues("day_born");
+                  // Only auto-set if day_born is empty
+                  if (!currentDayBorn) {
+                    form.setValue("day_born", days[dayIndex]);
+                  }
+                }
+              };
+              
+              return (
+                <FormItem>
+                  <FormLabel>Date of Birth *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      className="h-12"
+                      value={field.value || ""}
+                      onChange={handleDateChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
         </div>
 
@@ -198,7 +216,7 @@ export function MemberForm({
           name="day_born"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Day Born</FormLabel>
+              <FormLabel>Day Born (auto-calculated)</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || ""}>
                 <FormControl>
                   <SelectTrigger className="h-12">
