@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import ChurchSignup from "./pages/ChurchSignup";
 import SetupChurch from "./pages/SetupChurch";
 import JoinBranch from "./pages/JoinBranch";
@@ -67,6 +68,7 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/signup/church" element={<ChurchSignup />} />
             <Route path="/join" element={<JoinBranch />} />
             <Route path="/setup-church" element={<SetupChurch />} />
