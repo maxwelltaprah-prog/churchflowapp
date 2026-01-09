@@ -97,8 +97,35 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-24 lg:py-32 bg-slate-50">
-      <div className="container">
+    <section id="features" className="py-24 lg:py-32 relative overflow-hidden">
+      {/* Creative layered background */}
+      <div className="absolute inset-0">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-indigo-50/20 to-purple-50/30" />
+        
+        {/* Floating shapes */}
+        <div className="absolute top-40 -right-20 w-[400px] h-[400px] bg-gradient-to-br from-indigo-200/30 to-purple-200/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -left-20 w-[350px] h-[350px] bg-gradient-to-br from-rose-200/25 to-pink-200/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-40 right-1/3 w-[300px] h-[300px] bg-gradient-to-br from-amber-200/30 to-orange-200/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-1/4 w-[250px] h-[250px] bg-gradient-to-br from-teal-200/25 to-cyan-200/15 rounded-full blur-3xl" />
+        
+        {/* Dot pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(99,102,241,0.05)_1px,transparent_1px)] bg-[size:30px_30px]" />
+        
+        {/* Decorative curved line */}
+        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-10" preserveAspectRatio="none">
+          <path d="M0,100 Q400,50 800,150 T1600,100" fill="none" stroke="url(#gradient)" strokeWidth="2" />
+          <defs>
+            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6366f1" />
+              <stop offset="50%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      
+      <div className="container relative z-10">
         {/* Pain Points Section */}
         <div className="mb-24">
           <div className="text-center max-w-3xl mx-auto mb-16">

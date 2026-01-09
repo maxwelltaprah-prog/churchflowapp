@@ -4,11 +4,21 @@ import { Link } from "react-router-dom";
 
 export function CTASection() {
   return (
-    <section className="py-24 lg:py-32 bg-gradient-to-b from-slate-50 via-white to-indigo-50/50 relative overflow-hidden">
-      {/* Background decoration */}
+    <section className="py-24 lg:py-32 relative overflow-hidden">
+      {/* Rich creative background */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-100/50 rounded-full blur-3xl" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-100/50 rounded-full blur-3xl" />
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/60" />
+        
+        {/* Large central glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-gradient-to-br from-indigo-200/40 via-purple-200/30 to-pink-200/20 rounded-full blur-3xl" />
+        
+        {/* Corner accents */}
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-purple-300/30 to-transparent rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-[350px] h-[350px] bg-gradient-to-tr from-teal-200/30 to-transparent rounded-full blur-3xl" />
+        
+        {/* Radial pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,transparent_50%,rgba(99,102,241,0.02)_50%,rgba(99,102,241,0.02)_51%,transparent_51%)] bg-[size:100px_100px]" />
       </div>
 
       <div className="container relative z-10">
