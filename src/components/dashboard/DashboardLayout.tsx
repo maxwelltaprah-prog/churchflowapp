@@ -14,6 +14,7 @@ import { useLocation } from "react-router-dom";
 import { AdminNotifications } from "./AdminNotifications";
 import { TrialBanner } from "@/components/billing/TrialBanner";
 import { PaywallLock } from "@/components/billing/PaywallLock";
+import { OnboardingTour } from "./OnboardingTour";
 
 const routeTitles: Record<string, string> = {
   "/app": "Care Dashboard",
@@ -75,6 +76,9 @@ export function DashboardLayout() {
           
           {/* Paywall Lock Overlay */}
           <PaywallLock />
+          
+          {/* Onboarding Tour for new admins */}
+          <OnboardingTour />
         </SidebarInset>
       </div>
     </SidebarProvider>
