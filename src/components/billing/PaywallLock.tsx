@@ -21,10 +21,10 @@ export function PaywallLock() {
     switch (status) {
       case "expired_locked":
         return {
-          title: "Trial Expired",
-          description: `Your 14-day trial expired${
+          title: "Testing Phase Ended",
+          description: `The testing phase has ended${
             lockedDate ? ` on ${lockedDate}` : ""
-          }. Subscribe now to restore full access to your church data.`,
+          }. Subscribe now to continue with full access to your church data.`,
           icon: Lock,
         };
       case "past_due":
