@@ -58,7 +58,7 @@ export function HeroSection() {
             <Link to="/signup/church">
               <Button size="xl" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 hover:scale-[1.02]">
                 <Church className="w-5 h-5" />
-                Start Free 1-Month Trial
+                Join Testing Phase
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
@@ -72,7 +72,7 @@ export function HeroSection() {
 
           {/* Trust line */}
           <p className="text-sm text-slate-500 mb-16">
-            No billing during trial • We'll ask for feedback at info@easychurchflow.com
+            1-month free testing • All features included • Special discounts for feedback
           </p>
 
           {/* Feature pills */}

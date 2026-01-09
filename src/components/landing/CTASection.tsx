@@ -58,40 +58,48 @@ export function CTASection() {
           {/* Main CTA Card */}
           <div className="bg-white rounded-3xl shadow-2xl shadow-slate-900/10 border border-slate-200 p-8 md:p-12 lg:p-16 text-center">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-medium mb-8">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
               </span>
-              1 Month Free — No Billing Required
+              Now in Testing Phase — 1 Month Free Access
             </div>
 
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
-              Start building connection—
+              Be part of something
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                this week.
+                {" "}great.
               </span>
             </h2>
 
             <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-6">
-              Set up in minutes and serve people more personally. 
-              Know your members. Care better.
+              Join our 1-month testing phase with full access to all features. 
+              Your feedback shapes the future of ChurchFlow.
             </p>
 
-            {/* Trial info box */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 max-w-xl mx-auto mb-8">
-              <p className="text-sm text-indigo-800">
-                <strong>How it works:</strong> Start with a full-access 1-month trial. No payment needed. 
-                Share feedback at <span className="font-semibold">info@easychurchflow.com</span>. 
-                After the trial, enjoy a 14-day free trial before subscription kicks in.
-              </p>
+            {/* Testing phase info box */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 max-w-xl mx-auto mb-8">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                  <Heart className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-slate-900 mb-1">We value your feedback!</p>
+                  <p className="text-sm text-slate-600">
+                    During testing, all features are free. Share your feedback at{" "}
+                    <span className="font-semibold text-indigo-600">info@easychurchflow.com</span> and receive a 
+                    <span className="font-semibold text-purple-600"> special discount</span> when production begins.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup/church">
                 <Button size="xl" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 hover:scale-[1.02]">
                   <Church className="w-5 h-5" />
-                  Start Free 1-Month Trial
+                  Join Testing Phase
                   <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>
