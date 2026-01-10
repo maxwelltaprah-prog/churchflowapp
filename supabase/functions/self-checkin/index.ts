@@ -678,11 +678,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: matchingVisitors, error: visitorErr } = await supabase
+      // SAFE: Fetch all visitors for the church, filter client-side (no string interpolation)
+      const { data: allVisitors, error: visitorErr } = await supabase
         .from("visitors")
         .select("id, first_name, last_name, phone")
-        .eq("church_id", service.church_id)
-        .or(`phone.eq.${phone},phone.like.%${phone.slice(-10)}`);
+        .eq("church_id", service.church_id);
 
       if (visitorErr) {
         console.error("visitor lookup error", visitorErr);
@@ -692,9 +692,13 @@ Deno.serve(async (req) => {
         });
       }
 
-      const visitor = matchingVisitors?.find(v => {
-        const normalizedVisitorPhone = v.phone?.replace(/[\s\-\(\)]/g, "").trim() || "";
-        return normalizedVisitorPhone === phone || normalizedVisitorPhone.endsWith(phone) || phone.endsWith(normalizedVisitorPhone);
+      // SAFE: Filter in application code with normalized phone comparison
+      const normalizedPhone = phone.replace(/\D/g, "");
+      const visitor = allVisitors?.find(v => {
+        const visitorPhone = v.phone?.replace(/\D/g, "") || "";
+        return visitorPhone === normalizedPhone || 
+               visitorPhone.endsWith(normalizedPhone) || 
+               normalizedPhone.endsWith(visitorPhone);
       });
 
       if (!visitor) {
