@@ -28,6 +28,7 @@ import { useBranches } from "@/hooks/useChurchData";
 import { useCreateAdminFromMember } from "@/hooks/useAdminMutations";
 import { useSearchMembersForAdmin, useMemberAdminStatus } from "@/hooks/useAdminsData";
 import { ALL_MENUS } from "@/hooks/useAdminPermissions";
+import { AdminCredentialsDialog } from "./AdminCredentialsDialog";
 
 const formSchema = z.object({
   memberId: z.string().min(1, "Please select a member"),
@@ -65,6 +66,14 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
     photo_url: string | null;
     branch_id: string;
     branches: { name: string } | null;
+  } | null>(null);
+  
+  // Success dialog state
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
+  const [createdAdminCredentials, setCreatedAdminCredentials] = useState<{
+    name: string;
+    email: string;
+    password: string;
   } | null>(null);
 
   const { data: branches } = useBranches();
@@ -114,15 +123,29 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
       menuPermissions: data.role === "church_admin" ? [] : data.menuPermissions,
       branchIds: data.role === "church_admin" ? [] : data.branchIds,
     });
-    handleClose();
+    
+    // Store credentials for success dialog
+    setCreatedAdminCredentials({
+      name: selectedMember?.full_name || "Administrator",
+      email: data.email,
+      password: data.password,
+    });
+    
+    // Close main dialog and show credentials
+    handleCloseMainDialog();
+    setShowCredentialsDialog(true);
   };
 
-  const handleClose = () => {
+  const handleCloseMainDialog = () => {
     setStep(1);
     setMemberSearch("");
     setSelectedMember(null);
     reset();
     onOpenChange(false);
+  };
+
+  const handleClose = () => {
+    handleCloseMainDialog();
   };
 
   const handleBranchToggle = (branchId: string, checked: boolean) => {
@@ -171,6 +194,7 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
   };
 
   return (
+  <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
@@ -485,5 +509,22 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
         </form>
       </DialogContent>
     </Dialog>
+    
+    {/* Credentials Dialog - shown after successful creation */}
+    {createdAdminCredentials && (
+      <AdminCredentialsDialog
+        open={showCredentialsDialog}
+        onOpenChange={(open) => {
+          setShowCredentialsDialog(open);
+          if (!open) {
+            setCreatedAdminCredentials(null);
+          }
+        }}
+        adminName={createdAdminCredentials.name}
+        email={createdAdminCredentials.email}
+        password={createdAdminCredentials.password}
+      />
+    )}
+  </>
   );
 }
