@@ -1,25 +1,36 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
+import { validateDeploymentSecurity } from "../_shared/deployment-check.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+// Validate deployment security on cold start
+validateDeploymentSecurity("paystack-verify", ["payments"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
 
+  const corsHeaders = getCorsHeaders(req);
+
   try {
+    // Rate limiting for payment endpoints
+    const ipIdentifier = getClientIdentifier(req);
+    const rateLimit = checkServerRateLimit(ipIdentifier, "payment");
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfter!, corsHeaders);
+    }
+    recordAttempt(ipIdentifier, "payment");
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("No authorization header");
+      return secureErrorResponse("Unauthorized", corsHeaders, 401);
     }
 
     const { reference } = await req.json();
     if (!reference) {
-      throw new Error("No reference provided");
+      return secureErrorResponse("No reference provided", corsHeaders, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -27,7 +38,7 @@ Deno.serve(async (req) => {
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
 
     if (!paystackSecretKey) {
-      throw new Error("Paystack secret key not configured");
+      return secureErrorResponse("Payment service not configured", corsHeaders, 500);
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -40,7 +51,7 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      throw new Error("Invalid user");
+      return secureErrorResponse("Invalid user", corsHeaders, 401);
     }
 
     // Get user's profile
@@ -51,12 +62,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (!profile?.church_id) {
-      throw new Error("User profile not found");
+      return secureErrorResponse("User profile not found", corsHeaders, 404);
     }
 
     // Verify transaction with Paystack
     const verifyRes = await fetch(
-      `https://api.paystack.co/transaction/verify/${reference}`,
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
       {
         headers: {
           Authorization: `Bearer ${paystackSecretKey}`,
@@ -67,7 +78,7 @@ Deno.serve(async (req) => {
     const verifyData = await verifyRes.json();
 
     if (!verifyData.status || verifyData.data.status !== "success") {
-      throw new Error("Payment verification failed");
+      return secureErrorResponse("Payment verification failed", corsHeaders, 400);
     }
 
     const metadata = verifyData.data.metadata;
@@ -75,7 +86,7 @@ Deno.serve(async (req) => {
 
     // Verify this payment belongs to the user's church
     if (churchId !== profile.church_id) {
-      throw new Error("Payment does not belong to this church");
+      return secureErrorResponse("Payment does not belong to this church", corsHeaders, 403);
     }
 
     // Check for idempotency - don't process same reference twice
@@ -87,11 +98,9 @@ Deno.serve(async (req) => {
 
     if (existingEvent) {
       // Already processed, just return success
-      return new Response(
-        JSON.stringify({ success: true, message: "Payment already processed" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+      return secureJsonResponse(
+        { success: true, message: "Payment already processed" },
+        corsHeaders
       );
     }
 
@@ -206,24 +215,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
+    return secureJsonResponse(
+      {
         success: true,
         message: "Payment verified and subscription activated",
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
+      corsHeaders
     );
   } catch (error: unknown) {
     console.error("Verify error:", error);
-    const message = error instanceof Error ? error.message : "Verification failed";
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return secureErrorResponse("Verification failed", corsHeaders, 400);
   }
 });

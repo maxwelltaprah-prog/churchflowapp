@@ -5,6 +5,10 @@ import { generateSecureOTP, hashOTP, addTimingJitter } from "../_shared/security
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
 import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
+import { validateDeploymentSecurity } from "../_shared/deployment-check.ts";
+
+// Validate deployment security on cold start
+validateDeploymentSecurity("send-password-reset-otp", ["email"]);
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
