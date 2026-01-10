@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranchAccess, applyBranchFilter } from "./useBranchAccess";
 import { useConsecutiveMissSignals } from "./useConsecutiveMissSignals";
 
-export type FollowUpPersonType = "first_time_visitor" | "returning_visitor" | "returnee";
+export type FollowUpPersonType = "first_time_visitor" | "returning_visitor" | "returnee" | "missed_3_plus";
 
 export interface FollowUpPerson {
   id: string;
@@ -179,7 +179,7 @@ export function useNewPeopleToFollowUpCombined(
 
   const isLoading = visitorsLoading || engagementLoading;
 
-  // Combine visitors with member returnees
+  // Combine visitors with member returnees and missed 3+ members
   const combinedData: FollowUpPerson[] = [];
 
   // Add visitors (first-time and returning)
@@ -203,12 +203,29 @@ export function useNewPeopleToFollowUpCombined(
     });
   }
 
-  // Sort by priority: first_time_visitor > returning_visitor > returnee
+  // Add members who missed 3+ services (and haven't returned yet)
+  if (engagementData?.missedMembers) {
+    engagementData.missedMembers.forEach(member => {
+      combinedData.push({
+        id: member.id,
+        name: member.full_name,
+        phone: member.phone,
+        type: "missed_3_plus",
+        branchName: member.branch_name,
+        metadata: {
+          missedCount: member.consecutive_missed
+        }
+      });
+    });
+  }
+
+  // Sort by priority: first_time_visitor > returning_visitor > returnee > missed_3_plus
   combinedData.sort((a, b) => {
     const priority: Record<FollowUpPersonType, number> = {
       first_time_visitor: 1,
       returning_visitor: 2,
-      returnee: 3
+      returnee: 3,
+      missed_3_plus: 4
     };
     return priority[a.type] - priority[b.type];
   });

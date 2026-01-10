@@ -41,8 +41,12 @@ function FollowUpTypeBadge({ type, metadata }: { type: FollowUpPersonType; metad
       className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
     },
     returnee: {
-      label: "Returnee",
+      label: metadata?.missedCount ? `Returnee (missed ${metadata.missedCount})` : "Returnee",
       className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+    },
+    missed_3_plus: {
+      label: metadata?.missedCount ? `Missed ${metadata.missedCount}` : "Missed 3+",
+      className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
     }
   };
 
@@ -746,19 +750,19 @@ export default function Dashboard() {
       </div>
 
 
-      {/* New People to Follow Up */}
+      {/* People to Follow Up */}
       <Card className="border-0 bg-gradient-to-br from-kpi-orange/5 to-kpi-amber/5">
         <CardHeader className="pb-3">
           <SectionHeader 
-            title="New People to Follow Up" 
+            title="People to Follow Up" 
             icon={UserPlus} 
-            tooltip="First-time visitors, returning guests, and members who came back after missing 3+ services."
+            tooltip="First-time visitors, returning guests, members who came back after missing 3+ services, and members who have missed 3+ services."
             action={<Link to={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`}><Button variant="ghost" size="sm">View all</Button></Link>} 
           />
         </CardHeader>
         <CardContent>
           {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? (
-            <EmptyState icon={UserPlus} title="No new people" description="First-time visitors and returnees will appear here" />
+            <EmptyState icon={UserPlus} title="No people to follow up" description="Visitors and members needing follow-up will appear here" />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {followUps.map((p) => (
