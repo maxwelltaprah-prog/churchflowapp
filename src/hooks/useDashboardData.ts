@@ -1260,6 +1260,44 @@ export function useRecentServices(branchId?: string) {
   });
 }
 
+// =================== ALL SERVICES FOR FEED (Historical View) ===================
+/**
+ * Fetches all services for the live check-in feed "By Service" mode
+ * Shows last 30 services to allow viewing historical check-in data
+ */
+export function useAllServicesForFeed(branchId?: string) {
+  const { profile } = useAuth();
+  const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
+
+  return useQuery({
+    queryKey: ["all-services-for-feed", profile?.church_id, branchId, accessibleBranchIds],
+    queryFn: async () => {
+      if (!profile?.church_id) return [];
+
+      if (accessibleBranchIds !== null && accessibleBranchIds.length === 0) {
+        return [];
+      }
+
+      let query = supabase
+        .from("services")
+        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .eq("church_id", profile.church_id)
+        .eq("is_active", true)
+        .lte("service_date", format(new Date(), "yyyy-MM-dd"))
+        .order("service_date", { ascending: false })
+        .order("start_time", { ascending: false })
+        .limit(30);
+
+      query = applyBranchFilter(query, "branch_id", branchId, accessibleBranchIds);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!profile?.church_id && !accessLoading
+  });
+}
+
 // =================== DASHBOARD SERVICES IN DATE RANGE ===================
 /**
  * Fetches services within a custom date range for the main dashboard filter

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranchAccess, applyBranchFilter } from "./useBranchAccess";
 import { startOfDay, endOfDay, subHours, parseISO, formatDistanceToNow } from "date-fns";
 
-export type FeedMode = "today" | "open_service" | "last_24h";
+export type FeedMode = "today" | "open_service" | "last_24h" | "by_service";
 
 export interface CheckinFeedItem {
   id: string;
@@ -33,7 +33,7 @@ export interface CheckinFeedItem {
   isVisitor?: boolean;
 }
 
-export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) {
+export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string, serviceId?: string) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
   const queryClient = useQueryClient();
@@ -50,12 +50,15 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
       case "open_service":
         // Will filter by service later
         return { start: startOfDay(now), end: endOfDay(now) };
+      case "by_service":
+        // No date restriction for by_service mode - fetch all historical data
+        return { start: null, end: null };
     }
   }, [mode]);
 
   // Main query for fetching check-ins (members + visitors)
   const query = useQuery({
-    queryKey: ["live-checkin-feed", profile?.church_id, branchId, mode, accessibleBranchIds],
+    queryKey: ["live-checkin-feed", profile?.church_id, branchId, mode, accessibleBranchIds, serviceId],
     queryFn: async () => {
       if (!profile?.church_id) return [];
 
@@ -80,10 +83,21 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
           branches!attendance_branch_id_fkey(name)
         `)
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString())
-        .order("checked_in_at", { ascending: false })
-        .limit(50);
+        .order("checked_in_at", { ascending: false });
+
+      // Apply date filters only if not in by_service mode
+      if (start && end) {
+        memberQuery = memberQuery
+          .gte("checked_in_at", start.toISOString())
+          .lte("checked_in_at", end.toISOString());
+      }
+
+      // Apply service filter in by_service mode
+      if (mode === "by_service" && serviceId) {
+        memberQuery = memberQuery.eq("service_id", serviceId);
+      }
+
+      memberQuery = memberQuery.limit(mode === "by_service" ? 200 : 50);
 
       memberQuery = applyBranchFilter(memberQuery, "branch_id", branchId, accessibleBranchIds);
 
@@ -100,10 +114,21 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
           services!inner(name, service_date, start_time, end_time, branch_id, branches!services_branch_id_fkey(name))
         `)
         .eq("church_id", profile.church_id)
-        .gte("checked_in_at", start.toISOString())
-        .lte("checked_in_at", end.toISOString())
-        .order("checked_in_at", { ascending: false })
-        .limit(50);
+        .order("checked_in_at", { ascending: false });
+
+      // Apply date filters only if not in by_service mode
+      if (start && end) {
+        visitorQuery = visitorQuery
+          .gte("checked_in_at", start.toISOString())
+          .lte("checked_in_at", end.toISOString());
+      }
+
+      // Apply service filter in by_service mode
+      if (mode === "by_service" && serviceId) {
+        visitorQuery = visitorQuery.eq("service_id", serviceId);
+      }
+
+      visitorQuery = visitorQuery.limit(mode === "by_service" ? 200 : 50);
 
       const [memberResult, visitorResult] = await Promise.all([memberQuery, visitorQuery]);
 
@@ -175,15 +200,15 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
         filteredItems = allItems.filter(item => accessibleBranchIds.includes(item.branchId));
       }
 
-      return filteredItems.slice(0, 50);
+      return filteredItems.slice(0, mode === "by_service" ? 200 : 50);
     },
-    enabled: !!profile?.church_id && !accessLoading,
-    refetchInterval: 30000, // Fallback polling every 30s
+    enabled: !!profile?.church_id && !accessLoading && (mode !== "by_service" || !!serviceId),
+    refetchInterval: mode === "by_service" ? false : 30000, // No polling for historical view
   });
 
-  // Real-time subscription for new member check-ins
+  // Real-time subscription for new member check-ins (only for live modes)
   useEffect(() => {
-    if (!profile?.church_id) return;
+    if (!profile?.church_id || mode === "by_service") return;
 
     const memberChannel = supabase
       .channel("live-member-checkins")
@@ -267,7 +292,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
 
             // Prepend to cache
             queryClient.setQueryData<CheckinFeedItem[]>(
-              ["live-checkin-feed", profile.church_id, branchId, mode, accessibleBranchIds],
+              ["live-checkin-feed", profile.church_id, branchId, mode, accessibleBranchIds, serviceId],
               (old) => {
                 if (!old) return [newItem];
                 // Prevent duplicates
@@ -363,7 +388,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
 
             // Prepend to cache
             queryClient.setQueryData<CheckinFeedItem[]>(
-              ["live-checkin-feed", profile.church_id, branchId, mode, accessibleBranchIds],
+              ["live-checkin-feed", profile.church_id, branchId, mode, accessibleBranchIds, serviceId],
               (old) => {
                 if (!old) return [newItem];
                 // Prevent duplicates
@@ -380,7 +405,7 @@ export function useLiveCheckinFeed(mode: FeedMode = "today", branchId?: string) 
       supabase.removeChannel(memberChannel);
       supabase.removeChannel(visitorChannel);
     };
-  }, [profile?.church_id, branchId, accessibleBranchIds, mode, queryClient]);
+  }, [profile?.church_id, branchId, accessibleBranchIds, mode, queryClient, serviceId]);
 
   // Merge isNew status into items
   const itemsWithNewStatus = (query.data || []).map((item) => ({
