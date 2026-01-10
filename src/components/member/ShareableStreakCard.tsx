@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { Flame, Trophy, Zap, Star, Crown, Sparkles } from "lucide-react";
+import { Bird, Flame, Trophy, Star, Crown, Sparkles, Heart } from "lucide-react";
 
 interface ShareableStreakCardProps {
   streak: number;
@@ -10,11 +10,11 @@ interface ShareableStreakCardProps {
 }
 
 const getStreakTier = (streak: number) => {
-  if (streak >= 52) return { tier: "LEGENDARY", gradient: "from-amber-300 via-yellow-400 to-orange-400", icon: Crown, bgGlow: "#fbbf24" };
-  if (streak >= 26) return { tier: "CHAMPION", gradient: "from-violet-400 via-purple-500 to-fuchsia-500", icon: Trophy, bgGlow: "#a855f7" };
-  if (streak >= 12) return { tier: "DEDICATED", gradient: "from-cyan-400 via-blue-500 to-indigo-500", icon: Star, bgGlow: "#3b82f6" };
-  if (streak >= 4) return { tier: "ON FIRE", gradient: "from-orange-400 via-red-500 to-rose-500", icon: Zap, bgGlow: "#f97316" };
-  return { tier: "RISING", gradient: "from-emerald-400 via-green-500 to-teal-500", icon: Flame, bgGlow: "#10b981" };
+  if (streak >= 52) return { tier: "Legendary", color: "#f59e0b", icon: Crown };
+  if (streak >= 26) return { tier: "Champion", color: "#8b5cf6", icon: Trophy };
+  if (streak >= 12) return { tier: "Dedicated", color: "#3b82f6", icon: Star };
+  if (streak >= 4) return { tier: "On Fire", color: "#f97316", icon: Flame };
+  return { tier: "Rising", color: "#10b981", icon: Sparkles };
 };
 
 export const ShareableStreakCard = forwardRef<HTMLDivElement, ShareableStreakCardProps>(
@@ -25,171 +25,185 @@ export const ShareableStreakCard = forwardRef<HTMLDivElement, ShareableStreakCar
     return (
       <div
         ref={ref}
-        className="w-[400px] h-[500px] relative overflow-hidden"
+        className="w-[400px] h-[520px] relative overflow-hidden"
         style={{
-          background: "linear-gradient(160deg, #0c0a1d 0%, #1a1333 35%, #0f172a 70%, #0c1220 100%)",
+          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f1f5f9 100%)",
         }}
       >
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Main glow orb */}
-          <div 
-            className="absolute w-[400px] h-[400px] rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${tierInfo.bgGlow}30 0%, transparent 60%)`,
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              filter: "blur(40px)",
-            }}
-          />
-          
-          {/* Top accent glow */}
-          <div 
-            className="absolute w-[200px] h-[200px] rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${tierInfo.bgGlow}40 0%, transparent 70%)`,
-              top: "-50px",
-              right: "-30px",
-              filter: "blur(50px)",
-            }}
-          />
-          
-          {/* Bottom accent */}
-          <div 
-            className="absolute w-[250px] h-[150px] rounded-full"
-            style={{
-              background: "radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)",
-              bottom: "-30px",
-              left: "-40px",
-              filter: "blur(40px)",
-            }}
-          />
+        {/* Subtle border */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+          }}
+        />
 
-          {/* Subtle grid pattern */}
-          <div 
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-              backgroundSize: "40px 40px",
-            }}
-          />
-          
-          {/* Floating particles */}
-          <div className="absolute top-[15%] left-[10%] w-1.5 h-1.5 rounded-full bg-white/20" />
-          <div className="absolute top-[25%] right-[15%] w-1 h-1 rounded-full bg-white/30" />
-          <div className="absolute bottom-[30%] left-[20%] w-1 h-1 rounded-full bg-white/20" />
-          <div className="absolute bottom-[20%] right-[25%] w-1.5 h-1.5 rounded-full bg-white/15" />
+        {/* Platform branding - subtle top right */}
+        <div className="absolute top-4 right-5">
+          <span 
+            className="text-[13px] font-medium tracking-wide"
+            style={{ color: "#94a3b8" }}
+          >
+            easychurchflow
+          </span>
         </div>
 
-        {/* Content */}
-        <div className="relative z-10 h-full flex flex-col items-center justify-between px-8 py-10">
+        {/* Main Content */}
+        <div className="relative z-10 h-full flex flex-col items-center pt-12 pb-8 px-8">
           
-          {/* Church Name Header */}
-          <div className="text-center w-full">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-white/90 text-sm font-semibold tracking-wide uppercase">
-                {churchName || "My Church"}
-              </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          {/* Large Streak Number with Balloon Style */}
+          <div className="relative flex items-start justify-center mb-4">
+            {/* Balloon strings visual effect */}
+            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-20 h-16">
+              <svg width="80" height="60" viewBox="0 0 80 60" fill="none">
+                <path d="M30 0 Q25 30, 40 55" stroke="#d1d5db" strokeWidth="1.5" fill="none" />
+                <path d="M50 0 Q55 30, 40 55" stroke="#d1d5db" strokeWidth="1.5" fill="none" />
+              </svg>
             </div>
-          </div>
-
-          {/* Main Streak Display */}
-          <div className="flex flex-col items-center -mt-2">
-            {/* Flame emoji with glow */}
-            <div className="relative mb-3">
-              <div 
-                className="absolute inset-0 blur-xl opacity-60"
-                style={{ background: `radial-gradient(circle, ${tierInfo.bgGlow}, transparent 70%)` }}
-              />
-              <span className="relative text-7xl drop-shadow-lg">🔥</span>
-            </div>
-
-            {/* Streak Number */}
+            
+            {/* Streak number styled like balloons */}
             <div className="relative">
               <span 
-                className={`text-[120px] font-black leading-none bg-gradient-to-b ${tierInfo.gradient} bg-clip-text text-transparent`}
+                className="text-[140px] font-black leading-none"
                 style={{
-                  filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.3))",
-                  letterSpacing: "-0.02em",
+                  color: "#f97316",
+                  textShadow: "4px 4px 0 #ea580c, -2px -2px 0 #fdba74",
+                  letterSpacing: "-0.03em",
+                  fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
                 }}
               >
                 {streak}
               </span>
+              {/* Balloon shine effect */}
+              <div 
+                className="absolute top-4 left-4 w-8 h-8 rounded-full opacity-40"
+                style={{
+                  background: "radial-gradient(circle at 30% 30%, white, transparent 70%)",
+                }}
+              />
             </div>
-
-            {/* Service Streak Label */}
-            <p className="text-white/60 text-base font-medium tracking-[0.2em] uppercase mt-1">
-              Service Streak
-            </p>
-
-            {/* Tier Badge */}
-            <div 
-              className={`mt-4 px-5 py-1.5 rounded-full bg-gradient-to-r ${tierInfo.gradient} shadow-lg`}
-              style={{
-                boxShadow: `0 4px 20px ${tierInfo.bgGlow}40`,
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <TierIcon className="w-4 h-4 text-white" />
-                <span className="text-white font-bold text-sm tracking-wider">
-                  {tierInfo.tier}
-                </span>
-              </div>
-            </div>
-
-            {/* Member Name */}
-            {memberName && (
-              <p className="mt-4 text-white/70 text-sm font-medium">
-                {memberName}
-              </p>
-            )}
           </div>
 
-          {/* Stats Footer */}
-          <div className="w-full">
-            {/* Stats Row */}
-            <div className="flex justify-center gap-8 mb-5">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                  <span className="text-2xl font-bold text-white">{longestStreak}</span>
-                </div>
-                <p className="text-white/40 text-[10px] font-semibold tracking-wider uppercase mt-0.5">Best Streak</p>
-              </div>
-              
-              <div className="w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Star className="w-4 h-4 text-blue-400" />
-                  <span className="text-2xl font-bold text-white">{totalAttendance}</span>
-                </div>
-                <p className="text-white/40 text-[10px] font-semibold tracking-wider uppercase mt-0.5">Total Services</p>
-              </div>
+          {/* Dove/Bird illustration */}
+          <div className="relative -mt-2 mb-6">
+            <div 
+              className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
+              }}
+            >
+              <Bird 
+                className="w-12 h-12" 
+                style={{ color: "#38bdf8" }}
+                strokeWidth={1.5}
+              />
             </div>
+            {/* Small heart accent */}
+            <Heart 
+              className="absolute -right-1 top-0 w-5 h-5"
+              style={{ color: "#fbbf24", fill: "#fbbf24" }}
+            />
+          </div>
 
-            {/* Branding Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-white/10">
-              <div className="flex items-center gap-1.5 text-white/30 text-[10px] font-medium">
-                <span>#ChurchFlow</span>
-                <span>•</span>
-                <span>#FaithfulAttendance</span>
+          {/* Streak Label */}
+          <h2 
+            className="text-2xl font-bold text-center mb-3"
+            style={{ color: "#1e293b" }}
+          >
+            {streak} Service Faith Streak!
+          </h2>
+
+          {/* Message */}
+          <p 
+            className="text-center text-base leading-relaxed mb-6 max-w-[280px]"
+            style={{ color: "#64748b" }}
+          >
+            {memberName ? `${memberName} attended` : "You attended"} church services for{" "}
+            <span className="font-semibold" style={{ color: "#f97316" }}>
+              {streak} services
+            </span>{" "}
+            in a row!
+            <br />
+            <span className="font-medium">Praise the Lord! 🙌</span>
+          </p>
+
+          {/* Church Name */}
+          {churchName && (
+            <div 
+              className="px-4 py-2 rounded-full mb-4"
+              style={{ 
+                background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <span 
+                className="text-sm font-semibold"
+                style={{ color: "#475569" }}
+              >
+                ⛪ {churchName}
+              </span>
+            </div>
+          )}
+
+          {/* Tier Badge */}
+          <div 
+            className="px-5 py-2 rounded-full flex items-center gap-2 mb-auto"
+            style={{ 
+              background: `linear-gradient(135deg, ${tierInfo.color}15, ${tierInfo.color}25)`,
+              border: `1.5px solid ${tierInfo.color}40`,
+            }}
+          >
+            <TierIcon 
+              className="w-4 h-4" 
+              style={{ color: tierInfo.color }}
+            />
+            <span 
+              className="text-sm font-bold tracking-wide"
+              style={{ color: tierInfo.color }}
+            >
+              {tierInfo.tier}
+            </span>
+          </div>
+
+          {/* Stats Row */}
+          <div 
+            className="flex justify-center gap-10 w-full py-4 mt-4"
+            style={{ borderTop: "1px solid #e2e8f0" }}
+          >
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Trophy className="w-4 h-4" style={{ color: "#f59e0b" }} />
+                <span className="text-xl font-bold" style={{ color: "#1e293b" }}>
+                  {longestStreak}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div 
-                  className="w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(135deg, ${tierInfo.bgGlow}, #f97316)`,
-                  }}
-                >
-                  <Flame className="w-3 h-3 text-white" />
-                </div>
-                <span className="text-white/50 text-[10px] font-bold tracking-wide">CHURCHFLOW</span>
+              <p 
+                className="text-[11px] font-medium uppercase tracking-wider mt-0.5"
+                style={{ color: "#94a3b8" }}
+              >
+                Best Streak
+              </p>
+            </div>
+            
+            <div 
+              className="w-px h-10"
+              style={{ background: "#e2e8f0" }}
+            />
+            
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Star className="w-4 h-4" style={{ color: "#3b82f6" }} />
+                <span className="text-xl font-bold" style={{ color: "#1e293b" }}>
+                  {totalAttendance}
+                </span>
               </div>
+              <p 
+                className="text-[11px] font-medium uppercase tracking-wider mt-0.5"
+                style={{ color: "#94a3b8" }}
+              >
+                Total Services
+              </p>
             </div>
           </div>
         </div>
