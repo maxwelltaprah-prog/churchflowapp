@@ -133,15 +133,6 @@ export function FollowUpDetailDrawer({ person, open, onOpenChange }: FollowUpDet
 
         {/* Actions */}
         <div className="space-y-3">
-          {person.phone && (
-            <Button asChild variant="outline" className="w-full justify-start gap-2">
-              <a href={`tel:${person.phone}`}>
-                <Phone className="h-4 w-4" />
-                Call {person.name.split(" ")[0]}
-              </a>
-            </Button>
-          )}
-          
           <Button asChild className="w-full justify-start gap-2">
             <Link to={profileUrl}>
               <ExternalLink className="h-4 w-4" />
