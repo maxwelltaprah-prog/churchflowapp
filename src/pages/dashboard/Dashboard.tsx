@@ -718,19 +718,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Branch Leaderboard */}
-      <Card className="border-0 bg-gradient-to-br from-kpi-blue/5 to-kpi-purple/5">
-        <CardHeader className="pb-3"><SectionHeader title="Branch Leaderboard" icon={Building2} /></CardHeader>
-        <CardContent>
-          {!branchOps?.leaderboard?.length ? <EmptyState icon={Building2} title="No branches" description="Add branches to track" /> : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {branchOps.leaderboard.slice(0, 5).map((b, i) => (
-                <ListItem key={b.id} name={`${i + 1}. ${b.name}`} value={b.attendance} badge={b.change !== 0 ? `${b.change > 0 ? "+" : ""}${b.change}%` : undefined} badgeVariant={b.change > 0 ? "default" : b.change < 0 ? "destructive" : "outline"} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* New People to Follow Up */}
       <Card className="border-0 bg-gradient-to-br from-kpi-orange/5 to-kpi-amber/5">
