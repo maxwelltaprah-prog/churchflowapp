@@ -11,8 +11,6 @@ import {
   Check,
   User,
   Clock,
-  MapPin,
-  History,
   Calendar,
   Download,
   FileText,
@@ -66,8 +64,6 @@ interface AttendanceRecord {
   } | null;
 }
 
-const RECORDS_PER_PAGE = 10;
-
 export default function MemberPortal() {
   const [member, setMember] = useState<MemberData | null>(null);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
@@ -75,8 +71,6 @@ export default function MemberPortal() {
   const [churchServices, setChurchServices] = useState<ChurchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(RECORDS_PER_PAGE);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
   const navigate = useNavigate();
@@ -544,103 +538,6 @@ export default function MemberPortal() {
           </Card>
         )}
 
-        {/* Attendance History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              Attendance History
-            </CardTitle>
-            <CardDescription>
-              Your recent service attendance records
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {attendanceHistory.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No attendance records yet</p>
-                <p className="text-sm">Your check-ins will appear here</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {attendanceHistory.slice(0, visibleCount).map((record) => (
-                  <div
-                    key={record.id}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <Check className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {record.services?.name || "Service"}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {record.services?.service_date
-                            ? format(new Date(record.services.service_date), "MMM d, yyyy")
-                            : "Unknown date"}
-                        </span>
-                        {record.services?.start_time && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            {record.services.start_time.slice(0, 5)}
-                          </span>
-                        )}
-                        {record.services?.branches?.name && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {record.services.branches.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground text-right shrink-0">
-                      <p>Checked in</p>
-                      <p>{format(new Date(record.checked_in_at), "h:mm a")}</p>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Load More / Showing count */}
-                {attendanceHistory.length > visibleCount ? (
-                  <div className="pt-4 space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setIsLoadingMore(true);
-                        setTimeout(() => {
-                          setVisibleCount(prev => prev + RECORDS_PER_PAGE);
-                          setIsLoadingMore(false);
-                        }, 300);
-                      }}
-                      disabled={isLoadingMore}
-                    >
-                      {isLoadingMore ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          Loading...
-                        </span>
-                      ) : (
-                        `Load More (${attendanceHistory.length - visibleCount} remaining)`
-                      )}
-                    </Button>
-                    <p className="text-center text-xs text-muted-foreground">
-                      Showing {visibleCount} of {attendanceHistory.length} records
-                    </p>
-                  </div>
-                ) : attendanceHistory.length > RECORDS_PER_PAGE ? (
-                  <p className="text-center text-sm text-muted-foreground pt-4">
-                    Showing all {attendanceHistory.length} records
-                  </p>
-                ) : null}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </main>
     </div>
   );
