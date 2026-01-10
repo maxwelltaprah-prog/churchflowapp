@@ -50,17 +50,39 @@ This document describes the security hardening applied to the authentication sys
 
 ## How to Test
 
-### Rate Limiting
+### Automated Tests
+
+Run the security test suite:
+
+```bash
+npm run test
+```
+
+Or run specific security tests:
+
+```bash
+npm run test -- src/lib/security-utils.test.ts
+npm run test -- src/test/security/
+```
+
+**Test Coverage:**
+- `src/lib/security-utils.test.ts` - Rate limiting and lockout behavior
+- `src/test/security/otp-security.test.ts` - OTP generation, hashing, and verification
+- `src/test/security/rate-limiting-integration.test.ts` - Login flow rate limiting
+
+### Manual Testing
+
+#### Rate Limiting
 1. Attempt 5+ failed logins with same email
 2. Should see lockout message after 5 attempts
 3. Wait 15 minutes or clear localStorage to reset
 
-### OTP Security
+#### OTP Security
 1. Request password reset OTP
 2. Check database - `otp_code` should be a 64-char hash, not 6 digits
 3. Enter wrong OTP 5 times - should see rate limit message
 
-### Timing Protection
+#### Timing Protection
 1. Request OTP for non-existent email
 2. Response time should be similar to valid email requests
 
@@ -73,3 +95,13 @@ This document describes the security hardening applied to the authentication sys
 - **Defense in Depth**: Both client and server-side rate limiting
 - **Principle of Least Information**: Generic error messages
 - **Secure by Default**: Cryptographic OTP generation and storage
+
+## Test Files Added
+
+| File | Purpose |
+|------|---------|
+| `vitest.config.ts` | Vitest test framework configuration |
+| `src/test/setup.ts` | Test setup with jest-dom matchers |
+| `src/lib/security-utils.test.ts` | Unit tests for client-side security utils |
+| `src/test/security/otp-security.test.ts` | OTP generation/verification tests |
+| `src/test/security/rate-limiting-integration.test.ts` | Rate limiting integration tests |
