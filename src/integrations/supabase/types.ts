@@ -198,6 +198,78 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          actor_role: string | null
+          branch_id: string | null
+          church_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          outcome: string
+          resource_id: string | null
+          resource_type: string
+          target_user_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          branch_id?: string | null
+          church_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          outcome?: string
+          resource_id?: string | null
+          resource_type: string
+          target_user_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          branch_id?: string | null
+          church_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          outcome?: string
+          resource_id?: string | null
+          resource_type?: string
+          target_user_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branches: {
         Row: {
           church_id: string
@@ -658,6 +730,59 @@ export type Database = {
           },
           {
             foreignKeyName: "profiles_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_alerts: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          actor_id: string | null
+          alert_type: string
+          church_id: string | null
+          created_at: string
+          description: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          severity: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          actor_id?: string | null
+          alert_type: string
+          church_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          severity?: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          actor_id?: string | null
+          alert_type?: string
+          church_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_alerts_church_id_fkey"
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
