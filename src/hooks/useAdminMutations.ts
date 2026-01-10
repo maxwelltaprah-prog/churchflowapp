@@ -229,29 +229,20 @@ export function useUpdateAdminPermissions() {
 // Revoke admin access (soft delete - sets is_active to false)
 export function useRevokeAdminAccess() {
   const queryClient = useQueryClient();
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (userRoleId: string) => {
       if (!profile?.church_id) throw new Error("No church context");
 
-      // Get the role to check if user is trying to revoke themselves
-      const { data: role, error: fetchError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("id", userRoleId)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (role?.user_id === user?.id) throw new Error("Cannot revoke your own access");
-
-      // Soft delete by setting is_active to false
-      const { error } = await supabase
-        .from("user_roles")
-        .update({ is_active: false })
-        .eq("id", userRoleId);
+      const { data, error } = await supabase.functions.invoke("manage-admin-access", {
+        body: { action: "revoke", userRoleId },
+      });
 
       if (error) throw error;
+      if (!(data as any)?.success) {
+        throw new Error((data as any)?.error || "Failed to revoke access");
+      }
 
       return { userRoleId };
     },
@@ -269,15 +260,20 @@ export function useRevokeAdminAccess() {
 // Restore admin access
 export function useRestoreAdminAccess() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (userRoleId: string) => {
-      const { error } = await supabase
-        .from("user_roles")
-        .update({ is_active: true })
-        .eq("id", userRoleId);
+      if (!profile?.church_id) throw new Error("No church context");
+
+      const { data, error } = await supabase.functions.invoke("manage-admin-access", {
+        body: { action: "restore", userRoleId },
+      });
 
       if (error) throw error;
+      if (!(data as any)?.success) {
+        throw new Error((data as any)?.error || "Failed to restore access");
+      }
 
       return { userRoleId };
     },
@@ -295,29 +291,20 @@ export function useRestoreAdminAccess() {
 // Permanently remove admin (hard delete)
 export function useRemoveAdmin() {
   const queryClient = useQueryClient();
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (userRoleId: string) => {
       if (!profile?.church_id) throw new Error("No church context");
 
-      // Get the role to check if user is trying to remove themselves
-      const { data: role, error: fetchError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("id", userRoleId)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (role?.user_id === user?.id) throw new Error("Cannot remove your own access");
-
-      // Delete the role (cascades to permissions)
-      const { error } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("id", userRoleId);
+      const { data, error } = await supabase.functions.invoke("manage-admin-access", {
+        body: { action: "remove", userRoleId },
+      });
 
       if (error) throw error;
+      if (!(data as any)?.success) {
+        throw new Error((data as any)?.error || "Failed to remove administrator");
+      }
 
       return { userRoleId };
     },
