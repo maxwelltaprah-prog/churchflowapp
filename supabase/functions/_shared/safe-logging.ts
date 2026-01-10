@@ -7,10 +7,13 @@
 
 // Patterns that indicate sensitive data
 const SENSITIVE_PATTERNS = [
-  // API keys and tokens
-  /\b(sk_|pk_|api_key|apikey|secret|token|bearer|authorization|auth)\s*[:=]?\s*["']?[\w\-\.]+["']?/gi,
-  // Passwords
-  /\b(password|passwd|pwd)\s*[:=]?\s*["']?[^\s"']+["']?/gi,
+  // API keys and tokens (various formats)
+  /\b(sk_|pk_|api_key|apikey|secret|token|bearer)\s*[:=]?\s*["']?[\w\-\.]+["']?/gi,
+  // Authorization headers
+  /Authorization:\s*(Bearer\s+)?[\w\-\.]+/gi,
+  /\bauthorization\s*[:=]\s*["']?[\w\-\.]+["']?/gi,
+  // Passwords and PINs
+  /\b(password|passwd|pwd|pin)\s*[:=]?\s*["']?[^\s"']+["']?/gi,
   // Phone numbers (Ghana format and international)
   /\b(0[0-9]{9}|233[0-9]{9}|\+233[0-9]{9})\b/g,
   // Email addresses
@@ -19,10 +22,12 @@ const SENSITIVE_PATTERNS = [
   /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
   // UUIDs (partial masking)
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-  // Credit card numbers
+  // Credit card numbers (with spaces, dashes, or continuous)
   /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g,
+  // CVV
+  /\bcvv\s*[:=]?\s*["']?\d{3,4}["']?/gi,
   // Environment variable names with values
-  /\b(SUPABASE_|PAYSTACK_|HUBTEL_|RESEND_|BULKSMSGH_)\w+\s*[:=]\s*["']?[^\s"']+["']?/gi,
+  /\b(SUPABASE_|PAYSTACK_|HUBTEL_|RESEND_|BULKSMSGH_|SMSONLINEGH_)\w+\s*[:=]\s*["']?[^\s"']+["']?/gi,
   // Database connection strings
   /postgresql?:\/\/[^\s"']+/gi,
   // IP addresses
@@ -30,12 +35,22 @@ const SENSITIVE_PATTERNS = [
   // Stack traces with file paths
   /at\s+\S+\s+\(([^)]+)\)/g,
   /\/[\w/.-]+\.ts:\d+:\d+/g,
+  // Cookie headers
+  /\bCookie:\s*[^\n]+/gi,
+  /\bSet-Cookie:\s*[^\n]+/gi,
+  // OTP codes (6 digits following otp)
+  /\botp[_\s:=]*["']?\d{6}["']?/gi,
+  // Reset tokens
+  /reset[_-]?token\s*[:=]\s*["']?[\w\-\.]+["']?/gi,
+  // Session IDs
+  /session[_-]?id\s*[:=]\s*["']?[\w\-\.]+["']?/gi,
 ];
 
 // Fields that should never be logged
 const SENSITIVE_FIELDS = new Set([
   'password',
   'pin',
+  'memberPin',
   'secret',
   'token',
   'authorization',
@@ -54,12 +69,29 @@ const SENSITIVE_FIELDS = new Set([
   'phoneNumber',
   'phone_number',
   'customerPhoneNumber',
+  'mobileNumber',
   'email',
   'customerEmail',
+  'userEmail',
   'creditCard',
   'cardNumber',
+  'card_number',
   'cvv',
+  'cvc',
   'ssn',
+  'otp',
+  'otpCode',
+  'otp_code',
+  'resetToken',
+  'reset_token',
+  'cookie',
+  'cookies',
+  'sessionId',
+  'session_id',
+  'bankAccount',
+  'bank_account',
+  'accountNumber',
+  'account_number',
 ]);
 
 /**
