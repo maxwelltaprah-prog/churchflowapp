@@ -1,0 +1,21 @@
+{
+  "name": "ChurchFlow",
+  "short_name": "ChurchFlow",
+  "description": "Smart Church Attendance Across All Branches",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e1b4b",
+  "icons": [
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/YwwFvCt9iQQg6b2O58scc3CVNuA3/uploads/1767908269579-easychurchflow.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/YwwFvCt9iQQg6b2O58scc3CVNuA3/uploads/1767908269579-easychurchflow.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
