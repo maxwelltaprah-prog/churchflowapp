@@ -13,6 +13,10 @@ import { getPublicCorsHeaders, handlePublicCorsPreflightRequest, isAllowedOrigin
 import { getSecureHeaders, secureErrorResponse, SAFE_ERROR_MESSAGES } from "../_shared/security-headers.ts";
 import { checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
 import { sanitizePhone, validateUUID } from "../_shared/validation.ts";
+import { validateDeploymentSecurity } from "../_shared/deployment-check.ts";
+
+// Validate deployment security on cold start (public endpoint, no special features)
+validateDeploymentSecurity("self-checkin");
 
 type Action = "get_service" | "checkin" | "visitor_checkin" | "unified_checkin" | "get_downloads" | "get_download_url";
 

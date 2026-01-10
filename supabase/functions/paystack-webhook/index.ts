@@ -3,6 +3,10 @@ import { createHmac } from "https://deno.land/std@0.177.0/node/crypto.ts";
 import { safeLog, safeError, getRequiredSecret } from "../_shared/safe-logging.ts";
 import { getSecureHeaders, secureErrorResponse } from "../_shared/security-headers.ts";
 import { getPublicCorsHeaders, handlePublicCorsPreflightRequest } from "../_shared/cors.ts";
+import { validateDeploymentSecurity, isProduction } from "../_shared/deployment-check.ts";
+
+// Validate deployment security on cold start (webhooks need payments)
+validateDeploymentSecurity("paystack-webhook", ["payments"]);
 
 Deno.serve(async (req) => {
   const corsHeaders = getPublicCorsHeaders(req);
