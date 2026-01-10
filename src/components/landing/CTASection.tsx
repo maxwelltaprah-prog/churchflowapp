@@ -106,7 +106,7 @@ export function CTASection() {
               <Link to="/join">
                 <Button size="xl" variant="outline" className="border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300">
                   <Users className="w-5 h-5" />
-                  Join as Member
+                  Join a church as Member
                 </Button>
               </Link>
             </div>
