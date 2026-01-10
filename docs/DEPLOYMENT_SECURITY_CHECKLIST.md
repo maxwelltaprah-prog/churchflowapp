@@ -188,9 +188,43 @@ If security is compromised:
 
 ---
 
+## Dependency Security
+
+### Lockfile Requirements
+
+| File | Required | Purpose |
+|------|----------|---------|
+| `package-lock.json` | ✅ Yes | Pins npm dependencies |
+| `bun.lockb` | ✅ Yes | Pins bun dependencies |
+| `deno.lock` | ✅ Yes | Pins Edge Function deps |
+
+### Vulnerability Scanning
+
+```bash
+# Quick check
+npm audit
+
+# Production only (recommended)
+npm audit --omit=dev
+
+# Full report with fix suggestions
+npm audit --fix --dry-run
+```
+
+### Monthly Maintenance
+
+- [ ] Run `npm audit` and address critical/high issues
+- [ ] Run `npm outdated` and plan upgrades
+- [ ] Review [DEPENDENCY_SECURITY.md](./DEPENDENCY_SECURITY.md)
+
+See: [Dependency Security Guide](./DEPENDENCY_SECURITY.md)
+
+---
+
 ## Compliance Notes
 
 - **HTTPS Only**: All traffic encrypted in transit
 - **Data Encryption**: Supabase encrypts data at rest
 - **Access Logging**: All database queries logged
 - **PII Protection**: Phone/email sanitized from logs
+- **Dependency Security**: Lockfiles committed, regular audits
