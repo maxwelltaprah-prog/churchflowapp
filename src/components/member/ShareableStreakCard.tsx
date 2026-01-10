@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
-import { motion } from "framer-motion";
-import { Flame, Trophy, Zap, Star, Crown, Target } from "lucide-react";
+import { Flame, Trophy, Zap, Star, Crown, Sparkles } from "lucide-react";
 
 interface ShareableStreakCardProps {
   streak: number;
@@ -11,11 +10,11 @@ interface ShareableStreakCardProps {
 }
 
 const getStreakTier = (streak: number) => {
-  if (streak >= 52) return { tier: "LEGENDARY", color: "from-yellow-400 via-amber-500 to-orange-600", icon: Crown, emoji: "👑" };
-  if (streak >= 26) return { tier: "CHAMPION", color: "from-purple-400 via-pink-500 to-rose-500", icon: Trophy, emoji: "🏆" };
-  if (streak >= 12) return { tier: "DEDICATED", color: "from-blue-400 via-cyan-500 to-teal-500", icon: Star, emoji: "⭐" };
-  if (streak >= 4) return { tier: "RISING", color: "from-orange-400 via-red-500 to-pink-500", icon: Zap, emoji: "🔥" };
-  return { tier: "STARTER", color: "from-green-400 via-emerald-500 to-teal-500", icon: Flame, emoji: "🌱" };
+  if (streak >= 52) return { tier: "LEGENDARY", gradient: "from-amber-300 via-yellow-400 to-orange-400", icon: Crown, bgGlow: "#fbbf24" };
+  if (streak >= 26) return { tier: "CHAMPION", gradient: "from-violet-400 via-purple-500 to-fuchsia-500", icon: Trophy, bgGlow: "#a855f7" };
+  if (streak >= 12) return { tier: "DEDICATED", gradient: "from-cyan-400 via-blue-500 to-indigo-500", icon: Star, bgGlow: "#3b82f6" };
+  if (streak >= 4) return { tier: "ON FIRE", gradient: "from-orange-400 via-red-500 to-rose-500", icon: Zap, bgGlow: "#f97316" };
+  return { tier: "RISING", gradient: "from-emerald-400 via-green-500 to-teal-500", icon: Flame, bgGlow: "#10b981" };
 };
 
 export const ShareableStreakCard = forwardRef<HTMLDivElement, ShareableStreakCardProps>(
@@ -28,59 +27,112 @@ export const ShareableStreakCard = forwardRef<HTMLDivElement, ShareableStreakCar
         ref={ref}
         className="w-[400px] h-[500px] relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+          background: "linear-gradient(160deg, #0c0a1d 0%, #1a1333 35%, #0f172a 70%, #0c1220 100%)",
         }}
       >
-        {/* Animated background elements */}
-        <div className="absolute inset-0">
-          {/* Gradient orbs */}
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Main glow orb */}
           <div 
-            className="absolute w-[300px] h-[300px] rounded-full blur-[80px] opacity-40"
+            className="absolute w-[400px] h-[400px] rounded-full"
             style={{
-              background: `linear-gradient(${tierInfo.color.replace('from-', '').replace('via-', '').replace('to-', '').split(' ').map(c => `var(--${c})`).join(', ')})`,
-              top: "-50px",
-              right: "-50px",
-            }}
-          />
-          <div 
-            className="absolute w-[250px] h-[250px] rounded-full blur-[60px] opacity-30"
-            style={{
-              background: "linear-gradient(135deg, #f97316, #ea580c)",
-              bottom: "-30px",
-              left: "-30px",
+              background: `radial-gradient(circle, ${tierInfo.bgGlow}30 0%, transparent 60%)`,
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              filter: "blur(40px)",
             }}
           />
           
-          {/* Subtle pattern overlay */}
+          {/* Top accent glow */}
           <div 
-            className="absolute inset-0 opacity-5"
+            className="absolute w-[200px] h-[200px] rounded-full"
             style={{
-              backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-              backgroundSize: "24px 24px",
+              background: `radial-gradient(circle, ${tierInfo.bgGlow}40 0%, transparent 70%)`,
+              top: "-50px",
+              right: "-30px",
+              filter: "blur(50px)",
             }}
           />
+          
+          {/* Bottom accent */}
+          <div 
+            className="absolute w-[250px] h-[150px] rounded-full"
+            style={{
+              background: "radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)",
+              bottom: "-30px",
+              left: "-40px",
+              filter: "blur(40px)",
+            }}
+          />
+
+          {/* Subtle grid pattern */}
+          <div 
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+              backgroundSize: "40px 40px",
+            }}
+          />
+          
+          {/* Floating particles */}
+          <div className="absolute top-[15%] left-[10%] w-1.5 h-1.5 rounded-full bg-white/20" />
+          <div className="absolute top-[25%] right-[15%] w-1 h-1 rounded-full bg-white/30" />
+          <div className="absolute bottom-[30%] left-[20%] w-1 h-1 rounded-full bg-white/20" />
+          <div className="absolute bottom-[20%] right-[25%] w-1.5 h-1.5 rounded-full bg-white/15" />
         </div>
 
         {/* Content */}
-        <div className="relative z-10 h-full flex flex-col items-center justify-between p-8">
-          {/* Header */}
-          <div className="text-center">
-            {churchName && (
-              <p className="text-white/50 text-xs font-medium tracking-widest uppercase mb-1">
-                {churchName}
-              </p>
-            )}
-            {memberName && (
-              <p className="text-white/80 text-sm font-semibold">
-                {memberName}
-              </p>
-            )}
+        <div className="relative z-10 h-full flex flex-col items-center justify-between px-8 py-10">
+          
+          {/* Church Name Header */}
+          <div className="text-center w-full">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-white/90 text-sm font-semibold tracking-wide uppercase">
+                {churchName || "My Church"}
+              </span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            </div>
           </div>
 
           {/* Main Streak Display */}
-          <div className="flex flex-col items-center gap-4 -mt-4">
+          <div className="flex flex-col items-center -mt-2">
+            {/* Flame emoji with glow */}
+            <div className="relative mb-3">
+              <div 
+                className="absolute inset-0 blur-xl opacity-60"
+                style={{ background: `radial-gradient(circle, ${tierInfo.bgGlow}, transparent 70%)` }}
+              />
+              <span className="relative text-7xl drop-shadow-lg">🔥</span>
+            </div>
+
+            {/* Streak Number */}
+            <div className="relative">
+              <span 
+                className={`text-[120px] font-black leading-none bg-gradient-to-b ${tierInfo.gradient} bg-clip-text text-transparent`}
+                style={{
+                  filter: "drop-shadow(0 4px 20px rgba(0,0,0,0.3))",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {streak}
+              </span>
+            </div>
+
+            {/* Service Streak Label */}
+            <p className="text-white/60 text-base font-medium tracking-[0.2em] uppercase mt-1">
+              Service Streak
+            </p>
+
             {/* Tier Badge */}
-            <div className={`px-4 py-1.5 rounded-full bg-gradient-to-r ${tierInfo.color} shadow-lg`}>
+            <div 
+              className={`mt-4 px-5 py-1.5 rounded-full bg-gradient-to-r ${tierInfo.gradient} shadow-lg`}
+              style={{
+                boxShadow: `0 4px 20px ${tierInfo.bgGlow}40`,
+              }}
+            >
               <div className="flex items-center gap-2">
                 <TierIcon className="w-4 h-4 text-white" />
                 <span className="text-white font-bold text-sm tracking-wider">
@@ -89,98 +141,54 @@ export const ShareableStreakCard = forwardRef<HTMLDivElement, ShareableStreakCar
               </div>
             </div>
 
-            {/* Streak Number with Glow */}
-            <div className="relative">
-              {/* Glow effect */}
-              <div 
-                className="absolute inset-0 blur-2xl opacity-60"
-                style={{
-                  background: `radial-gradient(circle, #f97316, transparent 70%)`,
-                }}
-              />
-              
-              {/* Flame icon */}
-              <div className="relative flex flex-col items-center">
-                <motion.div
-                  animate={{ 
-                    scale: [1, 1.1, 1],
-                    rotate: [-2, 2, -2],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="text-6xl mb-2"
-                >
-                  🔥
-                </motion.div>
-                
-                <div className="flex items-baseline gap-2">
-                  <span 
-                    className="text-8xl font-black bg-gradient-to-b from-white via-white to-white/60 bg-clip-text text-transparent"
-                    style={{
-                      textShadow: "0 4px 30px rgba(249, 115, 22, 0.5)",
-                      WebkitTextStroke: "1px rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    {streak}
-                  </span>
-                </div>
-                
-                <p className="text-white/70 text-lg font-semibold tracking-wide mt-1">
-                  SERVICE STREAK
-                </p>
-              </div>
-            </div>
-
-            {/* Motivational text */}
-            <p className="text-white/60 text-center text-sm max-w-[280px] leading-relaxed">
-              {streak === 0 
-                ? "Ready to start my journey! 🙏"
-                : streak >= 52 
-                ? "A whole year of dedication! Unstoppable! 🎖️"
-                : streak >= 26 
-                ? "Half a year strong! Nothing can stop me! 💪"
-                : streak >= 12
-                ? "Consistent and committed! Building habits! 🌟"
-                : streak >= 4
-                ? "On fire! The streak continues! 🔥"
-                : "Just getting started! Watch me grow! 🌱"
-              }
-            </p>
+            {/* Member Name */}
+            {memberName && (
+              <p className="mt-4 text-white/70 text-sm font-medium">
+                {memberName}
+              </p>
+            )}
           </div>
 
-          {/* Stats Row */}
+          {/* Stats Footer */}
           <div className="w-full">
-            <div className="flex justify-center gap-6 mb-6">
+            {/* Stats Row */}
+            <div className="flex justify-center gap-8 mb-5">
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1.5 mb-1">
+                <div className="flex items-center justify-center gap-1.5">
                   <Trophy className="w-4 h-4 text-amber-400" />
                   <span className="text-2xl font-bold text-white">{longestStreak}</span>
                 </div>
-                <p className="text-white/50 text-xs font-medium">BEST STREAK</p>
+                <p className="text-white/40 text-[10px] font-semibold tracking-wider uppercase mt-0.5">Best Streak</p>
               </div>
               
-              <div className="w-px h-12 bg-white/20" />
+              <div className="w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
               
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1.5 mb-1">
-                  <Target className="w-4 h-4 text-blue-400" />
+                <div className="flex items-center justify-center gap-1.5">
+                  <Star className="w-4 h-4 text-blue-400" />
                   <span className="text-2xl font-bold text-white">{totalAttendance}</span>
                 </div>
-                <p className="text-white/50 text-xs font-medium">TOTAL SERVICES</p>
+                <p className="text-white/40 text-[10px] font-semibold tracking-wider uppercase mt-0.5">Total Services</p>
               </div>
             </div>
 
-            {/* CTA and Branding */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white/40 text-xs">
+            {/* Branding Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-white/10">
+              <div className="flex items-center gap-1.5 text-white/30 text-[10px] font-medium">
                 <span>#ChurchFlow</span>
                 <span>•</span>
-                <span>#AttendanceStreak</span>
+                <span>#FaithfulAttendance</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center">
+                <div 
+                  className="w-5 h-5 rounded-full flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${tierInfo.bgGlow}, #f97316)`,
+                  }}
+                >
                   <Flame className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-white/60 text-xs font-semibold">ChurchFlow</span>
+                <span className="text-white/50 text-[10px] font-bold tracking-wide">CHURCHFLOW</span>
               </div>
             </div>
           </div>
