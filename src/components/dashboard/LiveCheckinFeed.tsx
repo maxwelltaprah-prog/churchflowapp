@@ -422,8 +422,8 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
               />
             </div>
           ) : (
-            <ScrollArea className="h-[500px] pr-3">
-              <div className="space-y-1">
+            <ScrollArea className="h-[396px]">
+              <div className="space-y-1 pr-3">
                 <AnimatePresence initial={false}>
                   {displayItems.map((item, index) => (
                     <FeedItem 
