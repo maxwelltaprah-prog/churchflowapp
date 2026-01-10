@@ -33,24 +33,19 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/join">
-              <Button variant="ghost" size="default" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">
-                Join a church
-              </Button>
-            </Link>
             <Link to="/member/login">
               <Button variant="ghost" size="default" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">
-                I'm a member
+                Member Login
               </Button>
             </Link>
             <Link to="/login">
               <Button variant="outline" size="default" className="border-slate-300 text-slate-700 hover:bg-slate-50">
-                I'm an admin
+                Admin Login
               </Button>
             </Link>
             <Link to="/signup/church">
               <Button size="default" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25">
-                Join Testing Phase
+                Start Free Trial
               </Button>
             </Link>
           </div>
@@ -90,24 +85,19 @@ export function Navbar() {
                 FAQ
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-slate-200">
-                <Link to="/join" onClick={() => setIsOpen(false)}>
-                  <Button variant="ghost" className="w-full text-slate-600">
-                    Join a church
-                  </Button>
-                </Link>
                 <Link to="/member/login" onClick={() => setIsOpen(false)}>
                   <Button variant="ghost" className="w-full text-slate-600">
-                    I'm a member
+                    Member Login
                   </Button>
                 </Link>
                 <Link to="/login" onClick={() => setIsOpen(false)}>
                   <Button variant="outline" className="w-full border-slate-300">
-                    I'm an admin
+                    Admin Login
                   </Button>
                 </Link>
                 <Link to="/signup/church" onClick={() => setIsOpen(false)}>
                   <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                    Join Testing Phase
+                    Start Free Trial
                   </Button>
                 </Link>
               </div>
