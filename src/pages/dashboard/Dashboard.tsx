@@ -91,12 +91,25 @@ export default function Dashboard() {
     }
   }, [servicesInRange]);
 
+  // Derive effective branch from selected services if no explicit branch filter
+  const effectiveBranchId = useMemo(() => {
+    if (branchId) return branchId; // Explicit branch filter takes priority
+    if (!servicesInRange || serviceIds.length === 0) return undefined;
+    
+    // Get branches of selected services
+    const selectedServices = servicesInRange.filter(s => serviceIds.includes(s.id));
+    const uniqueBranches = [...new Set(selectedServices.map(s => s.branch_id))];
+    
+    // If all selected services are from the same branch, use that branch
+    return uniqueBranches.length === 1 ? uniqueBranches[0] : undefined;
+  }, [branchId, servicesInRange, serviceIds]);
+
   // All dashboard data hooks - pass only serviceIds (service-driven filtering)
   // The dateRange is only used to determine which services are available
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds);
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds);
   const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds);
-  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(branchId);
+  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(effectiveBranchId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
@@ -288,7 +301,7 @@ export default function Dashboard() {
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Engagement Signals - Clickable */}
-        <Link to={`/app/analytics/engagement${branchId ? `?branch=${branchId}` : ""}`}>
+        <Link to={`/app/analytics/engagement${effectiveBranchId ? `?branch=${effectiveBranchId}` : ""}`}>
           <Card className="hover:scale-[1.02] transition-all cursor-pointer h-full border-0 bg-gradient-to-br from-kpi-rose/5 to-kpi-teal/5">
             <CardHeader className="pb-3">
               <SectionHeader 
