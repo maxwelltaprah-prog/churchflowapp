@@ -764,18 +764,25 @@ export default function Dashboard() {
           {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? (
             <EmptyState icon={UserPlus} title="No people to follow up" description="Visitors and members needing follow-up will appear here" />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-1">
               {followUps.map((p) => (
-                <div key={`${p.type}-${p.id}`} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{p.name}</p>
+                <div 
+                  key={`${p.type}-${p.id}`} 
+                  className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-medium text-sm truncate">{p.name}</span>
                     <FollowUpTypeBadge type={p.type} metadata={p.metadata} />
                   </div>
-                  {p.phone && (
-                    <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md flex-shrink-0 ml-2">
-                      <Phone className="w-4 h-4 text-primary" />
-                    </a>
-                  )}
+                  <Link 
+                    to={p.type === 'first_time_visitor' || p.type === 'returning_visitor' 
+                      ? `/app/visitors/${p.id}` 
+                      : `/app/members/${p.id}`
+                    }
+                    className="text-xs text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  >
+                    View Profile
+                  </Link>
                 </div>
               ))}
             </div>
