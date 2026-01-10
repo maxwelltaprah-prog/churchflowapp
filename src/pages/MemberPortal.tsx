@@ -411,17 +411,17 @@ export default function MemberPortal() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2">Member Code</p>
+                <p className="text-xs text-muted-foreground mb-2">Phone Number</p>
                 <p className="text-2xl font-mono font-bold tracking-wider text-primary">
-                  {member.phone?.slice(-4) || "----"}
+                  {member.phone || "Not set"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Last 4 digits of your phone
+                  Enter this for self check-in
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-3 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Full Code (for reference)</p>
+                  <p className="text-xs text-muted-foreground mb-1">Member ID</p>
                   <p className="font-mono font-semibold">{member.member_code}</p>
                 </div>
                 <Button
