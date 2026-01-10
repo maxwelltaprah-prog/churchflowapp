@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { StreakFlame } from "./StreakFlame";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WeeklyHeatmap } from "./WeeklyHeatmap";
 import { MilestoneConfetti, usePreviousStreak } from "./MilestoneConfetti";
+import { ShareableStreakCard } from "./ShareableStreakCard";
 import { Calendar, TrendingUp, Target, Sparkles, Activity, Download, Share2, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -42,30 +44,45 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
   const previousStreak = usePreviousStreak(streak);
   const nextMilestone = streak < 4 ? 4 : streak < 8 ? 8 : streak < 12 ? 12 : streak < 26 ? 26 : streak < 52 ? 52 : 100;
   const progress = (streak / nextMilestone) * 100;
-  const cardRef = useRef<HTMLDivElement>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
   
   const motivationalMessage = motivationalMessages.find(m => streak >= m.min && streak <= m.max) || motivationalMessages[0];
 
-  const captureCard = async (): Promise<Blob | null> => {
-    if (!cardRef.current) return null;
+  const captureShareCard = async (): Promise<Blob | null> => {
+    // Show the hidden share card for capture
+    setShowShareCard(true);
+    
+    // Wait for render
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    if (!shareCardRef.current) {
+      setShowShareCard(false);
+      return null;
+    }
     
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      const canvas = await html2canvas(shareCardRef.current, {
         backgroundColor: "#0f172a",
-        scale: 2,
+        scale: 3, // Higher resolution for crisp social media images
         logging: false,
         useCORS: true,
         allowTaint: true,
+        width: 400,
+        height: 500,
       });
+      
+      setShowShareCard(false);
       
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), "image/png", 1.0);
       });
     } catch (error) {
       console.error("Error capturing card:", error);
+      setShowShareCard(false);
       return null;
     }
   };
@@ -73,7 +90,7 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const blob = await captureCard();
+      const blob = await captureShareCard();
       if (!blob) {
         toast.error("Failed to capture image");
         return;
@@ -81,12 +98,12 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
       
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `my-streak-${streak}-services.png`;
+      link.download = `streak-${streak}-services-churchflow.png`;
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
       
-      toast.success("Streak card downloaded!");
+      toast.success("Streak card downloaded! Share it on social media 🔥");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Failed to download");
@@ -98,26 +115,26 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
   const handleShare = async () => {
     setIsSharing(true);
     try {
-      const blob = await captureCard();
+      const blob = await captureShareCard();
       
       // Check if Web Share API with files is supported
       if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], "streak.png", { type: "image/png" })] })) {
-        const file = new File([blob], `my-streak-${streak}-services.png`, { type: "image/png" });
+        const file = new File([blob], `streak-${streak}-services-churchflow.png`, { type: "image/png" });
         
         await navigator.share({
           title: `🔥 ${streak} Service Streak!`,
-          text: `I've attended ${streak} consecutive services! ${motivationalMessage.emoji}`,
+          text: `I've attended ${streak} consecutive services at ${churchName || 'my church'}! Can you beat my streak? 💪 #ChurchFlow #AttendanceStreak`,
           files: [file],
         });
         
         toast.success("Shared successfully!");
       } else {
         // Fallback: copy a shareable text message
-        const shareText = `🔥 I've attended ${streak} consecutive services! ${motivationalMessage.emoji}\n\nTotal services attended: ${stats?.totalAttendance || 0}\nBest streak: ${stats?.longestStreak || 0}\n\n#ChurchFlow #AttendanceStreak`;
+        const shareText = `🔥 ${streak} SERVICE STREAK!\n\nI've attended ${streak} consecutive services${churchName ? ` at ${churchName}` : ''}!\n\n📊 Total: ${stats?.totalAttendance || 0} services\n🏆 Best: ${stats?.longestStreak || 0} streak\n\nCan you beat my streak? 💪\n\n#ChurchFlow #AttendanceStreak #FaithfulAttendance`;
         
         await navigator.clipboard.writeText(shareText);
         setCopied(true);
-        toast.success("Share message copied to clipboard!");
+        toast.success("Share message copied! Paste it with your downloaded image 📋");
         setTimeout(() => setCopied(false), 2000);
       }
     } catch (error: any) {
@@ -130,8 +147,33 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
     }
   };
 
+  // Hidden share card rendered via portal for clean capture
+  const shareCardPortal = showShareCard && createPortal(
+    <div 
+      style={{ 
+        position: 'fixed', 
+        left: '-9999px', 
+        top: 0,
+        zIndex: -1,
+      }}
+    >
+      <ShareableStreakCard
+        ref={shareCardRef}
+        streak={streak}
+        totalAttendance={stats?.totalAttendance || 0}
+        longestStreak={stats?.longestStreak || 0}
+        memberName={memberName}
+        churchName={churchName}
+      />
+    </div>,
+    document.body
+  );
+
   return (
     <div className="space-y-6">
+      {/* Hidden shareable card for capture */}
+      {shareCardPortal}
+      
       {/* Confetti celebration for milestones */}
       <MilestoneConfetti streak={streak} previousStreak={previousStreak} />
       
@@ -145,7 +187,7 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
             onClick={handleDownload}
             disabled={isDownloading}
             className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
-            title="Download streak card"
+            title="Download streak card for social media"
           >
             {isDownloading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -172,7 +214,6 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
         </div>
 
         <Card 
-          ref={cardRef}
           className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative"
         >
           {/* Animated background glow */}
@@ -193,11 +234,6 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
               }}
             />
           )}
-          
-          {/* Branding watermark for shared images */}
-          <div className="absolute bottom-2 right-4 z-10 text-white/30 text-xs font-medium">
-            ChurchFlow
-          </div>
           
           <CardContent className="pt-8 pb-8 relative z-10">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
