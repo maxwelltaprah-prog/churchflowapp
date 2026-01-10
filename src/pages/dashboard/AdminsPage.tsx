@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MoreHorizontal, Edit, UserMinus, Shield, ShieldCheck, Users, Loader2, RotateCcw, Trash2, Ban } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, UserMinus, Shield, ShieldCheck, Users, Loader2, RotateCcw, Trash2, Ban, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,12 +41,14 @@ import { useRevokeAdminAccess, useRestoreAdminAccess, useRemoveAdmin } from "@/h
 import { useAuth } from "@/contexts/AuthContext";
 import { AddAdminDialog } from "@/components/dashboard/AddAdminDialog";
 import { EditAdminDialog } from "@/components/dashboard/EditAdminDialog";
+import { ResetAdminPasswordDialog } from "@/components/dashboard/ResetAdminPasswordDialog";
 
 export default function AdminsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
@@ -215,6 +217,17 @@ export default function AdminsPage() {
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Permissions
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={admin.user_id === user?.id}
+                  onClick={() => {
+                    setSelectedAdmin(admin);
+                    setShowResetPasswordDialog(true);
+                  }}
+                >
+                  <KeyRound className="w-4 h-4 mr-2" />
+                  Reset Password
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-amber-600 cursor-pointer"
@@ -359,6 +372,15 @@ export default function AdminsPage() {
         onOpenChange={setShowEditDialog}
         admin={selectedAdmin}
       />
+      {selectedAdmin && (
+        <ResetAdminPasswordDialog
+          open={showResetPasswordDialog}
+          onOpenChange={setShowResetPasswordDialog}
+          adminName={getDisplayName(selectedAdmin)}
+          adminEmail={getDisplayEmail(selectedAdmin)}
+          adminUserId={selectedAdmin.user_id}
+        />
+      )}
 
       {/* Revoke Access Dialog */}
       <AlertDialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
