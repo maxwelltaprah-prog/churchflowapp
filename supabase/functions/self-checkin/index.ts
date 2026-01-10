@@ -9,11 +9,10 @@
 // If multiple members match, returns disambiguation list
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getPublicCorsHeaders, handlePublicCorsPreflightRequest, isAllowedOrigin } from "../_shared/cors.ts";
+import { getSecureHeaders, secureErrorResponse, SAFE_ERROR_MESSAGES } from "../_shared/security-headers.ts";
+import { checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { sanitizePhone, validateUUID } from "../_shared/validation.ts";
 
 type Action = "get_service" | "checkin" | "visitor_checkin" | "unified_checkin" | "get_downloads" | "get_download_url";
 
@@ -23,11 +22,32 @@ interface MemberMatch {
   type: "member" | "visitor";
 }
 
+// Helper function to create secure JSON responses
+function secureJsonResponseWithHeaders(data: unknown, corsHeaders: Record<string, string>, status: number = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: getSecureHeaders(corsHeaders),
+  });
+}
+
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getPublicCorsHeaders(req);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handlePublicCorsPreflightRequest(req);
   }
+
+  // Validate origin for non-preflight requests (if present)
+  if (origin && !isAllowedOrigin(origin)) {
+    return secureErrorResponse("Forbidden", corsHeaders, 403);
+  }
+
+  // Get client identifier for rate limiting
+  const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+                   req.headers.get("x-real-ip") || 
+                   "unknown";
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -41,10 +61,7 @@ Deno.serve(async (req) => {
         hasUrl: Boolean(supabaseUrl),
         hasServiceKey: Boolean(serviceRoleKey),
       });
-      return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return secureErrorResponse(SAFE_ERROR_MESSAGES.serverError, corsHeaders, 500);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -53,10 +70,15 @@ Deno.serve(async (req) => {
     const action: Action | undefined = body?.action;
 
     if (!action) {
-      return new Response(JSON.stringify({ error: "Missing action" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return secureErrorResponse("Missing action", corsHeaders, 400);
+    }
+
+    // Apply rate limiting for check-in actions (public endpoint)
+    if (action === "checkin" || action === "unified_checkin" || action === "visitor_checkin") {
+      const rateLimitResult = checkServerRateLimit(clientIP, "public");
+      if (!rateLimitResult.allowed) {
+        return rateLimitResponse(rateLimitResult.retryAfter || 300, corsHeaders);
+      }
     }
 
     if (action === "get_service") {
