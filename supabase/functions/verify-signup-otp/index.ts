@@ -1,68 +1,56 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyOTP, addTimingJitter } from "../_shared/security.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, clearServerRateLimit, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
 
 interface VerifyOTPRequest {
   email: string;
   otp: string;
 }
 
-// In-memory rate limiting for OTP verification attempts
-const verifyAttempts = new Map<string, { count: number; firstAttempt: number }>();
-const VERIFY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const VERIFY_MAX_ATTEMPTS = 5; // Max 5 attempts per 15 minutes
-
-function checkVerifyRateLimit(email: string): { allowed: boolean; attemptsRemaining: number } {
-  const now = Date.now();
-  const key = email.toLowerCase();
-  const record = verifyAttempts.get(key);
-  
-  if (!record || (now - record.firstAttempt) > VERIFY_WINDOW_MS) {
-    verifyAttempts.set(key, { count: 1, firstAttempt: now });
-    return { allowed: true, attemptsRemaining: VERIFY_MAX_ATTEMPTS - 1 };
-  }
-  
-  if (record.count >= VERIFY_MAX_ATTEMPTS) {
-    return { allowed: false, attemptsRemaining: 0 };
-  }
-  
-  record.count += 1;
-  return { allowed: true, attemptsRemaining: VERIFY_MAX_ATTEMPTS - record.count };
-}
-
-function clearVerifyRateLimit(email: string): void {
-  verifyAttempts.delete(email.toLowerCase());
-}
-
 serve(async (req: Request): Promise<Response> => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { email, otp }: VerifyOTPRequest = await req.json();
 
     if (!email || !otp) {
-      return new Response(
-        JSON.stringify({ error: "Email and OTP are required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Email and OTP are required", corsHeaders, 400);
     }
 
-    // Check rate limit for verification attempts
-    const { allowed, attemptsRemaining } = checkVerifyRateLimit(email);
-    if (!allowed) {
-      await addTimingJitter();
-      return new Response(
-        JSON.stringify({ error: "Too many verification attempts. Please try again later." }),
-        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    // Validate OTP format (must be exactly 6 digits)
+    if (!/^\d{6}$/.test(otp)) {
+      return secureErrorResponse("Invalid verification code format", corsHeaders, 400);
     }
+
+    // Combined IP + account rate limiting
+    const ipIdentifier = getClientIdentifier(req);
+    const emailIdentifier = getClientIdentifier(req, email);
+
+    // Check IP-based rate limit
+    const ipRateLimit = checkServerRateLimit(ipIdentifier, "otp");
+    if (!ipRateLimit.allowed) {
+      await addTimingJitter();
+      return rateLimitResponse(ipRateLimit.retryAfter!, corsHeaders);
+    }
+
+    // Check email-based rate limit (stricter for OTP verification)
+    const emailRateLimit = checkServerRateLimit(emailIdentifier, "otp");
+    if (!emailRateLimit.allowed) {
+      await addTimingJitter();
+      return rateLimitResponse(emailRateLimit.retryAfter!, corsHeaders);
+    }
+
+    // Record attempt (before checking to count all attempts)
+    recordAttempt(ipIdentifier, "otp");
+    recordAttempt(emailIdentifier, "otp");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -77,20 +65,14 @@ serve(async (req: Request): Promise<Response> => {
 
     if (fetchError) {
       console.error("Error fetching OTP:", fetchError);
-      return new Response(
-        JSON.stringify({ error: "Failed to verify OTP" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Failed to verify OTP", corsHeaders, 500);
     }
 
     // Add timing jitter to prevent timing attacks
     await addTimingJitter();
 
     if (!otpRecord) {
-      return new Response(
-        JSON.stringify({ error: "Invalid verification code", valid: false }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureJsonResponse({ error: "Invalid verification code", valid: false }, corsHeaders, 400);
     }
 
     // Check if OTP is expired
@@ -98,24 +80,19 @@ serve(async (req: Request): Promise<Response> => {
       // Delete expired OTP
       await supabase.from("signup_otps").delete().eq("id", otpRecord.id);
       
-      return new Response(
-        JSON.stringify({ error: "Verification code has expired", valid: false }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureJsonResponse({ error: "Verification code has expired", valid: false }, corsHeaders, 400);
     }
 
     // Verify the OTP hash
     const isValidOTP = await verifyOTP(otp, otpRecord.otp_code, email);
     
     if (!isValidOTP) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Invalid verification code", 
-          valid: false,
-          attemptsRemaining 
-        }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      const remaining = emailRateLimit.remaining ?? 0;
+      return secureJsonResponse({ 
+        error: "Invalid verification code", 
+        valid: false,
+        attemptsRemaining: remaining
+      }, corsHeaders, 400);
     }
 
     // Mark as verified (we'll keep the record briefly for the account creation step)
@@ -129,17 +106,11 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Clear rate limit on success
-    clearVerifyRateLimit(email);
+    clearServerRateLimit(emailIdentifier);
 
-    return new Response(
-      JSON.stringify({ valid: true, message: "Email verified successfully" }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureJsonResponse({ valid: true, message: "Email verified successfully" }, corsHeaders);
   } catch (error: any) {
     console.error("Error in verify-signup-otp:", error);
-    return new Response(
-      JSON.stringify({ error: "An error occurred. Please try again." }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureErrorResponse("An error occurred. Please try again.", corsHeaders, 500);
   }
 });

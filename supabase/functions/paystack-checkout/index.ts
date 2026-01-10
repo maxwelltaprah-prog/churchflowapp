@@ -1,10 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
 
 interface PricingResult {
   tier_price: number;
@@ -31,22 +28,33 @@ function computePricing(members: number, branches: number): PricingResult {
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("No authorization header");
+      return secureErrorResponse("No authorization header", corsHeaders, 401);
     }
+
+    // Rate limiting for payment endpoints
+    const ipIdentifier = getClientIdentifier(req);
+    const rateLimit = checkServerRateLimit(ipIdentifier, "payment");
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfter!, corsHeaders);
+    }
+    recordAttempt(ipIdentifier, "payment");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
 
     if (!paystackSecretKey) {
-      throw new Error("Paystack secret key not configured");
+      return secureErrorResponse("Paystack not configured", corsHeaders, 500);
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -59,7 +67,7 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      throw new Error("Invalid user");
+      return secureErrorResponse("Invalid user", corsHeaders, 401);
     }
 
     // Get user's profile to find church_id
@@ -70,7 +78,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile?.church_id) {
-      throw new Error("User profile not found");
+      return secureErrorResponse("User profile not found", corsHeaders, 404);
     }
 
     // Get subscription
@@ -81,7 +89,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (subError || !subscription) {
-      throw new Error("Subscription not found");
+      return secureErrorResponse("Subscription not found", corsHeaders, 404);
     }
 
     // Calculate pricing based on trial peaks or current usage
@@ -139,7 +147,7 @@ Deno.serve(async (req) => {
 
     const email = profile.email || user.email;
     if (!email) {
-      throw new Error("User email not found");
+      return secureErrorResponse("User email not found", corsHeaders, 400);
     }
 
     // Get or create Paystack customer
@@ -164,7 +172,7 @@ Deno.serve(async (req) => {
 
       const customerData = await customerRes.json();
       if (!customerData.status) {
-        throw new Error(customerData.message || "Failed to create customer");
+        return secureErrorResponse("Failed to create customer", corsHeaders, 500);
       }
 
       customerCode = customerData.data.customer_code;
@@ -213,9 +221,7 @@ Deno.serve(async (req) => {
 
     const transactionData = await transactionRes.json();
     if (!transactionData.status) {
-      throw new Error(
-        transactionData.message || "Failed to initialize transaction"
-      );
+      return secureErrorResponse("Failed to initialize transaction", corsHeaders, 500);
     }
 
     // Update subscription with expected amount
@@ -228,25 +234,13 @@ Deno.serve(async (req) => {
       })
       .eq("church_id", profile.church_id);
 
-    return new Response(
-      JSON.stringify({
-        authorization_url: transactionData.data.authorization_url,
-        access_code: transactionData.data.access_code,
-        reference: transactionData.data.reference,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return secureJsonResponse({
+      authorization_url: transactionData.data.authorization_url,
+      access_code: transactionData.data.access_code,
+      reference: transactionData.data.reference,
+    }, corsHeaders);
   } catch (error: unknown) {
     console.error("Checkout error:", error);
-    const message = error instanceof Error ? error.message : "Checkout failed";
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return secureErrorResponse("Checkout failed", corsHeaders, 400);
   }
 });

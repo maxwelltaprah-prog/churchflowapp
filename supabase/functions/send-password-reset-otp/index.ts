@@ -2,65 +2,59 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateSecureOTP, hashOTP, addTimingJitter } from "../_shared/security.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface SendResetOTPRequest {
   email: string;
 }
 
-// In-memory rate limiting (per-instance, resets on cold start)
-const rateLimitMap = new Map<string, { count: number; firstAttempt: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 3; // Max 3 requests per minute per email
-
-function checkRateLimit(email: string): boolean {
-  const now = Date.now();
-  const key = email.toLowerCase();
-  const record = rateLimitMap.get(key);
-  
-  if (!record || (now - record.firstAttempt) > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(key, { count: 1, firstAttempt: now });
-    return true;
-  }
-  
-  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-  
-  record.count += 1;
-  return true;
-}
-
 serve(async (req: Request): Promise<Response> => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { email }: SendResetOTPRequest = await req.json();
 
     if (!email) {
-      return new Response(
-        JSON.stringify({ error: "Email is required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Email is required", corsHeaders, 400);
     }
 
-    // Check rate limit
-    if (!checkRateLimit(email)) {
-      // Add timing jitter to prevent timing attacks
-      await addTimingJitter();
-      return new Response(
-        JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 255) {
+      return secureErrorResponse("Invalid email format", corsHeaders, 400);
     }
+
+    // Combined IP + account rate limiting
+    const ipIdentifier = getClientIdentifier(req);
+    const emailIdentifier = getClientIdentifier(req, email);
+
+    // Check IP-based rate limit
+    const ipRateLimit = checkServerRateLimit(ipIdentifier, "otp");
+    if (!ipRateLimit.allowed) {
+      // Don't reveal rate limiting - return success message anyway
+      await addTimingJitter();
+      return secureJsonResponse({ success: true, message: "If this email exists, a reset code has been sent" }, corsHeaders);
+    }
+
+    // Check email-based rate limit
+    const emailRateLimit = checkServerRateLimit(emailIdentifier, "otp");
+    if (!emailRateLimit.allowed) {
+      await addTimingJitter();
+      return secureJsonResponse({ success: true, message: "If this email exists, a reset code has been sent" }, corsHeaders);
+    }
+
+    // Record attempts
+    recordAttempt(ipIdentifier, "otp");
+    recordAttempt(emailIdentifier, "otp");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -71,13 +65,9 @@ serve(async (req: Request): Promise<Response> => {
     
     if (userError) {
       console.error("Error checking user:", userError);
-      // Add timing jitter before returning
       await addTimingJitter();
       // Don't reveal if user exists or not for security
-      return new Response(
-        JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureJsonResponse({ success: true, message: "If this email exists, a reset code has been sent" }, corsHeaders);
     }
 
     const userExists = userData.users.some(u => u.email?.toLowerCase() === email.toLowerCase());
@@ -86,10 +76,7 @@ serve(async (req: Request): Promise<Response> => {
       // Add timing jitter to match successful case timing
       await addTimingJitter(200, 400);
       // Don't reveal that user doesn't exist for security
-      return new Response(
-        JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureJsonResponse({ success: true, message: "If this email exists, a reset code has been sent" }, corsHeaders);
     }
 
     // Generate cryptographically secure 6-digit OTP
@@ -116,10 +103,7 @@ serve(async (req: Request): Promise<Response> => {
 
     if (insertError) {
       console.error("Error storing OTP:", insertError);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate reset code" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Failed to generate reset code", corsHeaders, 500);
     }
 
     // Send OTP email (send plain OTP to user, store hash)
@@ -172,21 +156,12 @@ serve(async (req: Request): Promise<Response> => {
         .delete()
         .eq("email", email.toLowerCase());
       
-      return new Response(
-        JSON.stringify({ error: "Failed to send reset email. Please try again later." }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Failed to send reset email. Please try again later.", corsHeaders, 500);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, message: "Reset code sent successfully" }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureJsonResponse({ success: true, message: "Reset code sent successfully" }, corsHeaders);
   } catch (error: any) {
     console.error("Error in send-password-reset-otp:", error);
-    return new Response(
-      JSON.stringify({ error: "An error occurred. Please try again." }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureErrorResponse("An error occurred. Please try again.", corsHeaders, 500);
   }
 });

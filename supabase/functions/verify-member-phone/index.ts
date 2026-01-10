@@ -1,30 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
+import { addTimingJitter } from "../_shared/security.ts";
 
 interface VerifyPhoneRequest {
   phone: string;
   action: "login" | "create_pin";
 }
 
-interface VerifyPhoneResponse {
-  success: boolean;
-  error?: string;
-  member_name?: string;
-  has_account?: boolean;
-  approval_status?: string;
-  member_id?: string;
-  member_phone?: string;
-}
-
 // Normalize phone number for comparison
 function normalizePhone(phone: string): string {
   let digits = phone.replace(/\D/g, "");
-  // Convert Ghana country code to local format
   if (digits.startsWith("233") && digits.length >= 12) {
     digits = "0" + digits.slice(3);
   }
@@ -32,37 +20,38 @@ function normalizePhone(phone: string): string {
 }
 
 serve(async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
 
+  const corsHeaders = getCorsHeaders(req);
+
   try {
+    // Rate limiting for auth endpoints
+    const ipIdentifier = getClientIdentifier(req);
+    const rateLimit = checkServerRateLimit(ipIdentifier, "auth");
+    if (!rateLimit.allowed) {
+      await addTimingJitter();
+      return rateLimitResponse(rateLimit.retryAfter!, corsHeaders);
+    }
+    recordAttempt(ipIdentifier, "auth");
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    // Use service role to bypass RLS for phone verification
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { phone, action }: VerifyPhoneRequest = await req.json();
 
     if (!phone || phone.length < 9) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid phone number" } as VerifyPhoneResponse),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureErrorResponse("Invalid phone number", corsHeaders, 400);
     }
 
     if (!action || !["login", "create_pin"].includes(action)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid action" } as VerifyPhoneResponse),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureErrorResponse("Invalid action", corsHeaders, 400);
     }
 
     const normalizedInputPhone = normalizePhone(phone);
 
-    // Query members by normalized phone - only fetch what's needed server-side
     const { data: members, error: memberError } = await supabase
       .from("members")
       .select("id, full_name, phone, approval_status, user_id, is_active")
@@ -70,120 +59,53 @@ serve(async (req: Request): Promise<Response> => {
 
     if (memberError) {
       console.error("Database error:", memberError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Database error" } as VerifyPhoneResponse),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureErrorResponse("Database error", corsHeaders, 500);
     }
 
-    // Find matching member by normalized phone
     const matchedMember = members?.find((m) => {
       const memberPhone = normalizePhone(m.phone || "");
-      return (
-        memberPhone === normalizedInputPhone ||
+      return memberPhone === normalizedInputPhone ||
         memberPhone.endsWith(normalizedInputPhone) ||
-        normalizedInputPhone.endsWith(memberPhone)
-      );
+        normalizedInputPhone.endsWith(memberPhone);
     });
 
+    // Add timing jitter to prevent enumeration
+    await addTimingJitter();
+
     if (!matchedMember) {
-      // Generic error message to prevent enumeration
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: action === "login" 
-            ? "Invalid credentials" 
-            : "No member found with this phone number. Please contact your church administrator."
-        } as VerifyPhoneResponse),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureJsonResponse({ 
+        success: false, 
+        error: action === "login" ? "Invalid credentials" : "No member found with this phone number."
+      }, corsHeaders, 404);
     }
 
-    // Check approval status
     if (matchedMember.approval_status === "pending") {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Your membership is still pending approval. Please wait for an administrator to approve your registration.",
-          approval_status: "pending"
-        } as VerifyPhoneResponse),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureJsonResponse({ success: false, error: "Membership pending approval", approval_status: "pending" }, corsHeaders, 403);
     }
 
     if (matchedMember.approval_status === "rejected") {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Your membership application was not approved. Please contact your church administrator.",
-          approval_status: "rejected"
-        } as VerifyPhoneResponse),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureJsonResponse({ success: false, error: "Membership not approved", approval_status: "rejected" }, corsHeaders, 403);
     }
 
     const hasAccount = !!matchedMember.user_id;
 
     if (action === "login") {
-      // For login: require existing account
       if (!hasAccount) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Your account is not fully set up. Please create your PIN first.",
-            has_account: false
-          } as VerifyPhoneResponse),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return secureJsonResponse({ success: false, error: "Please create your PIN first", has_account: false }, corsHeaders, 403);
       }
-
-      // Return limited info needed for login
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          member_name: matchedMember.full_name,
-          has_account: true,
-          member_phone: matchedMember.phone
-        } as VerifyPhoneResponse),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureJsonResponse({ success: true, member_name: matchedMember.full_name, has_account: true, member_phone: matchedMember.phone }, corsHeaders);
     }
 
     if (action === "create_pin") {
-      // For PIN creation: require NO existing account
       if (hasAccount) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "You already have an account. Please use the Sign In page instead.",
-            has_account: true
-          } as VerifyPhoneResponse),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return secureJsonResponse({ success: false, error: "Account already exists", has_account: true }, corsHeaders, 400);
       }
-
-      // Return info needed for PIN creation
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          member_name: matchedMember.full_name,
-          member_id: matchedMember.id,
-          member_phone: matchedMember.phone,
-          has_account: false
-        } as VerifyPhoneResponse),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return secureJsonResponse({ success: true, member_name: matchedMember.full_name, member_id: matchedMember.id, member_phone: matchedMember.phone, has_account: false }, corsHeaders);
     }
 
-    return new Response(
-      JSON.stringify({ success: false, error: "Invalid action" } as VerifyPhoneResponse),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return secureErrorResponse("Invalid action", corsHeaders, 400);
   } catch (error: any) {
     console.error("Error in verify-member-phone:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: "Internal server error" } as VerifyPhoneResponse),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return secureErrorResponse("Internal server error", corsHeaders, 500);
   }
 });
