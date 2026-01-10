@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authorizeRequest, authErrorResponse, getServiceClient, corsHeaders } from "../_shared/authorization.ts";
+import { safeLog, safeError, getRequiredSecret } from "../_shared/safe-logging.ts";
+import { secureErrorResponse, getSecureHeaders } from "../_shared/security-headers.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,21 +22,19 @@ serve(async (req) => {
     const churchId = authorizedUser.churchId; // SECURE: Derived from auth, not request body
     const userId = authorizedUser.userId; // SECURE: Derived from auth, not request body
 
-    const hubtelClientId = Deno.env.get("HUBTEL_CLIENT_ID");
-    const hubtelClientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET");
-
-    if (!hubtelClientId || !hubtelClientSecret) {
-      throw new Error("Hubtel API credentials not configured");
-    }
+    // SECURE: Fail fast if secrets are missing
+    const hubtelClientId = getRequiredSecret("HUBTEL_CLIENT_ID");
+    const hubtelClientSecret = getRequiredSecret("HUBTEL_CLIENT_SECRET");
 
     const supabase = getServiceClient();
 
     const { credits, amount, returnUrl, customerPhone, customerName } = await req.json();
 
-    console.log("Initiating SMS credit payment:", { churchId, credits, amount });
+    // SAFE: Log without sensitive data
+    safeLog("Initiating SMS credit payment", { churchId, credits, amount });
 
     if (!credits || !amount) {
-      throw new Error("Missing required fields: credits, amount");
+      return secureErrorResponse("Missing required fields", corsHeaders, 400);
     }
 
     // Generate unique reference
@@ -55,7 +55,10 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (purchaseError) throw purchaseError;
+    if (purchaseError) {
+      safeError("Failed to create purchase record", purchaseError);
+      return secureErrorResponse("Failed to initiate payment", corsHeaders, 500);
+    }
 
     // Get Hubtel auth header
     const getHubtelAuthHeader = () => {
@@ -79,7 +82,13 @@ serve(async (req) => {
       customerName: customerName || "Church Admin",
     };
 
-    console.log("Creating Hubtel checkout:", checkoutPayload);
+    // SAFE: Log without customer phone/name
+    safeLog("Creating Hubtel checkout", { 
+      amount, 
+      credits, 
+      clientReference,
+      hasPhone: !!customerPhone 
+    });
 
     const checkoutResponse = await fetch(
       "https://payproxyapi.hubtel.com/items/initiate",
@@ -94,19 +103,22 @@ serve(async (req) => {
     );
 
     const responseText = await checkoutResponse.text();
-    console.log("Hubtel raw response:", responseText, "Status:", checkoutResponse.status);
+    
+    // SAFE: Log status only, not raw response
+    safeLog("Hubtel API response", { 
+      status: checkoutResponse.status,
+      ok: checkoutResponse.ok 
+    });
 
     let checkoutResult: any = {};
     if (responseText) {
       try {
         checkoutResult = JSON.parse(responseText);
       } catch (parseError) {
-        console.error("Failed to parse Hubtel response:", parseError);
-        throw new Error(`Hubtel API returned invalid response: ${responseText.substring(0, 200)}`);
+        safeError("Failed to parse Hubtel response");
+        return secureErrorResponse("Payment provider error", corsHeaders, 500);
       }
     }
-
-    console.log("Hubtel checkout response:", JSON.stringify(checkoutResult));
 
     if (!checkoutResponse.ok) {
       // Update purchase as failed
@@ -115,7 +127,8 @@ serve(async (req) => {
         .update({ status: "failed" })
         .eq("id", purchase.id);
 
-      throw new Error(checkoutResult.message || checkoutResult.Message || `Hubtel API error (${checkoutResponse.status})`);
+      safeError("Hubtel checkout failed", { status: checkoutResponse.status });
+      return secureErrorResponse("Payment initiation failed", corsHeaders, 500);
     }
 
     // Update purchase with checkout ID
@@ -133,14 +146,10 @@ serve(async (req) => {
         checkoutUrl: checkoutResult.data?.checkoutUrl || checkoutResult.data?.checkoutDirectUrl,
         clientReference: clientReference,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: getSecureHeaders(corsHeaders) }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Payment Initiation Error:", error);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    safeError("Payment Initiation Error", error);
+    return secureErrorResponse("An unexpected error occurred", corsHeaders, 500);
   }
 });

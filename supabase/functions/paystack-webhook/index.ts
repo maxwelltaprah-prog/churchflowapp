@@ -1,22 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.177.0/node/crypto.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-paystack-signature",
-};
+import { safeLog, safeError, getRequiredSecret } from "../_shared/safe-logging.ts";
+import { getSecureHeaders, secureErrorResponse } from "../_shared/security-headers.ts";
+import { getPublicCorsHeaders, handlePublicCorsPreflightRequest } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getPublicCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handlePublicCorsPreflightRequest(req);
   }
 
   try {
-    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!paystackSecretKey) {
-      throw new Error("Paystack secret key not configured");
-    }
+    // SECURE: Fail fast if secrets are missing
+    const paystackSecretKey = getRequiredSecret("PAYSTACK_SECRET_KEY");
 
     // Verify webhook signature
     const signature = req.headers.get("x-paystack-signature");
@@ -28,19 +25,18 @@ Deno.serve(async (req) => {
         .digest("hex");
 
       if (hash !== signature) {
-        console.error("Invalid webhook signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        safeError("Invalid webhook signature - possible attack");
+        return secureErrorResponse("Invalid signature", corsHeaders, 400);
       }
     }
 
     const event = JSON.parse(body);
-    console.log("Paystack webhook event:", event.event);
+    
+    // SAFE: Log event type only, not payload
+    safeLog("Paystack webhook received", { eventType: event.event });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = getRequiredSecret("SUPABASE_URL");
+    const supabaseKey = getRequiredSecret("SUPABASE_SERVICE_ROLE_KEY");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Extract church_id from metadata
@@ -62,25 +58,18 @@ Deno.serve(async (req) => {
         }
       }
       return new Response(JSON.stringify({ received: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: getSecureHeaders(corsHeaders),
       });
     }
 
     await processWebhookEvent(supabase, churchId, event);
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: getSecureHeaders(corsHeaders),
     });
   } catch (error: unknown) {
-    console.error("Webhook error:", error);
-    const message = error instanceof Error ? error.message : "Webhook processing failed";
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    safeError("Webhook processing error", error);
+    return secureErrorResponse("Webhook processing failed", corsHeaders, 500);
   }
 });
 
@@ -102,11 +91,12 @@ async function processWebhookEvent(
     .single();
 
   if (existingEvent) {
-    console.log("Event already processed:", eventId);
+    safeLog("Event already processed", { eventId });
     return;
   }
 
-  // Log the event
+  // Log the event (stores sanitized payload in DB for audit)
+  // NOTE: payload_json may contain customer data - ensure DB has appropriate access controls
   await supabase.from("subscription_events").insert({
     church_id: churchId,
     event_id: eventId,
@@ -126,6 +116,7 @@ async function processWebhookEvent(
           updated_at: new Date().toISOString(),
         })
         .eq("church_id", churchId);
+      safeLog("Subscription activated", { churchId });
       break;
 
     case "invoice.payment_failed":
@@ -138,6 +129,7 @@ async function processWebhookEvent(
           updated_at: new Date().toISOString(),
         })
         .eq("church_id", churchId);
+      safeLog("Subscription payment failed", { churchId });
       break;
 
     case "subscription.disable":
@@ -150,6 +142,7 @@ async function processWebhookEvent(
           updated_at: new Date().toISOString(),
         })
         .eq("church_id", churchId);
+      safeLog("Subscription canceled", { churchId });
       break;
 
     case "subscription.create":
@@ -163,10 +156,11 @@ async function processWebhookEvent(
             updated_at: new Date().toISOString(),
           })
           .eq("church_id", churchId);
+        safeLog("Subscription created", { churchId });
       }
       break;
 
     default:
-      console.log("Unhandled event type:", event.event);
+      safeLog("Unhandled webhook event", { eventType: event.event });
   }
 }

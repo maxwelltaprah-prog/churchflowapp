@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
 import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
 import { addTimingJitter } from "../_shared/security.ts";
+import { safeLog, safeError, getRequiredSecret } from "../_shared/safe-logging.ts";
 
 interface VerifyPhoneRequest {
   phone: string;
@@ -36,8 +37,9 @@ serve(async (req: Request): Promise<Response> => {
     }
     recordAttempt(ipIdentifier, "auth");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // SECURE: Fail fast if secrets are missing
+    const supabaseUrl = getRequiredSecret("SUPABASE_URL");
+    const supabaseServiceKey = getRequiredSecret("SUPABASE_SERVICE_ROLE_KEY");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { phone, action }: VerifyPhoneRequest = await req.json();
@@ -58,7 +60,8 @@ serve(async (req: Request): Promise<Response> => {
       .eq("is_active", true);
 
     if (memberError) {
-      console.error("Database error:", memberError);
+      // SAFE: Log error without sensitive details
+      safeError("Database query failed", { action });
       return secureErrorResponse("Database error", corsHeaders, 500);
     }
 
@@ -73,6 +76,8 @@ serve(async (req: Request): Promise<Response> => {
     await addTimingJitter();
 
     if (!matchedMember) {
+      // SAFE: Log without phone number
+      safeLog("Phone verification failed - no match", { action });
       return secureJsonResponse({ 
         success: false, 
         error: action === "login" ? "Invalid credentials" : "No member found with this phone number."
@@ -105,7 +110,7 @@ serve(async (req: Request): Promise<Response> => {
 
     return secureErrorResponse("Invalid action", corsHeaders, 400);
   } catch (error: any) {
-    console.error("Error in verify-member-phone:", error);
+    safeError("Phone verification error", error);
     return secureErrorResponse("Internal server error", corsHeaders, 500);
   }
 });
