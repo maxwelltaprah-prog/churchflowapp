@@ -63,12 +63,20 @@ export function useConsecutiveMissSignals(branchId?: string) {
       }
 
       // 1. Get the 4 most recently CREATED services (ordered by created_at descending)
-      // Service 1 (index 0) = most recent (reference), Services 2,3,4 (indices 1,2,3) = the ones we check for misses
-      const { data: last4Services } = await supabase
+      // When branchId is specified, only consider services from that branch
+      // This ensures members are checked against their own branch's services
+      let servicesQuery = supabase
         .from("services")
         .select("id, service_date, branch_id, created_at")
         .eq("church_id", profile.church_id)
-        .eq("is_active", true)
+        .eq("is_active", true);
+      
+      // Filter services by branch if specified
+      if (branchId) {
+        servicesQuery = servicesQuery.eq("branch_id", branchId);
+      }
+      
+      const { data: last4Services } = await servicesQuery
         .order("created_at", { ascending: false })
         .limit(4);
 
