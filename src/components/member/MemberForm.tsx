@@ -178,11 +178,8 @@ export function MemberForm({
                   const date = new Date(dateValue);
                   const dayIndex = date.getDay();
                   const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-                  const currentDayBorn = form.getValues("day_born");
-                  // Only auto-set if day_born is empty
-                  if (!currentDayBorn) {
-                    form.setValue("day_born", days[dayIndex]);
-                  }
+                  // Always recalculate day born when date changes
+                  form.setValue("day_born", days[dayIndex]);
                 }
               };
               
