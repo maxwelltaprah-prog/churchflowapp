@@ -35,12 +35,12 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             <Link to="/member/login">
               <Button variant="ghost" size="default" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">
-                Member Login
+                Church Member Login
               </Button>
             </Link>
             <Link to="/login">
               <Button variant="outline" size="default" className="border-slate-300 text-slate-700 hover:bg-slate-50">
-                Admin Login
+                Church Admin Login
               </Button>
             </Link>
             <Link to="/signup/church">
@@ -87,12 +87,12 @@ export function Navbar() {
               <div className="flex flex-col gap-2 pt-4 border-t border-slate-200">
                 <Link to="/member/login" onClick={() => setIsOpen(false)}>
                   <Button variant="ghost" className="w-full text-slate-600">
-                    Member Login
+                    Church Member Login
                   </Button>
                 </Link>
                 <Link to="/login" onClick={() => setIsOpen(false)}>
                   <Button variant="outline" className="w-full border-slate-300">
-                    Admin Login
+                    Church Admin Login
                   </Button>
                 </Link>
                 <Link to="/signup/church" onClick={() => setIsOpen(false)}>
