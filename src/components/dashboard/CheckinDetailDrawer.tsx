@@ -232,13 +232,13 @@ export function CheckinDetailDrawer({ item, open, onOpenChange }: CheckinDetailD
         {/* Actions */}
         <div className="px-6 py-6 mt-4 border-t bg-muted/20">
           <div className="grid grid-cols-2 gap-3">
-            <Link to={`/app/members?search=${encodeURIComponent(item.memberName)}`} onClick={() => onOpenChange(false)}>
+            <Link to={`/app/members/${item.memberId}`} onClick={() => onOpenChange(false)}>
               <Button variant="outline" className="w-full h-11" size="sm">
                 <User className="h-4 w-4 mr-2" />
                 View Profile
               </Button>
             </Link>
-            <Link to={`/app/analytics/drilldown?member=${item.memberId}`} onClick={() => onOpenChange(false)}>
+            <Link to={`/app/members/${item.memberId}#attendance`} onClick={() => onOpenChange(false)}>
               <Button variant="outline" className="w-full h-11" size="sm">
                 <History className="h-4 w-4 mr-2" />
                 Attendance
