@@ -117,10 +117,9 @@ export default function JoinBranch() {
     setIsLoading(true);
     try {
       const normalizedCode = code.trim().toUpperCase();
+      // Use secure database function that only returns safe branch data
       const { data: branchData, error } = await supabase
-        .from("branches")
-        .select("id, church_id, name")
-        .eq("join_code", normalizedCode)
+        .rpc("get_branch_for_joining", { p_join_code: normalizedCode })
         .maybeSingle();
 
       if (error) throw error;
@@ -134,7 +133,11 @@ export default function JoinBranch() {
         return;
       }
 
-      setBranchInfo(branchData);
+      setBranchInfo({
+        id: branchData.id,
+        church_id: branchData.church_id,
+        name: branchData.name,
+      });
       setStep("form");
     } catch (error: any) {
       toast({
