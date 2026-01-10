@@ -17,7 +17,6 @@ interface MemberDetails {
   phone?: string | null;
   email?: string | null;
   memberStatus?: string | null;
-  memberType?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
   maritalStatus?: string | null;
@@ -111,11 +110,6 @@ export function MemberProfilePopover({ member, children }: MemberProfilePopoverP
                 <Badge variant={getStatusVariant(member.memberStatus)} className="text-xs">
                   {formatLabel(member.memberStatus)}
                 </Badge>
-                {member.memberType && (
-                  <Badge variant="outline" className="text-xs">
-                    {formatLabel(member.memberType)}
-                  </Badge>
-                )}
               </div>
               {member.branchName && (
                 <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
