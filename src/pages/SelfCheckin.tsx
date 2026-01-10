@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Loader2, Church, Phone, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Church, Phone, ArrowLeft, Users, Download, FileText, Music, Clock, ArrowUpRight, Sparkles, PartyPopper } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ServiceUpload } from "@/hooks/useServiceUploads";
 import { downloadFileFromUrl } from "@/lib/file-download";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ServiceData {
   id: string;
@@ -29,6 +30,246 @@ interface PersonMatch {
 
 type UserType = "member" | "visitor";
 
+// Success page component shown after successful check-in
+function CheckinSuccessPage({
+  service,
+  userName,
+  serviceUploads,
+  loadingDownloads,
+  onOpen,
+  onDownload,
+  downloading,
+  downloadProgress,
+}: {
+  service: ServiceData;
+  userName: string;
+  serviceUploads: ServiceUpload[];
+  loadingDownloads: boolean;
+  onOpen: (upload: ServiceUpload) => void;
+  onDownload: (upload: ServiceUpload) => void;
+  downloading: string | null;
+  downloadProgress: Record<string, number>;
+}) {
+  const getTimeRemaining = (expiresAt: string) => {
+    const expiry = new Date(expiresAt);
+    const now = new Date();
+    if (expiry <= now) return null;
+    return formatDistanceToNow(expiry, { addSuffix: false });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-500/10 via-background to-primary/10 p-4">
+      <div className="max-w-md mx-auto pt-8 space-y-6">
+        {/* Celebration Header */}
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5, type: "spring" }}
+          className="text-center space-y-4"
+        >
+          {/* Animated Success Icon */}
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className="relative"
+          >
+            <div className="w-24 h-24 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center border-4 border-green-500">
+              <CheckCircle2 className="w-12 h-12 text-green-600" />
+            </div>
+            {/* Floating celebration icons */}
+            <motion.div
+              initial={{ y: 0, opacity: 0 }}
+              animate={{ y: -20, opacity: [0, 1, 1, 0] }}
+              transition={{ delay: 0.5, duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="absolute -top-2 -right-2"
+            >
+              <Sparkles className="w-6 h-6 text-yellow-500" />
+            </motion.div>
+            <motion.div
+              initial={{ y: 0, opacity: 0 }}
+              animate={{ y: -15, opacity: [0, 1, 1, 0] }}
+              transition={{ delay: 0.8, duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="absolute -top-2 -left-2"
+            >
+              <PartyPopper className="w-6 h-6 text-primary" />
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h1 className="text-2xl font-bold text-foreground">
+              Welcome, {userName}!
+            </h1>
+            <p className="text-green-600 dark:text-green-400 font-medium text-lg">
+              Check-in Successful! 🎉
+            </p>
+          </motion.div>
+        </motion.div>
+
+        {/* Service Info */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="border-primary/20 bg-card/80 backdrop-blur">
+            <CardHeader className="text-center pb-2">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Church className="w-6 h-6 text-primary" />
+              </div>
+              <CardTitle className="text-lg">{service.name}</CardTitle>
+              <CardDescription>
+                {service.churches?.name}
+                {service.branches?.name && ` • ${service.branches.name}`}
+              </CardDescription>
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(service.service_date), "EEEE, MMMM d, yyyy")}
+                {service.start_time && ` • ${service.start_time}`}
+              </p>
+            </CardHeader>
+          </Card>
+        </motion.div>
+
+        {/* Downloads Section */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Download className={serviceUploads.length > 0 ? "w-5 h-5 text-primary animate-pulse" : "w-5 h-5 text-primary"} />
+                Service Downloads
+              </CardTitle>
+              <CardDescription>
+                {serviceUploads.length > 0
+                  ? "Tap Open to view in your browser, or Download to save. Available for 48 hours."
+                  : "No downloads available for this service."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {loadingDownloads && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
+              {!loadingDownloads && serviceUploads.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No downloads available for this service.</p>
+                </div>
+              )}
+
+              {serviceUploads.map((upload, index) => {
+                const timeRemaining = getTimeRemaining(upload.expires_at);
+
+                return (
+                  <motion.div
+                    key={upload.id}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.6 + index * 0.1 }}
+                    className="rounded-lg bg-secondary/50 border border-border"
+                  >
+                    <div className="flex items-center gap-3 p-4">
+                      {upload.upload_type === "program" ? (
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Music className="w-5 h-5 text-primary" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">
+                          {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(upload.file_size)}</span>
+                          {timeRemaining && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {timeRemaining} left
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onOpen(upload)}
+                          disabled={downloading === upload.id}
+                          title="Open in browser"
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onDownload(upload)}
+                          disabled={downloading === upload.id}
+                          title="Download"
+                        >
+                          {downloading === upload.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {downloading === upload.id && (
+                      <div className="px-4 pb-4 space-y-2">
+                        <Progress value={downloadProgress[upload.id] ?? 0} />
+                        <p className="text-xs text-muted-foreground text-right">
+                          {downloadProgress[upload.id] ?? 0}%
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Footer Message */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center space-y-2"
+        >
+          <p className="text-sm text-muted-foreground">
+            You're all set! Enjoy the service.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Powered by ChurchFlow
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 export default function SelfCheckin() {
   const { serviceId } = useParams<{ serviceId: string }>();
   const [service, setService] = useState<ServiceData | null>(null);
@@ -42,9 +283,11 @@ export default function SelfCheckin() {
   const [matchingPeople, setMatchingPeople] = useState<PersonMatch[]>([]);
   const [showDisambiguation, setShowDisambiguation] = useState(false);
   
+  // Success state - when true, shows dedicated success page
+  const [checkinComplete, setCheckinComplete] = useState(false);
+  const [checkedInName, setCheckedInName] = useState<string>("");
+  
   // Downloads state
-  const downloadsRef = useRef<HTMLDivElement | null>(null);
-  const [showDownloads, setShowDownloads] = useState(false);
   const [serviceUploads, setServiceUploads] = useState<ServiceUpload[]>([]);
   const [loadingDownloads, setLoadingDownloads] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -52,6 +295,26 @@ export default function SelfCheckin() {
   const [checkedInMemberId, setCheckedInMemberId] = useState<string | null>(null);
   const [checkedInVisitorId, setCheckedInVisitorId] = useState<string | null>(null);
   const [checkedInUserType, setCheckedInUserType] = useState<UserType | null>(null);
+
+  // Prevent back navigation after successful check-in
+  useEffect(() => {
+    if (checkinComplete) {
+      // Push a dummy state to prevent back navigation
+      window.history.pushState({ checkinComplete: true }, "", window.location.href);
+      
+      const handlePopState = (e: PopStateEvent) => {
+        // Prevent going back by pushing forward again
+        window.history.pushState({ checkinComplete: true }, "", window.location.href);
+        toast.info("Check-in complete. You cannot go back.");
+      };
+
+      window.addEventListener("popstate", handlePopState);
+      
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, [checkinComplete]);
 
   useEffect(() => {
     loadService();
@@ -137,29 +400,25 @@ export default function SelfCheckin() {
       }
 
       if (status === "checked_in" || status === "already_checked_in") {
-        const isAlreadyIn = status === "already_checked_in";
-        setResult({ 
-          success: true, 
-          message: isAlreadyIn ? "You're already checked in!" : "Check-in successful!", 
-          name 
-        });
-
         const memberIdFromFn = (data as any)?.memberId as string | undefined;
         const visitorIdFromFn = (data as any)?.visitorId as string | undefined;
         
         setCheckedInMemberId(memberIdFromFn ?? null);
         setCheckedInVisitorId(visitorIdFromFn ?? null);
         setCheckedInUserType(userType ?? null);
+        setCheckedInName(name || "Guest");
 
+        // Mark check-in as complete - this will show the success page
+        setCheckinComplete(true);
         setPhone("");
         setShowDisambiguation(false);
         setMatchingPeople([]);
-        if (!isAlreadyIn) {
+        
+        if (status !== "already_checked_in") {
           toast.success("Checked in successfully!");
         }
 
-        setShowDownloads(true);
-        setServiceUploads([]);
+        // Load downloads for the success page
         loadServiceDownloads(memberIdFromFn, visitorIdFromFn, userType);
         return;
       }
@@ -197,21 +456,14 @@ export default function SelfCheckin() {
       if (error) {
         console.error("get_downloads error", error);
         setServiceUploads([]);
-        setShowDownloads(true);
         return;
       }
 
       const uploads = (data as any)?.uploads as ServiceUpload[] | undefined;
       setServiceUploads(uploads || []);
-      setShowDownloads(true);
-
-      window.setTimeout(() => {
-        downloadsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
     } catch (err) {
       console.error("Error loading downloads:", err);
       setServiceUploads([]);
-      setShowDownloads(true);
     } finally {
       setLoadingDownloads(false);
     }
@@ -292,19 +544,6 @@ export default function SelfCheckin() {
     }
   };
 
-  const getTimeRemaining = (expiresAt: string) => {
-    const expiry = new Date(expiresAt);
-    const now = new Date();
-    if (expiry <= now) return null;
-    return formatDistanceToNow(expiry, { addSuffix: false });
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   const handleSelectPerson = (person: PersonMatch) => {
     handleCheckin(person.id, person.type);
   };
@@ -315,6 +554,7 @@ export default function SelfCheckin() {
     setPhone("");
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10">
@@ -323,6 +563,7 @@ export default function SelfCheckin() {
     );
   }
 
+  // Error state
   if (error || !service) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
@@ -345,6 +586,23 @@ export default function SelfCheckin() {
     );
   }
 
+  // Success page - shown after successful check-in
+  if (checkinComplete && service) {
+    return (
+      <CheckinSuccessPage
+        service={service}
+        userName={checkedInName}
+        serviceUploads={serviceUploads}
+        loadingDownloads={loadingDownloads}
+        onOpen={handleOpen}
+        onDownload={handleDownload}
+        downloading={downloading}
+        downloadProgress={downloadProgress}
+      />
+    );
+  }
+
+  // Check-in form page
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
       <div className="max-w-md mx-auto pt-8 space-y-6">
@@ -385,191 +643,102 @@ export default function SelfCheckin() {
               Enter your phone number to check in
             </p>
             
-            {!showDisambiguation ? (
-              <>
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Enter your phone number"
-                    value={phone}
-                    onChange={handlePhoneChange}
-                    onKeyDown={(e) => e.key === "Enter" && phone.length >= 9 && handleCheckin()}
-                    className="text-center text-xl font-mono tracking-wide h-14"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={15}
-                    disabled={checking}
-                  />
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  size="lg"
-                  onClick={() => handleCheckin()}
-                  disabled={phone.length < 9 || checking}
+            <AnimatePresence mode="wait">
+              {!showDisambiguation ? (
+                <motion.div
+                  key="phone-input"
+                  initial={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
                 >
-                  {checking ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Checking In...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Check In
-                    </>
-                  )}
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="text-center p-3 bg-secondary/50 rounded-lg">
-                  <Users className="w-6 h-6 mx-auto text-primary mb-2" />
-                  <p className="text-sm font-medium">Multiple matches found</p>
-                  <p className="text-xs text-muted-foreground">Please select your name below</p>
-                </div>
-                
-                <div className="space-y-2">
-                  {matchingPeople.map((person) => (
-                    <Button
-                      key={`${person.type}-${person.id}`}
-                      variant="outline"
-                      className="w-full justify-start h-auto py-3"
-                      onClick={() => handleSelectPerson(person)}
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Enter your phone number"
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      onKeyDown={(e) => e.key === "Enter" && phone.length >= 9 && handleCheckin()}
+                      className="text-center text-xl font-mono tracking-wide h-14"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={15}
                       disabled={checking}
-                    >
-                      <div className="text-left">
-                        <p className="font-medium">{person.full_name}</p>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={handleCancelDisambiguation}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Enter different number
-                </Button>
-              </div>
-            )}
+                    />
+                  </div>
 
-            {/* Result Message */}
-            {result && (
-              <div className={`p-4 rounded-lg text-center ${
-                result.success 
-                  ? "bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800"
-                  : "bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800"
-              }`}>
-                {result.success ? (
-                  <CheckCircle2 className="w-12 h-12 mx-auto text-green-600 mb-2" />
-                ) : (
-                  <XCircle className="w-12 h-12 mx-auto text-red-600 mb-2" />
-                )}
-                {result.name && (
-                  <p className="font-semibold text-lg text-foreground mb-1">
-                    Welcome, {result.name}!
-                  </p>
-                )}
-                <p className={result.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={() => handleCheckin()}
+                    disabled={phone.length < 9 || checking}
+                  >
+                    {checking ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Checking In...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Check In
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="disambiguation"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                    <Users className="w-6 h-6 mx-auto text-primary mb-2" />
+                    <p className="text-sm font-medium">Multiple matches found</p>
+                    <p className="text-xs text-muted-foreground">Please select your name below</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {matchingPeople.map((person) => (
+                      <Button
+                        key={`${person.type}-${person.id}`}
+                        variant="outline"
+                        className="w-full justify-start h-auto py-3"
+                        onClick={() => handleSelectPerson(person)}
+                        disabled={checking}
+                      >
+                        <div className="text-left">
+                          <p className="font-medium">{person.full_name}</p>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleCancelDisambiguation}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Enter different number
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Error Message */}
+            {result && !result.success && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-lg text-center bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800"
+              >
+                <XCircle className="w-12 h-12 mx-auto text-red-600 mb-2" />
+                <p className="text-red-700 dark:text-red-300">
                   {result.message}
                 </p>
-              </div>
-            )}
-
-            {/* Service Downloads Section */}
-            {showDownloads && (
-              <div ref={downloadsRef} className="space-y-3 border-t pt-4">
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-                  <div className="flex items-center gap-2 text-primary">
-                    <Download className={serviceUploads.length > 0 ? "w-5 h-5 animate-pulse" : "w-5 h-5"} />
-                    <h3 className="font-semibold">Service Downloads</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {serviceUploads.length > 0
-                      ? "Tap Open to view in your browser, or Download to save it. Available for 48 hours."
-                      : "No downloads available for this service."}
-                  </p>
-                </div>
-
-                {loadingDownloads && (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-
-                {!loadingDownloads && serviceUploads.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    No downloads available for this service.
-                  </p>
-                )}
-
-                {serviceUploads.map((upload) => {
-                  const timeRemaining = getTimeRemaining(upload.expires_at);
-
-                  return (
-                    <div key={upload.id} className="rounded-lg bg-secondary/50">
-                      <div className="flex items-center gap-3 p-3">
-                        {upload.upload_type === "program" ? (
-                          <FileText className="w-5 h-5 text-primary shrink-0" />
-                        ) : (
-                          <Music className="w-5 h-5 text-primary shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">
-                            {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{formatFileSize(upload.file_size)}</span>
-                            {timeRemaining && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {timeRemaining} left
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleOpen(upload)}
-                            disabled={downloading === upload.id}
-                          >
-                            <ArrowUpRight className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(upload)}
-                            disabled={downloading === upload.id}
-                          >
-                            {downloading === upload.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {downloading === upload.id && (
-                        <div className="px-3 pb-3 space-y-2">
-                          <Progress value={downloadProgress[upload.id] ?? 0} />
-                          <p className="text-[11px] text-muted-foreground text-right">
-                            {downloadProgress[upload.id] ?? 0}%
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              </motion.div>
             )}
 
             {!showDisambiguation && !result && (
