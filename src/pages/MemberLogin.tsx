@@ -7,6 +7,7 @@ import { Church, ArrowLeft, Eye, EyeOff, Phone, Lock, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { padPin } from "@/lib/pin-utils";
+import { checkRateLimit, recordFailedAttempt, clearRateLimit, formatLockoutTime } from "@/lib/security-utils";
 
 export default function MemberLogin() {
   const [memberCode, setMemberCode] = useState("");
@@ -44,6 +45,17 @@ export default function MemberLogin() {
       toast({
         title: "Invalid PIN",
         description: "Please enter your 4-digit PIN.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check rate limit
+    const rateLimitStatus = checkRateLimit(memberCode);
+    if (rateLimitStatus.isLocked) {
+      toast({
+        title: "Too many attempts",
+        description: `Account temporarily locked. Try again in ${formatLockoutTime(rateLimitStatus.remainingTime)}.`,
         variant: "destructive",
       });
       return;
@@ -94,14 +106,18 @@ export default function MemberLogin() {
       });
 
       if (signInError) {
+        const lockoutStatus = recordFailedAttempt(memberCode);
         toast({
           title: "Invalid credentials",
-          description: "The phone number or PIN is incorrect. Please try again.",
+          description: lockoutStatus.isLocked 
+            ? `Too many attempts. Try again in ${formatLockoutTime(lockoutStatus.remainingTime)}.`
+            : "The phone number or PIN is incorrect.",
           variant: "destructive",
         });
         return;
       }
 
+      clearRateLimit(memberCode);
       toast({
         title: "Welcome back!",
         description: `Logged in as ${result.member_name}`,

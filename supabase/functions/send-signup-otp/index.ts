@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateSecureOTP, hashOTP, addTimingJitter } from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -12,6 +13,29 @@ const corsHeaders = {
 interface SendOTPRequest {
   email: string;
   churchName: string;
+}
+
+// In-memory rate limiting (per-instance)
+const rateLimitMap = new Map<string, { count: number; firstAttempt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 3; // Max 3 requests per minute per email
+
+function checkRateLimit(email: string): boolean {
+  const now = Date.now();
+  const key = email.toLowerCase();
+  const record = rateLimitMap.get(key);
+  
+  if (!record || (now - record.firstAttempt) > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { count: 1, firstAttempt: now });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  record.count += 1;
+  return true;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -29,9 +53,21 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Check rate limit
+    if (!checkRateLimit(email)) {
+      await addTimingJitter();
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please wait a moment before trying again." }),
+        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Generate cryptographically secure 6-digit OTP
+    const otp = generateSecureOTP(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Hash the OTP before storing
+    const hashedOtp = await hashOTP(otp, email);
 
     // Store OTP in database
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -44,12 +80,12 @@ serve(async (req: Request): Promise<Response> => {
       .delete()
       .eq("email", email.toLowerCase());
 
-    // Insert new OTP
+    // Insert new hashed OTP
     const { error: insertError } = await supabase
       .from("signup_otps")
       .insert({
         email: email.toLowerCase(),
-        otp_code: otp,
+        otp_code: hashedOtp, // Store hashed, not plain text
         expires_at: expiresAt.toISOString(),
       });
 
@@ -102,8 +138,6 @@ serve(async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("OTP email response:", emailResponse);
-
     // Check if email was sent successfully
     if (emailResponse.error) {
       console.error("Resend error:", emailResponse.error);
@@ -120,13 +154,13 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "OTP sent successfully" }),
+      JSON.stringify({ success: true, message: "Verification code sent successfully" }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {
     console.error("Error in send-signup-otp:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to send OTP" }),
+      JSON.stringify({ error: "An error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

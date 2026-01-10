@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyOTP, addTimingJitter } from "../_shared/security.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,33 @@ interface VerifyAndResetRequest {
   email: string;
   otp: string;
   newPassword: string;
+}
+
+// In-memory rate limiting for OTP verification attempts
+const verifyAttempts = new Map<string, { count: number; firstAttempt: number }>();
+const VERIFY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const VERIFY_MAX_ATTEMPTS = 5; // Max 5 attempts per 15 minutes
+
+function checkVerifyRateLimit(email: string): { allowed: boolean; attemptsRemaining: number } {
+  const now = Date.now();
+  const key = email.toLowerCase();
+  const record = verifyAttempts.get(key);
+  
+  if (!record || (now - record.firstAttempt) > VERIFY_WINDOW_MS) {
+    verifyAttempts.set(key, { count: 1, firstAttempt: now });
+    return { allowed: true, attemptsRemaining: VERIFY_MAX_ATTEMPTS - 1 };
+  }
+  
+  if (record.count >= VERIFY_MAX_ATTEMPTS) {
+    return { allowed: false, attemptsRemaining: 0 };
+  }
+  
+  record.count += 1;
+  return { allowed: true, attemptsRemaining: VERIFY_MAX_ATTEMPTS - record.count };
+}
+
+function clearVerifyRateLimit(email: string): void {
+  verifyAttempts.delete(email.toLowerCase());
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -34,6 +62,16 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // Check rate limit for verification attempts
+    const { allowed, attemptsRemaining } = checkVerifyRateLimit(email);
+    if (!allowed) {
+      await addTimingJitter();
+      return new Response(
+        JSON.stringify({ error: "Too many verification attempts. Please try again later." }),
+        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -43,7 +81,6 @@ serve(async (req: Request): Promise<Response> => {
       .from("password_reset_otps")
       .select("*")
       .eq("email", email.toLowerCase())
-      .eq("otp_code", otp)
       .maybeSingle();
 
     if (fetchError) {
@@ -53,6 +90,9 @@ serve(async (req: Request): Promise<Response> => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
+
+    // Add timing jitter to prevent timing attacks on OTP existence
+    await addTimingJitter();
 
     if (!otpRecord) {
       return new Response(
@@ -75,6 +115,20 @@ serve(async (req: Request): Promise<Response> => {
     if (otpRecord.used) {
       return new Response(
         JSON.stringify({ error: "This code has already been used", valid: false }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify the OTP hash
+    const isValidOTP = await verifyOTP(otp, otpRecord.otp_code, email);
+    
+    if (!isValidOTP) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid verification code", 
+          valid: false,
+          attemptsRemaining 
+        }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -113,8 +167,11 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Mark OTP as used and delete it
+    // Delete OTP after successful use (single-use enforcement)
     await supabase.from("password_reset_otps").delete().eq("id", otpRecord.id);
+    
+    // Clear rate limit on success
+    clearVerifyRateLimit(email);
 
     return new Response(
       JSON.stringify({ success: true, message: "Password reset successfully" }),
@@ -123,7 +180,7 @@ serve(async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in verify-and-reset-password:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to reset password" }),
+      JSON.stringify({ error: "An error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

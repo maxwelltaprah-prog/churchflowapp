@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Church, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { checkRateLimit, recordFailedAttempt, clearRateLimit, formatLockoutTime } from "@/lib/security-utils";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,18 +19,45 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if email is rate limited
+    const rateLimitStatus = checkRateLimit(email);
+    if (rateLimitStatus.isLocked) {
+      toast({
+        title: "Too many attempts",
+        description: `Account temporarily locked. Please try again in ${formatLockoutTime(rateLimitStatus.remainingTime)}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       const { error } = await signIn(email, password);
       
       if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message || "Invalid email or password",
-          variant: "destructive",
-        });
+        // Record failed attempt
+        const lockoutStatus = recordFailedAttempt(email);
+        
+        if (lockoutStatus.isLocked) {
+          toast({
+            title: "Account temporarily locked",
+            description: `Too many failed attempts. Please try again in ${formatLockoutTime(lockoutStatus.remainingTime)}.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login failed",
+            description: lockoutStatus.attemptsRemaining <= 2 
+              ? `Invalid credentials. ${lockoutStatus.attemptsRemaining} attempts remaining.`
+              : "Invalid email or password",
+            variant: "destructive",
+          });
+        }
       } else {
+        // Clear rate limit on successful login
+        clearRateLimit(email);
         toast({
           title: "Welcome back!",
           description: "Redirecting to your dashboard...",
@@ -39,7 +67,7 @@ export default function Login() {
     } catch (error: any) {
       toast({
         title: "Login failed",
-        description: error.message || "Something went wrong",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {

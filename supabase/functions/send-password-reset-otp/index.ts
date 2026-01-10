@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateSecureOTP, hashOTP, addTimingJitter } from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -11,6 +12,29 @@ const corsHeaders = {
 
 interface SendResetOTPRequest {
   email: string;
+}
+
+// In-memory rate limiting (per-instance, resets on cold start)
+const rateLimitMap = new Map<string, { count: number; firstAttempt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 3; // Max 3 requests per minute per email
+
+function checkRateLimit(email: string): boolean {
+  const now = Date.now();
+  const key = email.toLowerCase();
+  const record = rateLimitMap.get(key);
+  
+  if (!record || (now - record.firstAttempt) > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { count: 1, firstAttempt: now });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  record.count += 1;
+  return true;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -28,6 +52,16 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // Check rate limit
+    if (!checkRateLimit(email)) {
+      // Add timing jitter to prevent timing attacks
+      await addTimingJitter();
+      return new Response(
+        JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -37,6 +71,8 @@ serve(async (req: Request): Promise<Response> => {
     
     if (userError) {
       console.error("Error checking user:", userError);
+      // Add timing jitter before returning
+      await addTimingJitter();
       // Don't reveal if user exists or not for security
       return new Response(
         JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
@@ -47,6 +83,8 @@ serve(async (req: Request): Promise<Response> => {
     const userExists = userData.users.some(u => u.email?.toLowerCase() === email.toLowerCase());
     
     if (!userExists) {
+      // Add timing jitter to match successful case timing
+      await addTimingJitter(200, 400);
       // Don't reveal that user doesn't exist for security
       return new Response(
         JSON.stringify({ success: true, message: "If this email exists, a reset code has been sent" }),
@@ -54,9 +92,12 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit OTP
+    const otp = generateSecureOTP(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Hash the OTP before storing (use email as salt)
+    const hashedOtp = await hashOTP(otp, email);
 
     // Delete any existing reset OTP for this email
     await supabase
@@ -64,12 +105,12 @@ serve(async (req: Request): Promise<Response> => {
       .delete()
       .eq("email", email.toLowerCase());
 
-    // Insert new OTP
+    // Insert new hashed OTP
     const { error: insertError } = await supabase
       .from("password_reset_otps")
       .insert({
         email: email.toLowerCase(),
-        otp_code: otp,
+        otp_code: hashedOtp, // Store hashed, not plain text
         expires_at: expiresAt.toISOString(),
       });
 
@@ -81,9 +122,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Send OTP email
-    // NOTE: Resend requires a verified sending domain for custom FROM addresses.
-    // We default to Resend's testing domain unless you configure RESEND_FROM.
+    // Send OTP email (send plain OTP to user, store hash)
     const fromAddress = Deno.env.get("RESEND_FROM") || "ChurchFlow <onboarding@resend.dev>";
 
     const emailResponse = await resend.emails.send({
@@ -124,8 +163,6 @@ serve(async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Reset OTP email response:", emailResponse);
-
     // Check if email was sent successfully
     if (emailResponse.error) {
       console.error("Resend error:", emailResponse.error);
@@ -148,7 +185,7 @@ serve(async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in send-password-reset-otp:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to send reset code" }),
+      JSON.stringify({ error: "An error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
