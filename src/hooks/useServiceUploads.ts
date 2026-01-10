@@ -55,12 +55,31 @@ export function useUploadServiceFile() {
     }) => {
       if (!profile?.church_id) throw new Error("No church context");
 
-      // Validate file size for sermon audio (50MB limit)
-      if (uploadType === "sermon_audio" && file.size > 50 * 1024 * 1024) {
+      // Blocked extensions (always reject regardless of MIME)
+      const blockedExtensions = [
+        ".exe", ".dll", ".bat", ".cmd", ".msi", ".scr", ".pif",
+        ".js", ".jsx", ".ts", ".tsx", ".vbs", ".ps1", ".sh", ".py", ".rb",
+        ".html", ".htm", ".svg", ".php", ".asp", ".jsp",
+        ".jar", ".class", ".hta", ".lnk",
+      ];
+      
+      const fileExt = ("." + (file.name.split(".").pop() || "")).toLowerCase();
+      if (blockedExtensions.includes(fileExt)) {
+        throw new Error(`File type "${fileExt}" is not allowed for security reasons`);
+      }
+
+      // File size limits
+      const maxProgramSize = 10 * 1024 * 1024; // 10MB for programs
+      const maxAudioSize = 50 * 1024 * 1024;   // 50MB for audio
+      
+      if (uploadType === "program" && file.size > maxProgramSize) {
+        throw new Error("File size exceeds 10MB limit for programs");
+      }
+      if (uploadType === "sermon_audio" && file.size > maxAudioSize) {
         throw new Error("File size exceeds 50MB limit");
       }
 
-      // Validate file types
+      // Validate MIME types
       const allowedProgram = ["application/pdf", "image/jpeg", "image/png"];
       const allowedAudio = ["audio/mpeg", "audio/mp3"];
 
@@ -72,9 +91,20 @@ export function useUploadServiceFile() {
         throw new Error("Invalid file type. Allowed: MP3");
       }
 
-      // Generate storage path
-      const fileExt = file.name.split(".").pop();
-      const storagePath = `${profile.church_id}/${serviceId}/${uploadType}.${fileExt}`;
+      // Validate extension matches upload type
+      const validProgramExts = [".pdf", ".jpg", ".jpeg", ".png"];
+      const validAudioExts = [".mp3"];
+      
+      if (uploadType === "program" && !validProgramExts.includes(fileExt)) {
+        throw new Error("File extension does not match allowed types");
+      }
+      if (uploadType === "sermon_audio" && !validAudioExts.includes(fileExt)) {
+        throw new Error("File extension does not match allowed types");
+      }
+
+      // Sanitize filename for storage path
+      const sanitizedExt = fileExt.replace(/[^a-z0-9.]/gi, "");
+      const storagePath = `${profile.church_id}/${serviceId}/${uploadType}${sanitizedExt}`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
