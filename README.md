@@ -60,6 +60,30 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Security
+
+### Dependency Auditing
+
+```bash
+# Run security audit
+npm audit
+
+# Production dependencies only
+npm audit --omit=dev
+
+# Full audit script
+bash scripts/security-audit.sh
+```
+
+See [Dependency Security Guide](./docs/DEPENDENCY_SECURITY.md) for full details.
+
+### Security Documentation
+
+- [Deployment Security Checklist](./docs/DEPLOYMENT_SECURITY_CHECKLIST.md)
+- [Secrets Management](./docs/SECRETS_MANAGEMENT.md)
+- [API Security](./docs/API_SECURITY.md)
+- [Auth Security](./docs/AUTH_SECURITY.md)
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
