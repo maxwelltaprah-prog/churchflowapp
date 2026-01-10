@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link } from "react-router-dom";
@@ -148,32 +148,21 @@ export function DashboardFilterBar({
     }
   };
 
-  // Toggle service selection
-  const toggleService = (serviceId: string) => {
-    const isSelected = selectedServiceIds.includes(serviceId);
-    if (isSelected) {
-      onServiceChange(selectedServiceIds.filter(id => id !== serviceId));
-    } else {
-      onServiceChange([...selectedServiceIds, serviceId]);
-    }
+  // Select a single service
+  const selectService = (serviceId: string) => {
+    onServiceChange([serviceId]);
+    setServicePickerOpen(false);
   };
 
-  const clearAllServices = () => {
+  const clearService = () => {
     onServiceChange([]);
   };
 
-  const selectAllServices = () => {
-    onServiceChange(services.map(s => s.id));
-  };
-
-  // Service count label
+  // Service label for single select
   const serviceLabel = useMemo(() => {
     if (selectedServiceIds.length === 0) return "All Services";
-    if (selectedServiceIds.length === 1) {
-      const service = services.find(s => s.id === selectedServiceIds[0]);
-      return service ? service.name : "1 Service";
-    }
-    return `${selectedServiceIds.length} Services`;
+    const service = services.find(s => s.id === selectedServiceIds[0]);
+    return service ? formatServiceDisplay(service) : "1 Service";
   }, [selectedServiceIds, services]);
 
   return (
@@ -184,30 +173,35 @@ export function DashboardFilterBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* Primary: Service Filter (most important) */}
+        {/* Primary: Service Filter (single select) */}
         <Popover open={servicePickerOpen} onOpenChange={setServicePickerOpen}>
           <PopoverTrigger asChild>
-            <Button variant="default" className="w-[220px] justify-start text-left font-normal">
+            <Button variant="default" className="w-[280px] justify-start text-left font-normal">
               <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="truncate">{serviceLabel}</span>
               {selectedServiceIds.length > 0 && (
-                <Badge variant="secondary" className="ml-auto bg-primary-foreground/20">
-                  {selectedServiceIds.length}
-                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-5 w-5 p-0 hover:bg-primary-foreground/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearService();
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[320px] p-0" align="start">
             <div className="flex items-center justify-between p-3 border-b">
-              <span className="text-sm font-medium">Select Service(s)</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={selectAllServices} disabled={services.length === 0}>
-                  Select All
-                </Button>
-                <Button variant="ghost" size="sm" onClick={clearAllServices} disabled={selectedServiceIds.length === 0}>
+              <span className="text-sm font-medium">Select a Service</span>
+              {selectedServiceIds.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearService}>
                   Clear
                 </Button>
-              </div>
+              )}
             </div>
             <ScrollArea className="h-[280px]">
               {isServicesLoading ? (
@@ -221,14 +215,20 @@ export function DashboardFilterBar({
                       key={service.id}
                       className={cn(
                         "flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
-                        selectedServiceIds.includes(service.id) && "bg-muted"
+                        selectedServiceIds.includes(service.id) && "bg-primary/10 border border-primary/20"
                       )}
-                      onClick={() => toggleService(service.id)}
+                      onClick={() => selectService(service.id)}
                     >
-                      <Checkbox
-                        checked={selectedServiceIds.includes(service.id)}
-                        onCheckedChange={() => toggleService(service.id)}
-                      />
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                        selectedServiceIds.includes(service.id) 
+                          ? "border-primary bg-primary" 
+                          : "border-muted-foreground/30"
+                      )}>
+                        {selectedServiceIds.includes(service.id) && (
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{service.name}</p>
                         <p className="text-xs text-muted-foreground truncate">
