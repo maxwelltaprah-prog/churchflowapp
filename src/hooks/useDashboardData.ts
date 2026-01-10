@@ -1324,7 +1324,7 @@ export function useDashboardServicesInDateRange(startDate: Date, endDate: Date, 
 
       let query = supabase
         .from("services")
-        .select("id, name, service_date, start_time, branch_id, branches(name)")
+        .select("id, name, service_date, start_time, branch_id, created_at, branches(name)")
         .eq("church_id", profile.church_id)
         .eq("is_active", true)
         .gte("service_date", format(startDate, "yyyy-MM-dd"))
@@ -1343,6 +1343,7 @@ export function useDashboardServicesInDateRange(startDate: Date, endDate: Date, 
         service_date: s.service_date,
         start_time: s.start_time,
         branch_id: s.branch_id,
+        created_at: s.created_at,
         branchName: (s.branches as any)?.name || undefined,
       }));
     },

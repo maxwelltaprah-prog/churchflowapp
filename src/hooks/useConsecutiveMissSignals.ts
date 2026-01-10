@@ -40,19 +40,20 @@ export interface ConsecutiveMissSignals {
  * and members who returned after being in that category.
  * 
  * Key logic:
- * - Service 1 = most recently created service (reference only)
+ * - Service 1 = reference service (most recent selected, or most recently created)
  * - Services 2, 3, 4 = the 3 services created before service 1
  * - "Missed 3+" = members who missed services 2, 3, 4 (regardless of service 1 attendance)
  * - "Returnee" = members who missed services 2, 3, 4 BUT attended service 1
  * 
- * @param branchId - Optional branch filter for members (not services)
+ * @param branchId - Optional branch filter for members and services
+ * @param referenceServiceId - Optional service to use as Service 1 (reference point)
  */
-export function useConsecutiveMissSignals(branchId?: string) {
+export function useConsecutiveMissSignals(branchId?: string, referenceServiceId?: string) {
   const { profile } = useAuth();
   const { accessibleBranchIds, isLoading: accessLoading } = useBranchAccess();
 
   return useQuery({
-    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, accessibleBranchIds],
+    queryKey: ["consecutive-miss-signals", profile?.church_id, branchId, referenceServiceId, accessibleBranchIds],
     queryFn: async (): Promise<ConsecutiveMissSignals> => {
       if (!profile?.church_id) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
@@ -62,31 +63,68 @@ export function useConsecutiveMissSignals(branchId?: string) {
         return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
       }
 
-      // 1. Get the 4 most recently CREATED services (ordered by created_at descending)
-      // When branchId is specified, only consider services from that branch
-      // This ensures members are checked against their own branch's services
-      let servicesQuery = supabase
-        .from("services")
-        .select("id, service_date, branch_id, created_at")
-        .eq("church_id", profile.church_id)
-        .eq("is_active", true);
-      
-      // Filter services by branch if specified
-      if (branchId) {
-        servicesQuery = servicesQuery.eq("branch_id", branchId);
-      }
-      
-      const { data: last4Services } = await servicesQuery
-        .order("created_at", { ascending: false })
-        .limit(4);
+      let mostRecentService: { id: string; service_date: string; branch_id: string; created_at: string } | null = null;
+      let services234: { id: string; service_date: string; branch_id: string; created_at: string }[] = [];
 
-      // Need at least 4 created services to evaluate (1 reference + 3 to check)
-      if (!last4Services || last4Services.length < 4) {
-        return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
+      if (referenceServiceId) {
+        // Use the specified service as Service 1 (reference)
+        const { data: refService } = await supabase
+          .from("services")
+          .select("id, service_date, branch_id, created_at")
+          .eq("id", referenceServiceId)
+          .maybeSingle();
+
+        if (!refService) {
+          return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
+        }
+
+        mostRecentService = refService;
+
+        // Get the 3 services created BEFORE the reference service (same branch)
+        let prevServicesQuery = supabase
+          .from("services")
+          .select("id, service_date, branch_id, created_at")
+          .eq("church_id", profile.church_id)
+          .eq("is_active", true)
+          .lt("created_at", refService.created_at);
+
+        if (branchId) {
+          prevServicesQuery = prevServicesQuery.eq("branch_id", branchId);
+        }
+
+        const { data: prevServices } = await prevServicesQuery
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (!prevServices || prevServices.length < 3) {
+          return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
+        }
+
+        services234 = prevServices;
+      } else {
+        // Default: use the 4 most recently created services
+        let servicesQuery = supabase
+          .from("services")
+          .select("id, service_date, branch_id, created_at")
+          .eq("church_id", profile.church_id)
+          .eq("is_active", true);
+
+        if (branchId) {
+          servicesQuery = servicesQuery.eq("branch_id", branchId);
+        }
+
+        const { data: last4Services } = await servicesQuery
+          .order("created_at", { ascending: false })
+          .limit(4);
+
+        if (!last4Services || last4Services.length < 4) {
+          return { missedCount: 0, returneeCount: 0, missedMembers: [], returnees: [] };
+        }
+
+        mostRecentService = last4Services[0];
+        services234 = last4Services.slice(1, 4);
       }
 
-      const mostRecentService = last4Services[0]; // Service 1 (reference)
-      const services234 = last4Services.slice(1, 4); // Services 2, 3, 4
       const services234Ids = services234.map(s => s.id);
       const mostRecentServiceId = mostRecentService.id;
 

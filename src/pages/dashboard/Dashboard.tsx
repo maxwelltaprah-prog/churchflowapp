@@ -104,12 +104,25 @@ export default function Dashboard() {
     return uniqueBranches.length === 1 ? uniqueBranches[0] : undefined;
   }, [branchId, servicesInRange, serviceIds]);
 
+  // Derive reference service for engagement signals (most recent selected service by created_at)
+  const referenceServiceId = useMemo(() => {
+    if (!servicesInRange || serviceIds.length === 0) return undefined;
+    
+    // Get selected services sorted by created_at descending
+    const selectedServices = servicesInRange
+      .filter(s => serviceIds.includes(s.id))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // Return the most recently created selected service
+    return selectedServices.length > 0 ? selectedServices[0].id : undefined;
+  }, [servicesInRange, serviceIds]);
+
   // All dashboard data hooks - pass only serviceIds (service-driven filtering)
   // The dateRange is only used to determine which services are available
   const { data: kpis, isLoading: kpisLoading, refetch } = useTodayKPIs(branchId, serviceIds);
   const { data: checkinTrend, isLoading: trendLoading } = useCheckinTrend(branchId, serviceIds);
   const { data: attendTrend } = useAttendanceTrend(branchId, serviceIds);
-  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(effectiveBranchId);
+  const { data: engagement, isLoading: engagementLoading } = useConsecutiveMissSignals(effectiveBranchId, referenceServiceId);
   const { data: branchOps } = useBranchOperations(dateRange);
   const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
@@ -301,7 +314,7 @@ export default function Dashboard() {
       {/* SECTION 3-6: Metrics Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Engagement Signals - Clickable */}
-        <Link to={`/app/analytics/engagement${effectiveBranchId ? `?branch=${effectiveBranchId}` : ""}`}>
+        <Link to={`/app/analytics/engagement${effectiveBranchId || referenceServiceId ? '?' : ''}${effectiveBranchId ? `branch=${effectiveBranchId}` : ''}${effectiveBranchId && referenceServiceId ? '&' : ''}${referenceServiceId ? `service=${referenceServiceId}` : ''}`}>
           <Card className="hover:scale-[1.02] transition-all cursor-pointer h-full border-0 bg-gradient-to-br from-kpi-rose/5 to-kpi-teal/5">
             <CardHeader className="pb-3">
               <SectionHeader 
