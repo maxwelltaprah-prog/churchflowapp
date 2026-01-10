@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { authorizeRequest, authErrorResponse, getServiceClient, corsHeaders } from "../_shared/authorization.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,30 +7,39 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const smsApiKey = Deno.env.get("BULKSMSGH_API_KEY");
+    // SECURITY: Authorize request and derive churchId from authenticated user
+    const authResult = await authorizeRequest(req, {
+      requireRole: ["church_admin", "branch_admin"], // Only admins can resend SMS
+    });
 
+    if (!authResult.success) {
+      return authErrorResponse(authResult.error!, authResult.status!);
+    }
+
+    const authorizedUser = authResult.user!;
+    const churchId = authorizedUser.churchId; // SECURE: Derived from auth, not request body
+
+    const smsApiKey = Deno.env.get("BULKSMSGH_API_KEY");
     if (!smsApiKey) {
       throw new Error("BulkSMSGH API key not configured");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { churchId, campaignId } = await req.json();
+    const supabase = getServiceClient();
+    const { campaignId } = await req.json();
 
     console.log("Resending failed SMS for campaign:", campaignId);
 
-    // Get campaign details
+    // SECURITY: Get campaign and verify it belongs to user's church
     const { data: campaign, error: campaignError } = await supabase
       .from("sms_campaigns")
       .select("*")
       .eq("id", campaignId)
-      .eq("church_id", churchId)
+      .eq("church_id", churchId) // SECURE: Verify ownership via derived churchId
       .single();
 
     if (campaignError || !campaign) {
-      throw new Error("Campaign not found");
+      // Don't reveal if campaign exists for another church
+      return authErrorResponse("Campaign not found or access denied", 403);
     }
 
     // Get failed jobs for this campaign
@@ -43,6 +47,7 @@ serve(async (req) => {
       .from("sms_jobs")
       .select("*")
       .eq("campaign_id", campaignId)
+      .eq("church_id", churchId) // SECURE: Double-check ownership
       .eq("status", "failed");
 
     if (jobsError) throw jobsError;
@@ -60,7 +65,7 @@ serve(async (req) => {
     const { data: church } = await supabase
       .from("churches")
       .select("name, settings")
-      .eq("id", churchId)
+      .eq("id", churchId) // SECURE: Uses derived churchId
       .single();
 
     // Determine sender ID
@@ -86,7 +91,6 @@ serve(async (req) => {
 
     for (const job of failedJobs) {
       try {
-        // Format phone number
         let phone = job.phone_number.replace(/\s+/g, "");
         phone = phone.replace(/^\+/, "");
         if (phone.startsWith("0")) {
@@ -96,7 +100,6 @@ serve(async (req) => {
           phone = "233" + phone;
         }
 
-        // Build BulkSMSGH API URL
         const smsUrl = new URL("https://clientlogin.bulksmsgh.com/smsapi");
         smsUrl.searchParams.append("key", smsApiKey);
         smsUrl.searchParams.append("to", phone);
@@ -109,7 +112,6 @@ serve(async (req) => {
         const responseText = await smsResponse.text();
         console.log("BulkSMSGH Response:", responseText);
 
-        // Parse response
         let isSuccess = false;
         let providerMessageId = "";
         let errorMessage = "SMS sending failed";

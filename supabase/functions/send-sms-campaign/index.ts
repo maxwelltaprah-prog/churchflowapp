@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { authorizeRequest, authErrorResponse, getServiceClient, corsHeaders } from "../_shared/authorization.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,19 +8,27 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const smsApiKey = Deno.env.get("BULKSMSGH_API_KEY");
+    // SECURITY: Authorize request and derive churchId from authenticated user
+    const authResult = await authorizeRequest(req, {
+      requireRole: ["church_admin", "branch_admin"], // Only admins can send SMS campaigns
+    });
 
+    if (!authResult.success) {
+      return authErrorResponse(authResult.error!, authResult.status!);
+    }
+
+    const authorizedUser = authResult.user!;
+    const churchId = authorizedUser.churchId; // SECURE: Derived from auth, not request body
+    const userId = authorizedUser.userId;
+
+    const smsApiKey = Deno.env.get("BULKSMSGH_API_KEY");
     if (!smsApiKey) {
       throw new Error("BulkSMSGH API key not configured");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const {
-      churchId,
-      userId,
       audienceType,
       audienceGroupIds,
       audienceMemberIds,
@@ -45,14 +49,14 @@ serve(async (req) => {
 
     console.log("Using sender ID:", smsSenderId);
 
-    // Get recipients based on audience type
+    // Get recipients based on audience type - ALL QUERIES SCOPED TO churchId
     let recipients: { id: string; full_name: string; phone: string }[] = [];
 
     if (audienceType === "all_members") {
       const { data, error } = await supabase
         .from("members")
         .select("id, full_name, phone")
-        .eq("church_id", churchId)
+        .eq("church_id", churchId) // SECURE: Uses derived churchId
         .eq("is_active", true)
         .eq("approval_status", "approved")
         .not("phone", "is", null);
@@ -60,10 +64,24 @@ serve(async (req) => {
       if (error) throw error;
       recipients = data || [];
     } else if (audienceType === "group" && audienceGroupIds?.length) {
+      // SECURITY: Verify groups belong to this church before fetching members
+      const { data: groups, error: groupsError } = await supabase
+        .from("groups")
+        .select("id")
+        .in("id", audienceGroupIds)
+        .eq("church_id", churchId); // SECURE: Verify group ownership
+
+      if (groupsError) throw groupsError;
+      
+      const validGroupIds = (groups || []).map(g => g.id);
+      if (validGroupIds.length === 0) {
+        throw new Error("No valid groups found for this church");
+      }
+
       const { data: memberGroups, error } = await supabase
         .from("member_groups")
         .select("member_id")
-        .in("group_id", audienceGroupIds);
+        .in("group_id", validGroupIds);
 
       if (error) throw error;
 
@@ -74,6 +92,7 @@ serve(async (req) => {
           .from("members")
           .select("id, full_name, phone")
           .in("id", memberIds)
+          .eq("church_id", churchId) // SECURE: Double-check church ownership
           .eq("is_active", true)
           .eq("approval_status", "approved")
           .not("phone", "is", null);
@@ -86,23 +105,37 @@ serve(async (req) => {
         .from("members")
         .select("id, full_name, phone")
         .in("id", audienceMemberIds)
+        .eq("church_id", churchId) // SECURE: Verify members belong to church
         .not("phone", "is", null);
 
       if (error) throw error;
       recipients = data || [];
     } else if (audienceType === "visitor" && visitorPhone) {
-      // Handle single visitor SMS
+      // SECURITY: If visitorId provided, verify visitor belongs to church
+      if (audienceVisitorIds?.[0]) {
+        const { data: visitor, error: visitorError } = await supabase
+          .from("visitors")
+          .select("id")
+          .eq("id", audienceVisitorIds[0])
+          .eq("church_id", churchId)
+          .single();
+
+        if (visitorError || !visitor) {
+          throw new Error("Visitor not found or access denied");
+        }
+      }
+      
       recipients = [{
         id: audienceVisitorIds?.[0] || "visitor",
         full_name: visitorName || "Visitor",
         phone: visitorPhone,
       }];
     } else if (audienceType === "visitors" && audienceVisitorIds?.length) {
-      // Handle multiple visitors
       const { data, error } = await supabase
         .from("visitors")
         .select("id, first_name, last_name, phone")
         .in("id", audienceVisitorIds)
+        .eq("church_id", churchId) // SECURE: Verify visitors belong to church
         .not("phone", "is", null);
 
       if (error) throw error;
@@ -154,8 +187,8 @@ serve(async (req) => {
     const { data: campaign, error: campaignError } = await supabase
       .from("sms_campaigns")
       .insert({
-        church_id: churchId,
-        created_by: userId,
+        church_id: churchId, // SECURE: Uses derived churchId
+        created_by: userId, // SECURE: Uses authenticated userId
         audience_type: audienceType,
         audience_group_ids: audienceGroupIds || [],
         audience_member_ids: audienceMemberIds || [],
@@ -175,17 +208,15 @@ serve(async (req) => {
     const isVisitorCampaign = audienceType === "visitor" || audienceType === "visitors";
     
     const jobs = uniqueRecipients.map((recipient) => {
-      // Get first name for personalization
       const firstName = recipient.full_name.split(" ")[0] || "Friend";
-      // If useFirstName is enabled, prepend the greeting
       const personalizedMessage = useFirstName 
         ? `Hi ${firstName}, ${messageBody}`
         : messageBody;
 
       return {
-        church_id: churchId,
+        church_id: churchId, // SECURE: Uses derived churchId
         campaign_id: campaign.id,
-        member_id: isVisitorCampaign ? null : recipient.id, // null for visitors since they're not members
+        member_id: isVisitorCampaign ? null : recipient.id,
         member_name: recipient.full_name,
         phone_number: recipient.phone,
         personalized_message: personalizedMessage,
@@ -207,20 +238,15 @@ serve(async (req) => {
       
       const sendPromises = batch.map(async (job) => {
         try {
-          // Format phone number - BulkSMSGH expects format like 233XXXXXXXXX or 0XXXXXXXXX
           let phone = job.phone_number.replace(/\s+/g, "");
-          // Remove leading + if present
           phone = phone.replace(/^\+/, "");
-          // If starts with 0, convert to 233 format
           if (phone.startsWith("0")) {
             phone = "233" + phone.substring(1);
           }
-          // If doesn't start with 233, add it
           if (!phone.startsWith("233")) {
             phone = "233" + phone;
           }
 
-          // Build BulkSMSGH API URL
           const smsUrl = new URL("https://clientlogin.bulksmsgh.com/smsapi");
           smsUrl.searchParams.append("key", smsApiKey);
           smsUrl.searchParams.append("to", phone);
@@ -229,16 +255,10 @@ serve(async (req) => {
 
           console.log(`Sending SMS to ${phone} via BulkSMSGH`);
 
-          const smsResponse = await fetch(smsUrl.toString(), {
-            method: "GET",
-          });
-
+          const smsResponse = await fetch(smsUrl.toString(), { method: "GET" });
           const responseText = await smsResponse.text();
           console.log("BulkSMSGH Response:", responseText);
 
-          // BulkSMSGH returns JSON response like:
-          // {"success":true,"code":1000,"data":{...},"message":"message submitted succesfully"}
-          // or {"success":false,"code":1006,"data":{...},"message":"invalid sender id..."}
           let isSuccess = false;
           let providerMessageId = "";
           let errorMessage = "SMS sending failed";
@@ -251,7 +271,6 @@ serve(async (req) => {
               errorMessage = jsonResponse.message || "SMS sending failed";
             }
           } catch {
-            // Fallback: some older responses may be plain text
             isSuccess = smsResponse.ok && /^\d+$/.test(responseText.trim()) && parseInt(responseText.trim()) >= 1000;
             providerMessageId = responseText.trim();
             if (!isSuccess) {
@@ -309,7 +328,7 @@ serve(async (req) => {
       })
       .eq("id", campaign.id);
 
-    // Deduct complementary SMS for successful sends (only for eligible tiers)
+    // Deduct complementary SMS for successful sends
     if (isEligibleForComplementary && sentCount > 0) {
       const { data: deductResult, error: deductError } = await supabase
         .rpc("deduct_complementary_sms", { 

@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { authorizeRequest, authErrorResponse, getServiceClient, corsHeaders } from "../_shared/authorization.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,11 +7,20 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // SECURITY: Authorize request and derive churchId from authenticated user
+    const authResult = await authorizeRequest(req, {
+      requireRole: ["church_admin", "branch_admin"], // Only admins can manage SMS wallet
+    });
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, churchId, credits, purchaseId } = await req.json();
+    if (!authResult.success) {
+      return authErrorResponse(authResult.error!, authResult.status!);
+    }
+
+    const authorizedUser = authResult.user!;
+    const churchId = authorizedUser.churchId; // SECURE: Derived from auth, not request body
+
+    const supabase = getServiceClient();
+    const { action, credits, purchaseId } = await req.json();
 
     console.log("Wallet action:", action, "churchId:", churchId);
 
@@ -25,7 +29,7 @@ serve(async (req) => {
       const { data: existing } = await supabase
         .from("sms_wallets")
         .select("*")
-        .eq("church_id", churchId)
+        .eq("church_id", churchId) // SECURE: Uses derived churchId
         .maybeSingle();
 
       if (existing) {
@@ -39,7 +43,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from("sms_wallets")
         .insert({
-          church_id: churchId,
+          church_id: churchId, // SECURE: Uses derived churchId
           balance_credits: 0,
           low_balance_threshold: 50,
         })
@@ -55,11 +59,23 @@ serve(async (req) => {
     }
 
     if (action === "add_credits") {
-      // Add credits to wallet (called after payment verification)
+      // SECURITY: Verify purchase belongs to this church before adding credits
+      if (purchaseId) {
+        const { data: purchase, error: purchaseError } = await supabase
+          .from("sms_credit_purchases")
+          .select("church_id")
+          .eq("id", purchaseId)
+          .single();
+
+        if (purchaseError || !purchase || purchase.church_id !== churchId) {
+          return authErrorResponse("Purchase not found or access denied", 403);
+        }
+      }
+
       const { data: wallet, error: walletError } = await supabase
         .from("sms_wallets")
         .select("*")
-        .eq("church_id", churchId)
+        .eq("church_id", churchId) // SECURE: Uses derived churchId
         .single();
 
       if (walletError) throw walletError;
@@ -70,7 +86,7 @@ serve(async (req) => {
           balance_credits: wallet.balance_credits + credits,
           updated_at: new Date().toISOString(),
         })
-        .eq("church_id", churchId)
+        .eq("church_id", churchId) // SECURE: Uses derived churchId
         .select()
         .single();
 
@@ -81,7 +97,8 @@ serve(async (req) => {
         await supabase
           .from("sms_credit_purchases")
           .update({ status: "success" })
-          .eq("id", purchaseId);
+          .eq("id", purchaseId)
+          .eq("church_id", churchId); // SECURE: Double-check ownership
       }
 
       return new Response(
@@ -94,7 +111,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from("sms_wallets")
         .select("*")
-        .eq("church_id", churchId)
+        .eq("church_id", churchId) // SECURE: Uses derived churchId
         .single();
 
       if (error) throw error;
@@ -108,7 +125,7 @@ serve(async (req) => {
     throw new Error("Invalid action");
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Wallet Error:", error);
+    console.error("SMS Wallet Error:", error);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
