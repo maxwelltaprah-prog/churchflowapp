@@ -312,10 +312,6 @@ export default function MemberProfilePage() {
                 <p className="text-sm text-muted-foreground">Occupation</p>
                 <p className="font-medium capitalize">{member.occupation?.replace("_", " ") || "—"}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Member Type</p>
-                <p className="font-medium capitalize">{member.member_type || "—"}</p>
-              </div>
             </div>
 
             {/* Groups */}
@@ -342,13 +338,6 @@ export default function MemberProfilePage() {
               </div>
             )}
 
-            {/* Baptism Status */}
-            {member.is_baptized !== null && (
-              <div>
-                <p className="text-sm text-muted-foreground">Baptized</p>
-                <p className="font-medium">{member.is_baptized ? "Yes" : "No"}</p>
-              </div>
-            )}
 
             {/* How Heard */}
             {member.how_heard && (
