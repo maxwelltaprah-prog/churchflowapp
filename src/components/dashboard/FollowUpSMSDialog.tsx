@@ -88,14 +88,14 @@ export function FollowUpSMSDialog({ open, onOpenChange, person }: FollowUpSMSDia
           notes: `SMS sent: ${firstName}`,
         });
       } else {
-        // Send SMS to member
+        // Send SMS to member - use "individual" audienceType to match edge function
         await sendSMS.mutateAsync({
-          audienceType: "selected",
+          audienceType: "individual",
           audienceMemberIds: [person.id],
           audienceVisitorIds: [],
           messageBody: personalizedMessage,
           recipientCount: 1,
-          useFirstName: true,
+          useFirstName: false, // Already personalized above
         });
       }
 
