@@ -62,16 +62,17 @@ export function isAllowedOrigin(origin: string | null): boolean {
   
   // In development, allow localhost
   if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+    // Only allow localhost in explicitly non-production environments
+    const isProduction = Deno.env.get("ENVIRONMENT") === "production";
+    if (isProduction) {
+      // NEVER allow localhost in production - this is a security requirement
+      console.warn(`[CORS] Blocked localhost origin in production: ${origin}`);
+      return false;
+    }
+    
     const isDev = Deno.env.get("ENVIRONMENT") === "development" || 
                   Deno.env.get("DENO_ENV") === "development";
-    if (isDev) {
-      return true;
-    }
-    // Also allow in non-production for easier development
-    const isProduction = Deno.env.get("ENVIRONMENT") === "production";
-    if (!isProduction) {
-      return true;
-    }
+    return isDev || !isProduction;
   }
   
   return false;
