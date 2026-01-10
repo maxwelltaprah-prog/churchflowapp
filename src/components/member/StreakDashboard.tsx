@@ -171,6 +171,7 @@ export function StreakDashboard({ stats, attendanceDates, services, attendedServ
         streak={streak}
         totalAttendance={stats?.totalAttendance || 0}
         longestStreak={stats?.longestStreak || 0}
+        thisMonthCount={stats?.thisMonthCount || 0}
         memberName={memberName}
         churchName={churchName}
       />
