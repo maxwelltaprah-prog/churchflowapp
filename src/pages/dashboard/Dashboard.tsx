@@ -15,8 +15,9 @@ import {
   useTodayKPIs, useCheckinTrend, useAttendanceTrend,
   useMemberVisitorBreakdown, useBranchOperations,
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
-  useFollowUpList, useDashboardServicesInDateRange
+  useDashboardServicesInDateRange
 } from "@/hooks/useDashboardData";
+import { useNewPeopleToFollowUpCombined, FollowUpPersonType } from "@/hooks/useNewPeopleToFollowUp";
 import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
 import { useBirthdayData } from "@/hooks/useBirthdayData";
 import { useAnniversaryData } from "@/hooks/useAnniversaryData";
@@ -27,6 +28,32 @@ import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
 import { startOfMonth, format, parseISO, isToday } from "date-fns";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
+
+// Badge component for follow-up person types
+function FollowUpTypeBadge({ type, metadata }: { type: FollowUpPersonType; metadata?: { previousVisits?: number; missedCount?: number } }) {
+  const config: Record<FollowUpPersonType, { label: string; className: string }> = {
+    first_time_visitor: {
+      label: "First-time",
+      className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+    },
+    returning_visitor: {
+      label: metadata?.previousVisits ? `Returning (${metadata.previousVisits})` : "Returning",
+      className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+    },
+    returnee: {
+      label: "Returnee",
+      className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+    }
+  };
+
+  const { label, className } = config[type];
+  
+  return (
+    <Badge variant="outline" className={`text-xs mt-1 font-medium ${className}`}>
+      {label}
+    </Badge>
+  );
+}
 
 // Helper to build analytics URL with proper query params
 function buildAnalyticsLink(
@@ -127,7 +154,7 @@ export default function Dashboard() {
   const { data: groups } = useGroupsSnapshot(branchId, serviceIds);
   const { data: demographics } = useDemographicsSnapshot(branchId, serviceIds);
   const { data: serviceQuality } = useServiceQuality(branchId, serviceIds);
-  const { data: followUps, isLoading: followUpsLoading } = useFollowUpList(branchId);
+  const { data: followUps, isLoading: followUpsLoading } = useNewPeopleToFollowUpCombined(serviceIds, branchId, referenceServiceId);
   const { data: birthdays, isLoading: birthdaysLoading } = useBirthdayData(branchId);
   const { data: anniversaries, isLoading: anniversariesLoading } = useAnniversaryData(branchId);
   const { data: dayBornData, isLoading: dayBornLoading } = useDayBornDistribution(branchId, serviceIds);
@@ -721,14 +748,30 @@ export default function Dashboard() {
 
       {/* New People to Follow Up */}
       <Card className="border-0 bg-gradient-to-br from-kpi-orange/5 to-kpi-amber/5">
-        <CardHeader className="pb-3"><SectionHeader title="New People to Follow Up" icon={UserPlus} action={<Link to={buildAnalyticsLink("drilldown", dateRange, branchId, "first_timers")}><Button variant="ghost" size="sm">View all</Button></Link>} /></CardHeader>
+        <CardHeader className="pb-3">
+          <SectionHeader 
+            title="New People to Follow Up" 
+            icon={UserPlus} 
+            tooltip="First-time visitors, returning guests, and members who came back after missing 3+ services."
+            action={<Link to={`/app/visitors${serviceIds.length > 0 ? `?services=${serviceIds.join(",")}` : ""}`}><Button variant="ghost" size="sm">View all</Button></Link>} 
+          />
+        </CardHeader>
         <CardContent>
-          {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? <EmptyState icon={UserPlus} title="No new visitors today" description="First-timers will appear here" /> : (
+          {followUpsLoading ? <Skeleton className="h-24" /> : !followUps?.length ? (
+            <EmptyState icon={UserPlus} title="No new people" description="First-time visitors and returnees will appear here" />
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {followUps.map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div><p className="font-medium text-sm">{p.name}</p><Badge variant="secondary" className="text-xs capitalize mt-1">{p.status?.replace("_", " ")}</Badge></div>
-                  {p.phone && <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md"><Phone className="w-4 h-4 text-primary" /></a>}
+                <div key={`${p.type}-${p.id}`} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{p.name}</p>
+                    <FollowUpTypeBadge type={p.type} metadata={p.metadata} />
+                  </div>
+                  {p.phone && (
+                    <a href={`tel:${p.phone}`} className="p-2 hover:bg-muted rounded-md flex-shrink-0 ml-2">
+                      <Phone className="w-4 h-4 text-primary" />
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
