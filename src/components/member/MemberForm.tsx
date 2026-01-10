@@ -54,12 +54,6 @@ const MEMBERSHIP_STATUS_OPTIONS = [
   { value: "transferred", label: "Transferred" },
 ];
 
-const MEMBER_TYPE_OPTIONS = [
-  { value: "regular", label: "Regular Attender" },
-  { value: "occasional", label: "Occasional Attender" },
-  { value: "worker", label: "Worker / Volunteer" },
-];
-
 const HOW_HEARD_OPTIONS = [
   { value: "friend_family", label: "Friend / Family" },
   { value: "social_media", label: "Social Media" },
@@ -385,32 +379,6 @@ export function MemberForm({
               />
             )}
 
-            {/* Member Type */}
-            <FormField
-              control={form.control}
-              name="member_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Member Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {MEMBER_TYPE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             {/* How did you hear about us? */}
             <FormField
               control={form.control}
@@ -486,31 +454,6 @@ export function MemberForm({
                 )}
               />
             )}
-            
-            <FormField
-              control={form.control}
-              name="is_baptized"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Baptism Status</FormLabel>
-                  <Select 
-                    onValueChange={(value) => field.onChange(value === "yes" ? true : value === "no" ? false : null)} 
-                    value={field.value === true ? "yes" : field.value === false ? "no" : ""}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select baptism status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes, Baptized</SelectItem>
-                      <SelectItem value="no">Not Baptized</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
 
           {/* SECTION C: Location & Life Stage (Optional) */}

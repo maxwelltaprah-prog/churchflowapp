@@ -33,12 +33,10 @@ interface EditMemberDialogProps {
     date_of_birth?: string | null;
     membership_status?: "active" | "inactive" | "transferred" | null;
     branch_id: string;
-    member_type?: "regular" | "occasional" | "worker" | null;
     how_heard?: "friend_family" | "social_media" | "walk_in" | "outreach" | "other" | null;
     residential_area?: string | null;
     marital_status?: "single" | "married" | "divorced" | "widowed" | null;
     occupation?: "student" | "public_sector" | "private_sector" | "self_employed" | "unemployed" | "other" | null;
-    is_baptized?: boolean | null;
     emergency_contact_name?: string | null;
     emergency_contact_phone?: string | null;
     emergency_contact_relationship?: string | null;
@@ -71,13 +69,11 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       branch_id: "",
       group_ids: [],
       spiritual_journey_ids: [],
-      member_type: null,
       how_heard: null,
       residential_area: "",
       marital_status: null,
       occupation: null,
       email: "",
-      is_baptized: null,
       emergency_contact_name: "",
       emergency_contact_phone: "",
       emergency_contact_relationship: "",
@@ -106,12 +102,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
         branch_id: member.branch_id,
         group_ids: currentGroupIds,
         spiritual_journey_ids: memberSpiritualJourneys || [],
-        member_type: member.member_type || null,
         how_heard: member.how_heard || null,
         residential_area: member.residential_area || "",
         marital_status: member.marital_status || null,
         occupation: member.occupation || null,
-        is_baptized: member.is_baptized ?? null,
         emergency_contact_name: member.emergency_contact_name || "",
         emergency_contact_phone: member.emergency_contact_phone || "",
         emergency_contact_relationship: member.emergency_contact_relationship || "",
@@ -133,12 +127,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
       date_of_birth: data.date_of_birth || undefined,
       membership_status: data.membership_status,
       branch_id: data.branch_id,
-      member_type: data.member_type || undefined,
       how_heard: data.how_heard || undefined,
       residential_area: data.residential_area || undefined,
       marital_status: data.marital_status || undefined,
       occupation: data.occupation || undefined,
-      is_baptized: data.is_baptized ?? undefined,
       emergency_contact_name: data.emergency_contact_name || undefined,
       emergency_contact_phone: data.emergency_contact_phone || undefined,
       emergency_contact_relationship: data.emergency_contact_relationship || undefined,

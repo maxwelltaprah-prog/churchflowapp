@@ -30,7 +30,6 @@ export const memberFormSchema = z.object({
   
   // Optional fields (Section B - Church Connection)
   group_ids: z.array(z.string()).optional(),
-  member_type: z.enum(["regular", "occasional", "worker"]).optional().nullable(),
   how_heard: z.enum(["friend_family", "social_media", "walk_in", "outreach", "other"]).optional().nullable(),
   
   // Optional fields (Section C - Location & Life Stage)
@@ -41,9 +40,6 @@ export const memberFormSchema = z.object({
   
   // Spiritual Journey - required, at least one must be selected
   spiritual_journey_ids: z.array(z.string()).min(1, "Please select at least one spiritual journey option"),
-  
-  // Optional fields (Section D - Spiritual Journey)
-  is_baptized: z.boolean().optional().nullable(),
   
   // Emergency Contact fields
   emergency_contact_name: z.string().max(100).optional().nullable(),
