@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Phone, Mail, MapPin, ExternalLink, Calendar, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Phone, MapPin, ExternalLink, Calendar, MessageSquare } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -11,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { FollowUpPerson, FollowUpPersonType } from "@/hooks/useNewPeopleToFollowUp";
+import { FollowUpSMSDialog } from "./FollowUpSMSDialog";
 
 interface FollowUpDetailDrawerProps {
   person: FollowUpPerson | null;
@@ -82,6 +84,8 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 export function FollowUpDetailDrawer({ person, open, onOpenChange }: FollowUpDetailDrawerProps) {
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
+
   if (!person) return null;
 
   const typeConfig = getTypeConfig(person.type, person.metadata);
@@ -89,58 +93,79 @@ export function FollowUpDetailDrawer({ person, open, onOpenChange }: FollowUpDet
   const profileUrl = isVisitor ? `/app/visitors/${person.id}` : `/app/members/${person.id}`;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="text-left pb-4">
-          <SheetTitle className="sr-only">Follow-up Details</SheetTitle>
-          
-          {/* Profile Header */}
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 ring-2 ring-background shadow-lg">
-              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold text-lg">
-                {getInitials(person.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-lg truncate">{person.name}</h2>
-              <Badge 
-                variant="outline" 
-                className={`text-xs mt-1 ${typeConfig.className}`}
-              >
-                {typeConfig.label}
-              </Badge>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="text-left pb-4">
+            <SheetTitle className="sr-only">Follow-up Details</SheetTitle>
+            
+            {/* Profile Header */}
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 ring-2 ring-background shadow-lg">
+                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold text-lg">
+                  {getInitials(person.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-lg truncate">{person.name}</h2>
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs mt-1 ${typeConfig.className}`}
+                >
+                  {typeConfig.label}
+                </Badge>
+              </div>
             </div>
+          </SheetHeader>
+
+          <Separator className="my-4" />
+
+          {/* Status Description */}
+          <div className="p-3 rounded-lg bg-muted/30 mb-4">
+            <p className="text-sm text-muted-foreground">{typeConfig.description}</p>
           </div>
-        </SheetHeader>
 
-        <Separator className="my-4" />
+          {/* Contact Info */}
+          <div className="space-y-1">
+            <InfoRow icon={Phone} label="Phone" value={person.phone} />
+            <InfoRow icon={MapPin} label="Branch" value={person.branchName} />
+            {person.metadata?.firstVisitDate && (
+              <InfoRow icon={Calendar} label="First Visit" value={person.metadata.firstVisitDate} />
+            )}
+          </div>
 
-        {/* Status Description */}
-        <div className="p-3 rounded-lg bg-muted/30 mb-4">
-          <p className="text-sm text-muted-foreground">{typeConfig.description}</p>
-        </div>
+          <Separator className="my-4" />
 
-        {/* Contact Info */}
-        <div className="space-y-1">
-          <InfoRow icon={Phone} label="Phone" value={person.phone} />
-          <InfoRow icon={MapPin} label="Branch" value={person.branchName} />
-          {person.metadata?.firstVisitDate && (
-            <InfoRow icon={Calendar} label="First Visit" value={person.metadata.firstVisitDate} />
-          )}
-        </div>
+          {/* Actions */}
+          <div className="space-y-3">
+            {person.phone && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-2"
+                onClick={() => setSmsDialogOpen(true)}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Send SMS
+              </Button>
+            )}
+            
+            <Button asChild className="w-full justify-start gap-2">
+              <Link to={profileUrl}>
+                <ExternalLink className="h-4 w-4" />
+                View Full Profile
+              </Link>
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        <Separator className="my-4" />
-
-        {/* Actions */}
-        <div className="space-y-3">
-          <Button asChild className="w-full justify-start gap-2">
-            <Link to={profileUrl}>
-              <ExternalLink className="h-4 w-4" />
-              View Full Profile
-            </Link>
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      {person && (
+        <FollowUpSMSDialog
+          open={smsDialogOpen}
+          onOpenChange={setSmsDialogOpen}
+          person={person}
+        />
+      )}
+    </>
   );
 }
