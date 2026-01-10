@@ -47,6 +47,11 @@ interface AttendanceStats {
   lastAttendance: string | null;
 }
 
+interface ChurchService {
+  id: string;
+  service_date: string;
+}
+
 interface AttendanceRecord {
   id: string;
   checked_in_at: string;
@@ -64,6 +69,7 @@ export default function MemberPortal() {
   const [member, setMember] = useState<MemberData | null>(null);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [churchServices, setChurchServices] = useState<ChurchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [visibleCount, setVisibleCount] = useState(RECORDS_PER_PAGE);
@@ -105,7 +111,7 @@ export default function MemberPortal() {
           if (newRecord && newRecord.services) {
             setAttendanceHistory(prev => {
               const updated = [newRecord as AttendanceRecord, ...prev];
-              const newStats = calculateStreakStats(updated);
+              const newStats = calculateStreakStats(updated, churchServices);
               setStats(newStats);
               return updated;
             });
@@ -117,7 +123,7 @@ export default function MemberPortal() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [member?.id, attendanceHistory]);
+  }, [member?.id, attendanceHistory, churchServices]);
 
   const fetchMemberData = async () => {
     try {
@@ -127,10 +133,10 @@ export default function MemberPortal() {
         return;
       }
 
-      // Fetch member data
+      // Fetch member data with church_id and branch_id
       const { data: memberData, error: memberError } = await supabase
         .from("members")
-        .select("id, full_name, member_code, qr_code_token, phone, email, branches(name), churches(name)")
+        .select("id, full_name, member_code, qr_code_token, phone, email, church_id, branch_id, branches(name), churches(name)")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -141,6 +147,18 @@ export default function MemberPortal() {
       }
 
       setMember(memberData as MemberData);
+
+      // Fetch all services for the member's church (sorted by date descending)
+      const { data: allServices } = await supabase
+        .from("services")
+        .select("id, service_date")
+        .eq("church_id", memberData.church_id)
+        .eq("is_active", true)
+        .lte("service_date", new Date().toISOString().split('T')[0]) // Only past/today services
+        .order("service_date", { ascending: false });
+
+      const services = allServices || [];
+      setChurchServices(services);
 
       // Fetch attendance stats and history with service details
       const { data: attendanceData, error: attendanceError } = await supabase
@@ -162,7 +180,7 @@ export default function MemberPortal() {
       console.log("Attendance data:", attendanceData, "Error:", attendanceError);
 
       if (attendanceData) {
-        const stats = calculateStreakStats(attendanceData);
+        const stats = calculateStreakStats(attendanceData, services);
         setStats(stats);
         setAttendanceHistory(attendanceData as AttendanceRecord[]);
       }
@@ -173,88 +191,73 @@ export default function MemberPortal() {
     }
   };
 
-  const calculateStreakStats = (attendanceData: any[]): AttendanceStats => {
-    if (!attendanceData.length) {
-      return {
-        totalAttendance: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        thisMonthCount: 0,
-        lastAttendance: null
-      };
-    }
+  const calculateStreakStats = (attendanceData: any[], allServices: ChurchService[]): AttendanceStats => {
+    // Get attended service IDs as a Set for quick lookup
+    const attendedServiceIds = new Set(
+      attendanceData.map(a => a.service_id).filter(Boolean)
+    );
 
-    // Get unique service dates
-    const serviceDates = [...new Set(
+    // Get unique attended service dates for display stats
+    const attendedDates = [...new Set(
       attendanceData.map(a => a.services?.service_date).filter(Boolean)
     )].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-    // Calculate current streak (consecutive weeks)
+    if (!allServices.length) {
+      return {
+        totalAttendance: attendedDates.length,
+        currentStreak: 0,
+        longestStreak: 0,
+        thisMonthCount: attendedDates.filter(d => {
+          const date = new Date(d);
+          return date.getMonth() === new Date().getMonth() && 
+                 date.getFullYear() === new Date().getFullYear();
+        }).length,
+        lastAttendance: attendedDates[0] || null
+      };
+    }
+
+    // Sort all services from most recent to oldest
+    const sortedServices = [...allServices].sort(
+      (a, b) => new Date(b.service_date).getTime() - new Date(a.service_date).getTime()
+    );
+
+    // Calculate current streak: count consecutive services attended from most recent
     let currentStreak = 0;
+    for (const service of sortedServices) {
+      if (attendedServiceIds.has(service.id)) {
+        currentStreak++;
+      } else {
+        // First missed service breaks the streak
+        break;
+      }
+    }
+
+    // Calculate longest streak: find the longest run of consecutive attended services
     let longestStreak = 0;
     let tempStreak = 0;
-    
-    const today = new Date();
-    const oneWeekAgo = new Date(today);
-    oneWeekAgo.setDate(today.getDate() - 7);
-
-    // Check if attended in the last week
-    const lastDate = serviceDates[0] ? new Date(serviceDates[0]) : null;
-    const attendedRecently = lastDate && lastDate >= oneWeekAgo;
-
-    if (attendedRecently) {
-      // Count consecutive weeks
-      let previousWeekStart = new Date(today);
-      previousWeekStart.setDate(today.getDate() - today.getDay()); // Start of current week
-
-      for (let i = 0; i < serviceDates.length; i++) {
-        const date = new Date(serviceDates[i]);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        
-        const diffWeeks = Math.floor((previousWeekStart.getTime() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        
-        if (diffWeeks <= 1) {
-          tempStreak++;
-          previousWeekStart = weekStart;
-        } else {
-          break;
-        }
-      }
-      currentStreak = tempStreak;
-    }
-
-    // Calculate longest streak
-    tempStreak = 1;
-    for (let i = 1; i < serviceDates.length; i++) {
-      const curr = new Date(serviceDates[i - 1]);
-      const prev = new Date(serviceDates[i]);
-      const currWeek = Math.floor(curr.getTime() / (7 * 24 * 60 * 60 * 1000));
-      const prevWeek = Math.floor(prev.getTime() / (7 * 24 * 60 * 60 * 1000));
-      
-      if (currWeek - prevWeek <= 1) {
+    for (const service of sortedServices) {
+      if (attendedServiceIds.has(service.id)) {
         tempStreak++;
-      } else {
         longestStreak = Math.max(longestStreak, tempStreak);
-        tempStreak = 1;
+      } else {
+        tempStreak = 0;
       }
     }
-    longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
 
     // This month count
     const thisMonth = new Date().getMonth();
     const thisYear = new Date().getFullYear();
-    const thisMonthCount = serviceDates.filter(d => {
+    const thisMonthCount = attendedDates.filter(d => {
       const date = new Date(d);
       return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
     }).length;
 
     return {
-      totalAttendance: serviceDates.length,
+      totalAttendance: attendedDates.length,
       currentStreak,
       longestStreak,
       thisMonthCount,
-      lastAttendance: serviceDates[0] || null
+      lastAttendance: attendedDates[0] || null
     };
   };
 
