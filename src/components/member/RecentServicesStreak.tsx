@@ -58,7 +58,7 @@ export function RecentServicesStreak({
         )}
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="space-y-2">
+        <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
           {recentServices.map((service, index) => {
             const attended = attendedServiceIds.has(service.id);
             const isStreakBreaker = !attended && index === firstMissedIndex && currentStreak > 0;
