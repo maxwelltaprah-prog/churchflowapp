@@ -83,9 +83,10 @@ function exportReturneeToCSV(members: ReturneeMember[]) {
 export default function EngagementSignalsPage() {
   const [searchParams] = useSearchParams();
   const branchId = searchParams.get("branch") || undefined;
+  const serviceId = searchParams.get("service") || undefined;
   
   const { data: branches } = useBranches();
-  const { data, isLoading } = useConsecutiveMissSignals(branchId);
+  const { data, isLoading } = useConsecutiveMissSignals(branchId, serviceId);
 
   // Get branch name for display
   const branchName = useMemo(() => {
