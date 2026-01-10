@@ -17,7 +17,7 @@ import {
   useGroupsSnapshot, useDemographicsSnapshot, useServiceQuality,
   useDashboardServicesInDateRange
 } from "@/hooks/useDashboardData";
-import { useNewPeopleToFollowUpCombined, FollowUpPersonType } from "@/hooks/useNewPeopleToFollowUp";
+import { useNewPeopleToFollowUpCombined, FollowUpPersonType, FollowUpPerson } from "@/hooks/useNewPeopleToFollowUp";
 import { useConsecutiveMissSignals } from "@/hooks/useConsecutiveMissSignals";
 import { useBirthdayData } from "@/hooks/useBirthdayData";
 import { useAnniversaryData } from "@/hooks/useAnniversaryData";
@@ -25,35 +25,52 @@ import { useDayBornDistribution } from "@/hooks/useDayBornDistribution";
 import { DashboardFilterBar, DashboardDateRange } from "@/components/dashboard/DashboardFilterBar";
 import { KPICard, StatCard, SectionHeader, EmptyState, ProgressBar, ListItem } from "@/components/dashboard/DashboardCards";
 import { LiveCheckinFeed } from "@/components/dashboard/LiveCheckinFeed";
+import { FollowUpDetailDrawer } from "@/components/dashboard/FollowUpDetailDrawer";
 import { startOfMonth, format, parseISO, isToday } from "date-fns";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(142 76% 36%)", "hsl(38 92% 50%)", "hsl(0 84% 60%)"];
+
+// Format follow-up status tag (like check-in feed)
+function getFollowUpStatusTag(type: FollowUpPersonType, metadata?: { previousVisits?: number; missedCount?: number }): string {
+  switch (type) {
+    case 'first_time_visitor':
+      return "First-time guest";
+    case 'returning_visitor':
+      return metadata?.previousVisits ? `Returning guest • ${metadata.previousVisits} prior visits` : "Returning guest";
+    case 'returnee':
+      return metadata?.missedCount ? `Returned after missing ${metadata.missedCount} services` : "Returned after absence";
+    case 'missed_3_plus':
+      return metadata?.missedCount ? `Missed ${metadata.missedCount} previous services` : "Missed 3+ previous services";
+    default:
+      return "";
+  }
+}
 
 // Badge component for follow-up person types
 function FollowUpTypeBadge({ type, metadata }: { type: FollowUpPersonType; metadata?: { previousVisits?: number; missedCount?: number } }) {
   const config: Record<FollowUpPersonType, { label: string; className: string }> = {
     first_time_visitor: {
       label: "First-time",
-      className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+      className: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
     },
     returning_visitor: {
       label: metadata?.previousVisits ? `Returning (${metadata.previousVisits})` : "Returning",
-      className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+      className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
     },
     returnee: {
       label: metadata?.missedCount ? `Returnee (missed ${metadata.missedCount})` : "Returnee",
-      className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+      className: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30"
     },
     missed_3_plus: {
       label: metadata?.missedCount ? `Missed ${metadata.missedCount}` : "Missed 3+",
-      className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+      className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
     }
   };
 
   const { label, className } = config[type];
   
   return (
-    <Badge variant="outline" className={`text-xs mt-1 font-medium ${className}`}>
+    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 h-5 font-medium border ${className}`}>
       {label}
     </Badge>
   );
@@ -87,6 +104,10 @@ export default function Dashboard() {
     startDate: startOfMonth(new Date()),
     endDate: new Date()
   }));
+  
+  // Follow-up drawer state
+  const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUpPerson | null>(null);
+  const [followUpDrawerOpen, setFollowUpDrawerOpen] = useState(false);
 
   const { data: branches } = useBranches();
   
@@ -768,27 +789,37 @@ export default function Dashboard() {
               {followUps.map((p) => (
                 <div 
                   key={`${p.type}-${p.id}`} 
-                  className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                  onClick={() => {
+                    setSelectedFollowUp(p);
+                    setFollowUpDrawerOpen(true);
+                  }}
+                  className="flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-primary/5 dark:hover:bg-primary/10 group"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-medium text-sm truncate">{p.name}</span>
-                    <FollowUpTypeBadge type={p.type} metadata={p.metadata} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {p.name}
+                      </span>
+                      <FollowUpTypeBadge type={p.type} metadata={p.metadata} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {getFollowUpStatusTag(p.type, p.metadata)}
+                    </p>
                   </div>
-                  <Link 
-                    to={p.type === 'first_time_visitor' || p.type === 'returning_visitor' 
-                      ? `/app/visitors/${p.id}` 
-                      : `/app/members/${p.id}`
-                    }
-                    className="text-xs text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                  >
-                    View Profile
-                  </Link>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Follow-up Detail Drawer */}
+      <FollowUpDetailDrawer 
+        person={selectedFollowUp} 
+        open={followUpDrawerOpen} 
+        onOpenChange={setFollowUpDrawerOpen} 
+      />
 
     </div>
   );
