@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Activity, Radio, Clock, ChevronRight, ChevronDown, 
-  Smartphone, QrCode, Zap, Filter, Building2, HelpCircle 
+  Smartphone, QrCode, Building2, HelpCircle 
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ import {
 import { EmptyState } from "./DashboardCards";
 import { CheckinDetailDrawer } from "./CheckinDetailDrawer";
 import { useBranches } from "@/hooks/useChurchData";
-import { useTodayServices, useRecentServices, useAllServicesForFeed } from "@/hooks/useDashboardData";
+import { useAllServicesForFeed } from "@/hooks/useDashboardData";
 import { format, parseISO, isToday } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -239,32 +239,40 @@ function FeedSkeleton({ count = 5 }: { count?: number }) {
 }
 
 export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: LiveCheckinFeedProps) {
-  const [mode, setMode] = useState<FeedMode>("today");
+  const [mode, setMode] = useState<FeedMode>("by_service");
   const [branchFilter, setBranchFilter] = useState<string | undefined>(initialBranchId);
   const [serviceFilter, setServiceFilter] = useState<string | undefined>();
   const [selectedItem, setSelectedItem] = useState<CheckinFeedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [displayCount, setDisplayCount] = useState(maxItems);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  const { data: branches } = useBranches();
+  const { data: allServices, isLoading: servicesLoading } = useAllServicesForFeed(branchFilter);
+
+  // Auto-select the latest service when services load (only once on initial load)
+  useEffect(() => {
+    if (!hasInitialized && allServices && allServices.length > 0 && !serviceFilter) {
+      setServiceFilter(allServices[0].id);
+      setHasInitialized(true);
+    }
+  }, [allServices, serviceFilter, hasInitialized]);
+
+  // Reset initialization when branch filter changes
+  useEffect(() => {
+    if (branchFilter !== initialBranchId) {
+      setHasInitialized(false);
+      setServiceFilter(undefined);
+    }
+  }, [branchFilter, initialBranchId]);
 
   const { items: rawItems, isLoading, error } = useLiveCheckinFeed(mode, branchFilter, serviceFilter);
-  const { data: branches } = useBranches();
-  const { data: todayServices } = useTodayServices(branchFilter);
-  const { data: recentServices } = useRecentServices(branchFilter);
-  const { data: allServices } = useAllServicesForFeed(branchFilter);
 
-  // For by_service mode, show all services; otherwise show today + recent
-  const services = mode === "by_service" 
-    ? (allServices || [])
-    : [...(todayServices || []), ...(recentServices || [])].filter(
-        (s, i, a) => a.findIndex(x => x.id === s.id) === i
-      );
+  // Always use all services list
+  const services = allServices || [];
 
-  // In by_service mode, items are already filtered by the hook
-  const items = mode === "by_service"
-    ? rawItems
-    : serviceFilter 
-      ? rawItems.filter(item => item.serviceId === serviceFilter)
-      : rawItems;
+  // Items are already filtered by the hook when in by_service mode
+  const items = rawItems;
 
   const displayItems = items.slice(0, displayCount);
   const hasMore = items.length > displayCount;
@@ -282,8 +290,7 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
   // Build analytics link based on mode
   const getViewAllLink = () => {
     const params = new URLSearchParams();
-    if (mode === "today") params.set("period", "today");
-    else if (mode === "last_24h") params.set("period", "last_24h");
+    if (mode === "last_24h") params.set("period", "last_24h");
     if (branchFilter) params.set("branch", branchFilter);
     if (serviceFilter) params.set("service", serviceFilter);
     return `/app/analytics/attendance?${params.toString()}`;
@@ -305,19 +312,19 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-bold text-lg">Live Check-ins</h3>
+                  <h3 className="font-bold text-lg">Service Check-ins</h3>
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="w-4 h-4 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-[220px] text-xs">
-                        Real-time feed of member arrivals. Click any row to view details. Filters let you focus on specific branches or services.
+                        View check-in history for any service. Select a service to see who attended. Click any row for member details.
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <p className="text-sm text-muted-foreground">Real-time arrivals across branches</p>
+                <p className="text-sm text-muted-foreground">Check-in history by service</p>
               </div>
             </div>
 
@@ -330,24 +337,6 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
 
           {/* Filters row */}
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Mode filter */}
-            <Select value={mode} onValueChange={(v) => {
-              setMode(v as FeedMode);
-              // Clear service filter when switching away from by_service mode
-              if (v !== "by_service") {
-                setServiceFilter(undefined);
-              }
-            }}>
-              <SelectTrigger className="w-[140px] h-9 text-xs">
-                <SelectValue placeholder="Time filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="open_service">Open Service</SelectItem>
-                <SelectItem value="last_24h">Last 24 Hours</SelectItem>
-                <SelectItem value="by_service">By Service</SelectItem>
-              </SelectContent>
-            </Select>
 
             {/* Branch filter */}
             {branches && branches.length > 1 && (
@@ -366,20 +355,16 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
             )}
 
             {/* Service filter */}
-            {(services.length > 0 || mode === "by_service") && (
+            {services.length > 0 && (
               <Select 
-                value={serviceFilter || "all"} 
-                onValueChange={(v) => setServiceFilter(v === "all" ? undefined : v)}
+                value={serviceFilter || ""} 
+                onValueChange={(v) => setServiceFilter(v || undefined)}
               >
-                <SelectTrigger className={cn(
-                  "w-[200px] h-9 text-xs",
-                  mode === "by_service" && !serviceFilter && "ring-2 ring-primary/50"
-                )}>
+                <SelectTrigger className="w-[240px] h-9 text-xs">
                   <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                  <SelectValue placeholder={mode === "by_service" ? "Select a service" : "All services"} />
+                  <SelectValue placeholder="Select a service" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {mode !== "by_service" && <SelectItem value="all">All Services</SelectItem>}
                   {services.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {formatServiceDisplay(s)}
@@ -389,21 +374,8 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
               </Select>
             )}
 
-            {/* Live indicator - only show for live modes */}
-            {mode !== "by_service" && (
-              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-green-500" />
-                  <span className="hidden sm:inline">Live updates</span>
-                </span>
-                {totalCount > 0 && (
-                  <Badge variant="secondary" className="text-[10px] h-5">
-                    {totalCount} check-in{totalCount !== 1 ? "s" : ""}
-                  </Badge>
-                )}
-              </div>
-            )}
-            {mode === "by_service" && totalCount > 0 && (
+            {/* Check-in count */}
+            {totalCount > 0 && (
               <div className="ml-auto">
                 <Badge variant="secondary" className="text-[10px] h-5">
                   {totalCount} check-in{totalCount !== 1 ? "s" : ""}
@@ -415,7 +387,7 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
 
         {/* Feed content */}
         <CardContent className="px-4 pb-4">
-          {isLoading ? (
+          {isLoading || servicesLoading ? (
             <FeedSkeleton count={5} />
           ) : error ? (
             <div className="py-12">
@@ -425,7 +397,15 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
                 description="There was an error fetching check-in data" 
               />
             </div>
-          ) : mode === "by_service" && !serviceFilter ? (
+          ) : services.length === 0 ? (
+            <div className="py-12">
+              <EmptyState
+                icon={Clock}
+                title="No services found"
+                description="Create a service to start tracking check-ins"
+              />
+            </div>
+          ) : !serviceFilter ? (
             <div className="py-12">
               <EmptyState
                 icon={Clock}
@@ -438,15 +418,7 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
               <EmptyState
                 icon={Radio}
                 title="No check-ins yet"
-                description={
-                  mode === "today"
-                    ? "Check-ins will appear here as members arrive"
-                    : mode === "open_service"
-                    ? "No active service check-ins found"
-                    : mode === "by_service"
-                    ? "No check-ins recorded for this service"
-                    : "No check-ins in the last 24 hours"
-                }
+                description="No check-ins recorded for this service"
               />
             </div>
           ) : (
@@ -478,11 +450,6 @@ export function LiveCheckinFeed({ branchId: initialBranchId, maxItems = 20 }: Li
                   <ChevronDown className="h-4 w-4 mr-2" />
                   Load more ({items.length - displayCount} remaining)
                 </Button>
-              ) : mode !== "by_service" ? (
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
-                  <Radio className="h-3.5 w-3.5 text-green-500 animate-pulse" />
-                  <span>Watching for new check-ins</span>
-                </div>
               ) : (
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-2">
                   <span>End of check-in history for this service</span>
