@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { StreakRing } from "./StreakRing";
 import { StreakFlame } from "./StreakFlame";
 import { MilestoneBadge } from "./MilestoneBadge";
-import { WeeklyHeatmap } from "./WeeklyHeatmap";
+import { ServiceActivityGrid } from "./ServiceActivityGrid";
 import { MilestoneConfetti, usePreviousStreak } from "./MilestoneConfetti";
 import { ShareableStreakCard } from "./ShareableStreakCard";
 import { Calendar, TrendingUp, Target, Sparkles, Activity, Download, Share2, Check, Loader2 } from "lucide-react";
@@ -21,9 +21,18 @@ interface AttendanceStats {
   lastAttendance: string | null;
 }
 
+interface ChurchService {
+  id: string;
+  name: string;
+  service_date: string;
+  branches?: { name: string } | null;
+}
+
 interface StreakDashboardProps {
   stats: AttendanceStats | null;
   attendanceDates: string[];
+  services: ChurchService[];
+  attendedServiceIds: Set<string>;
   memberName?: string;
   churchName?: string;
 }
@@ -39,7 +48,7 @@ const motivationalMessages = [
   { min: 52, max: Infinity, message: "LEGENDARY! Incredible dedication!", emoji: "🎖️" },
 ];
 
-export function StreakDashboard({ stats, attendanceDates, memberName, churchName }: StreakDashboardProps) {
+export function StreakDashboard({ stats, attendanceDates, services, attendedServiceIds, memberName, churchName }: StreakDashboardProps) {
   const streak = stats?.currentStreak || 0;
   const previousStreak = usePreviousStreak(streak);
   const nextMilestone = streak < 4 ? 4 : streak < 8 ? 8 : streak < 12 ? 12 : streak < 26 ? 26 : streak < 52 ? 52 : 100;
@@ -366,7 +375,7 @@ export function StreakDashboard({ stats, attendanceDates, memberName, churchName
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <WeeklyHeatmap attendanceDates={attendanceDates} weeks={16} />
+          <ServiceActivityGrid services={services} attendedServiceIds={attendedServiceIds} maxServices={40} />
         </CardContent>
       </Card>
     </div>
