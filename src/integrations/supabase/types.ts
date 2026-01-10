@@ -1519,6 +1519,25 @@ export type Database = {
         Args: { _church_id: string; _user_id: string }
         Returns: string[]
       }
+      get_branch_for_joining: {
+        Args: { p_join_code: string }
+        Returns: {
+          church_id: string
+          id: string
+          is_active: boolean
+          location: string
+          name: string
+        }[]
+      }
+      get_church_for_joining: {
+        Args: { p_slug: string }
+        Returns: {
+          id: string
+          logo_url: string
+          name: string
+          slug: string
+        }[]
+      }
       get_church_totals: {
         Args: { p_church_id: string }
         Returns: {
@@ -1556,6 +1575,18 @@ export type Database = {
         Returns: boolean
       }
       normalize_phone_for_auth: { Args: { phone: string }; Returns: string }
+      register_member_self: {
+        Args: {
+          p_branch_id: string
+          p_church_id: string
+          p_date_of_birth?: string
+          p_email?: string
+          p_full_name: string
+          p_gender?: Database["public"]["Enums"]["gender_type"]
+          p_phone: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "church_admin" | "branch_admin" | "usher" | "member"
