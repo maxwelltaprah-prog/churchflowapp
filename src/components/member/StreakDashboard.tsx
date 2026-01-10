@@ -21,14 +21,14 @@ interface StreakDashboardProps {
 }
 
 const motivationalMessages = [
-  { min: 0, max: 0, message: "Start your journey! Your first week awaits.", emoji: "🙏" },
+  { min: 0, max: 0, message: "Start your journey! Your first service awaits.", emoji: "🙏" },
   { min: 1, max: 1, message: "You've started! Keep the momentum going!", emoji: "🌱" },
   { min: 2, max: 3, message: "Building consistency! You're forming a habit.", emoji: "💪" },
-  { min: 4, max: 7, message: "Incredible dedication! A month of faithfulness!", emoji: "🔥" },
+  { min: 4, max: 7, message: "Incredible dedication! Keep it up!", emoji: "🔥" },
   { min: 8, max: 11, message: "You're on fire! Keep this streak alive!", emoji: "⭐" },
-  { min: 12, max: 25, message: "Quarter champion! Your commitment inspires others.", emoji: "🏆" },
-  { min: 26, max: 51, message: "Half-year hero! You're unstoppable!", emoji: "👑" },
-  { min: 52, max: Infinity, message: "LEGENDARY! A full year of dedication!", emoji: "🎖️" },
+  { min: 12, max: 25, message: "Amazing commitment! Your dedication inspires others.", emoji: "🏆" },
+  { min: 26, max: 51, message: "Streak hero! You're unstoppable!", emoji: "👑" },
+  { min: 52, max: Infinity, message: "LEGENDARY! Incredible dedication!", emoji: "🎖️" },
 ];
 
 export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps) {
@@ -80,7 +80,7 @@ export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps
                   >
                     {streak}
                   </motion.p>
-                  <p className="text-sm text-white/60 font-medium">week streak</p>
+                  <p className="text-sm text-white/60 font-medium">service streak</p>
                 </div>
               </StreakRing>
               
@@ -88,7 +88,7 @@ export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps
               <div className="text-center">
                 <div className="flex items-center gap-2 text-sm text-white/70">
                   <Target className="w-4 h-4" />
-                  <span>{nextMilestone - streak} weeks to next milestone</span>
+                  <span>{nextMilestone - streak} services to next milestone</span>
                 </div>
                 <div className="w-48 h-2 bg-white/10 rounded-full mt-2 overflow-hidden">
                   <motion.div 
