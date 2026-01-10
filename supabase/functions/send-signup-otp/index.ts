@@ -2,65 +2,59 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateSecureOTP, hashOTP, addTimingJitter } from "../_shared/security.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { getClientIdentifier, checkServerRateLimit, recordAttempt, rateLimitResponse } from "../_shared/rate-limiting.ts";
+import { secureJsonResponse, secureErrorResponse, sanitizeErrorMessage } from "../_shared/security-headers.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface SendOTPRequest {
   email: string;
   churchName: string;
 }
 
-// In-memory rate limiting (per-instance)
-const rateLimitMap = new Map<string, { count: number; firstAttempt: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 3; // Max 3 requests per minute per email
-
-function checkRateLimit(email: string): boolean {
-  const now = Date.now();
-  const key = email.toLowerCase();
-  const record = rateLimitMap.get(key);
-  
-  if (!record || (now - record.firstAttempt) > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(key, { count: 1, firstAttempt: now });
-    return true;
-  }
-  
-  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-  
-  record.count += 1;
-  return true;
-}
-
 serve(async (req: Request): Promise<Response> => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsPreflightRequest(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { email, churchName }: SendOTPRequest = await req.json();
 
     if (!email || !churchName) {
-      return new Response(
-        JSON.stringify({ error: "Email and church name are required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Email and church name are required", corsHeaders, 400);
     }
 
-    // Check rate limit
-    if (!checkRateLimit(email)) {
-      await addTimingJitter();
-      return new Response(
-        JSON.stringify({ error: "Too many requests. Please wait a moment before trying again." }),
-        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 255) {
+      return secureErrorResponse("Invalid email format", corsHeaders, 400);
     }
+
+    // Combined IP + account rate limiting
+    const ipIdentifier = getClientIdentifier(req);
+    const emailIdentifier = getClientIdentifier(req, email);
+
+    // Check IP-based rate limit (general)
+    const ipRateLimit = checkServerRateLimit(ipIdentifier, "otp");
+    if (!ipRateLimit.allowed) {
+      await addTimingJitter();
+      return rateLimitResponse(ipRateLimit.retryAfter!, corsHeaders);
+    }
+
+    // Check email-based rate limit (stricter)
+    const emailRateLimit = checkServerRateLimit(emailIdentifier, "otp");
+    if (!emailRateLimit.allowed) {
+      await addTimingJitter();
+      return rateLimitResponse(emailRateLimit.retryAfter!, corsHeaders);
+    }
+
+    // Record attempts
+    recordAttempt(ipIdentifier, "otp");
+    recordAttempt(emailIdentifier, "otp");
 
     // Generate cryptographically secure 6-digit OTP
     const otp = generateSecureOTP(6);
@@ -91,14 +85,19 @@ serve(async (req: Request): Promise<Response> => {
 
     if (insertError) {
       console.error("Error storing OTP:", insertError);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate OTP" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Failed to generate OTP", corsHeaders, 500);
     }
 
     // Send OTP email using configured sender or fallback
     const fromAddress = Deno.env.get("RESEND_FROM") || "ChurchFlow <onboarding@resend.dev>";
+    
+    // Sanitize church name for HTML output
+    const safeChurchName = churchName
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .substring(0, 100);
     
     const emailResponse = await resend.emails.send({
       from: fromAddress,
@@ -122,7 +121,7 @@ serve(async (req: Request): Promise<Response> => {
             </h2>
             
             <p style="color: #52525b; font-size: 16px; line-height: 24px; text-align: center; margin-bottom: 24px;">
-              You're creating an account for <strong>${churchName}</strong>. Use the verification code below to complete your registration.
+              You're creating an account for <strong>${safeChurchName}</strong>. Use the verification code below to complete your registration.
             </p>
             
             <div style="background: #f4f4f5; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
@@ -147,21 +146,12 @@ serve(async (req: Request): Promise<Response> => {
         .delete()
         .eq("email", email.toLowerCase());
       
-      return new Response(
-        JSON.stringify({ error: "Failed to send verification email. Please try again later." }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return secureErrorResponse("Failed to send verification email. Please try again later.", corsHeaders, 500);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, message: "Verification code sent successfully" }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
   } catch (error: any) {
     console.error("Error in send-signup-otp:", error);
-    return new Response(
-      JSON.stringify({ error: "An error occurred. Please try again." }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return secureErrorResponse("An error occurred. Please try again.", corsHeaders, 500);
   }
 });
