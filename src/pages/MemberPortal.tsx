@@ -25,6 +25,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { StreakDashboard } from "@/components/member/StreakDashboard";
+import { RecentServicesStreak } from "@/components/member/RecentServicesStreak";
 import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
 import { downloadFileFromUrl } from "@/lib/file-download";
 
@@ -49,7 +50,9 @@ interface AttendanceStats {
 
 interface ChurchService {
   id: string;
+  name: string;
   service_date: string;
+  branches: { name: string } | null;
 }
 
 interface AttendanceRecord {
@@ -151,11 +154,12 @@ export default function MemberPortal() {
       // Fetch all services for the member's church (sorted by date descending)
       const { data: allServices } = await supabase
         .from("services")
-        .select("id, service_date")
+        .select("id, name, service_date, branches(name)")
         .eq("church_id", memberData.church_id)
         .eq("is_active", true)
         .lte("service_date", new Date().toISOString().split('T')[0]) // Only past/today services
-        .order("service_date", { ascending: false });
+        .order("service_date", { ascending: false })
+        .limit(20); // Get recent 20 services for streak display
 
       const services = allServices || [];
       setChurchServices(services);
@@ -443,6 +447,13 @@ export default function MemberPortal() {
         <StreakDashboard 
           stats={stats} 
           attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]} 
+        />
+
+        {/* Recent Services Streak Indicator */}
+        <RecentServicesStreak
+          services={churchServices}
+          attendedServiceIds={new Set(attendanceHistory.map(a => (a as any).service_id).filter(Boolean))}
+          currentStreak={stats?.currentStreak || 0}
         />
 
         {/* Service Downloads */}
