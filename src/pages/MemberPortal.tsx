@@ -446,7 +446,11 @@ export default function MemberPortal() {
         {/* Gamified Streak Dashboard */}
         <StreakDashboard 
           stats={stats} 
-          attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]} 
+          attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]}
+          services={churchServices}
+          attendedServiceIds={new Set(attendanceHistory.map(a => (a as any).service_id).filter(Boolean))}
+          memberName={member.full_name}
+          churchName={member.churches?.name}
         />
 
         {/* Recent Services Streak Indicator */}
