@@ -1,11 +1,15 @@
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StreakRing } from "./StreakRing";
 import { StreakFlame } from "./StreakFlame";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WeeklyHeatmap } from "./WeeklyHeatmap";
 import { MilestoneConfetti, usePreviousStreak } from "./MilestoneConfetti";
-import { Calendar, TrendingUp, Target, Sparkles, Activity } from "lucide-react";
+import { Calendar, TrendingUp, Target, Sparkles, Activity, Download, Share2, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import html2canvas from "html2canvas";
 
 interface AttendanceStats {
   totalAttendance: number;
@@ -18,6 +22,8 @@ interface AttendanceStats {
 interface StreakDashboardProps {
   stats: AttendanceStats | null;
   attendanceDates: string[];
+  memberName?: string;
+  churchName?: string;
 }
 
 const motivationalMessages = [
@@ -31,144 +37,274 @@ const motivationalMessages = [
   { min: 52, max: Infinity, message: "LEGENDARY! Incredible dedication!", emoji: "🎖️" },
 ];
 
-export function StreakDashboard({ stats, attendanceDates }: StreakDashboardProps) {
+export function StreakDashboard({ stats, attendanceDates, memberName, churchName }: StreakDashboardProps) {
   const streak = stats?.currentStreak || 0;
   const previousStreak = usePreviousStreak(streak);
   const nextMilestone = streak < 4 ? 4 : streak < 8 ? 8 : streak < 12 ? 12 : streak < 26 ? 26 : streak < 52 ? 52 : 100;
   const progress = (streak / nextMilestone) * 100;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const motivationalMessage = motivationalMessages.find(m => streak >= m.min && streak <= m.max) || motivationalMessages[0];
+
+  const captureCard = async (): Promise<Blob | null> => {
+    if (!cardRef.current) return null;
+    
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: "#0f172a",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+      });
+      
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), "image/png", 1.0);
+      });
+    } catch (error) {
+      console.error("Error capturing card:", error);
+      return null;
+    }
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const blob = await captureCard();
+      if (!blob) {
+        toast.error("Failed to capture image");
+        return;
+      }
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `my-streak-${streak}-services.png`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success("Streak card downloaded!");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      const blob = await captureCard();
+      
+      // Check if Web Share API with files is supported
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], "streak.png", { type: "image/png" })] })) {
+        const file = new File([blob], `my-streak-${streak}-services.png`, { type: "image/png" });
+        
+        await navigator.share({
+          title: `🔥 ${streak} Service Streak!`,
+          text: `I've attended ${streak} consecutive services! ${motivationalMessage.emoji}`,
+          files: [file],
+        });
+        
+        toast.success("Shared successfully!");
+      } else {
+        // Fallback: copy a shareable text message
+        const shareText = `🔥 I've attended ${streak} consecutive services! ${motivationalMessage.emoji}\n\nTotal services attended: ${stats?.totalAttendance || 0}\nBest streak: ${stats?.longestStreak || 0}\n\n#ChurchFlow #AttendanceStreak`;
+        
+        await navigator.clipboard.writeText(shareText);
+        setCopied(true);
+        toast.success("Share message copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (error: any) {
+      if (error.name !== "AbortError") {
+        console.error("Share error:", error);
+        toast.error("Failed to share");
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       {/* Confetti celebration for milestones */}
       <MilestoneConfetti streak={streak} previousStreak={previousStreak} />
+      
       {/* Main Streak Hero Card */}
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative">
-        {/* Animated background glow */}
-        {streak > 0 && (
-          <motion.div
-            className="absolute inset-0 opacity-30"
-            style={{
-              background: `radial-gradient(circle at 30% 50%, hsl(25 95% 55% / 0.4), transparent 50%),
-                          radial-gradient(circle at 70% 50%, hsl(var(--primary) / 0.3), transparent 50%)`
-            }}
-            animate={{
-              opacity: [0.2, 0.4, 0.2],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        )}
-        
-        <CardContent className="pt-8 pb-8 relative z-10">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-            {/* Left: Streak Ring with Flame */}
-            <div className="flex flex-col items-center gap-4">
-              <StreakRing value={streak} max={nextMilestone} size={180} strokeWidth={14}>
-                <div className="flex flex-col items-center">
-                  <StreakFlame streak={streak} size="lg" />
-                  <motion.p 
-                    className="text-5xl font-black mt-1"
-                    key={streak}
-                    initial={{ scale: 1.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 200 }}
-                  >
-                    {streak}
-                  </motion.p>
-                  <p className="text-sm text-white/60 font-medium">service streak</p>
-                </div>
-              </StreakRing>
-              
-              {/* Progress to next milestone */}
-              <div className="text-center">
-                <div className="flex items-center gap-2 text-sm text-white/70">
-                  <Target className="w-4 h-4" />
-                  <span>{nextMilestone - streak} services to next milestone</span>
-                </div>
-                <div className="w-48 h-2 bg-white/10 rounded-full mt-2 overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-primary via-orange-500 to-yellow-400 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 1, delay: 0.5 }}
-                  />
+      <div className="relative">
+        {/* Action Buttons */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
+            title="Download streak card"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            disabled={isSharing}
+            className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
+            title="Share streak"
+          >
+            {isSharing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : copied ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+
+        <Card 
+          ref={cardRef}
+          className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative"
+        >
+          {/* Animated background glow */}
+          {streak > 0 && (
+            <motion.div
+              className="absolute inset-0 opacity-30"
+              style={{
+                background: `radial-gradient(circle at 30% 50%, hsl(25 95% 55% / 0.4), transparent 50%),
+                            radial-gradient(circle at 70% 50%, hsl(var(--primary) / 0.3), transparent 50%)`
+              }}
+              animate={{
+                opacity: [0.2, 0.4, 0.2],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            />
+          )}
+          
+          {/* Branding watermark for shared images */}
+          <div className="absolute bottom-2 right-4 z-10 text-white/30 text-xs font-medium">
+            ChurchFlow
+          </div>
+          
+          <CardContent className="pt-8 pb-8 relative z-10">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+              {/* Left: Streak Ring with Flame */}
+              <div className="flex flex-col items-center gap-4">
+                <StreakRing value={streak} max={nextMilestone} size={180} strokeWidth={14}>
+                  <div className="flex flex-col items-center">
+                    <StreakFlame streak={streak} size="lg" />
+                    <motion.p 
+                      className="text-5xl font-black mt-1"
+                      key={streak}
+                      initial={{ scale: 1.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 200 }}
+                    >
+                      {streak}
+                    </motion.p>
+                    <p className="text-sm text-white/60 font-medium">service streak</p>
+                  </div>
+                </StreakRing>
+                
+                {/* Progress to next milestone */}
+                <div className="text-center">
+                  <div className="flex items-center gap-2 text-sm text-white/70">
+                    <Target className="w-4 h-4" />
+                    <span>{nextMilestone - streak} services to next milestone</span>
+                  </div>
+                  <div className="w-48 h-2 bg-white/10 rounded-full mt-2 overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-primary via-orange-500 to-yellow-400 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: 1, delay: 0.5 }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Center: Milestone Badge */}
-            <div className="flex flex-col items-center gap-4">
-              <MilestoneBadge streak={streak} />
-              
-              {/* Motivational message */}
-              <motion.div 
-                className="text-center max-w-xs"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-              >
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-yellow-400" />
-                  <span className="text-2xl">{motivationalMessage.emoji}</span>
-                  <Sparkles className="w-4 h-4 text-yellow-400" />
-                </div>
-                <p className="text-white/80 text-sm leading-relaxed">
-                  {motivationalMessage.message}
-                </p>
-              </motion.div>
-            </div>
+              {/* Center: Milestone Badge */}
+              <div className="flex flex-col items-center gap-4">
+                <MilestoneBadge streak={streak} />
+                
+                {/* Motivational message */}
+                <motion.div 
+                  className="text-center max-w-xs"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-yellow-400" />
+                    <span className="text-2xl">{motivationalMessage.emoji}</span>
+                    <Sparkles className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    {motivationalMessage.message}
+                  </p>
+                </motion.div>
+              </div>
 
-            {/* Right: Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <motion.div 
-                className="bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
-              >
-                <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-2">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-3xl font-bold">{stats?.longestStreak || 0}</p>
-                <p className="text-xs text-white/60">Best Streak</p>
-              </motion.div>
-              
-              <motion.div 
-                className="bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
-              >
-                <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mb-2">
-                  <Calendar className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-3xl font-bold">{stats?.thisMonthCount || 0}</p>
-                <p className="text-xs text-white/60">This Month</p>
-              </motion.div>
-              
-              <motion.div 
-                className="col-span-2 bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.1)" }}
-              >
-                <p className="text-4xl font-bold bg-gradient-to-r from-primary via-orange-400 to-yellow-400 bg-clip-text text-transparent">
-                  {stats?.totalAttendance || 0}
-                </p>
-                <p className="text-xs text-white/60">Total Services Attended</p>
-              </motion.div>
+              {/* Right: Stats Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  className="bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-2">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-3xl font-bold">{stats?.longestStreak || 0}</p>
+                  <p className="text-xs text-white/60">Best Streak</p>
+                </motion.div>
+                
+                <motion.div 
+                  className="bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mb-2">
+                    <Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-3xl font-bold">{stats?.thisMonthCount || 0}</p>
+                  <p className="text-xs text-white/60">This Month</p>
+                </motion.div>
+                
+                <motion.div 
+                  className="col-span-2 bg-white/5 backdrop-blur rounded-2xl p-4 text-center border border-white/10"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <p className="text-4xl font-bold bg-gradient-to-r from-primary via-orange-400 to-yellow-400 bg-clip-text text-transparent">
+                    {stats?.totalAttendance || 0}
+                  </p>
+                  <p className="text-xs text-white/60">Total Services Attended</p>
+                </motion.div>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Activity Heatmap */}
       <Card className="border-border/50 bg-gradient-to-br from-card to-card/80">
