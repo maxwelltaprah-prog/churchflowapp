@@ -1,18 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Encode credentials for Hubtel Basic Auth
-function getHubtelAuthHeader(): string {
-  const clientId = Deno.env.get("HUBTEL_CLIENT_ID")!;
-  const clientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET")!;
-  const credentials = `${clientId}:${clientSecret}`;
-  return `Basic ${btoa(credentials)}`;
-}
+import { authorizeRequest, authErrorResponse, getServiceClient, corsHeaders } from "../_shared/authorization.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,8 +7,19 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // SECURITY: Authorize request and derive churchId from authenticated user
+    const authResult = await authorizeRequest(req, {
+      requireRole: ["church_admin", "branch_admin"], // Only admins can initiate payments
+    });
+
+    if (!authResult.success) {
+      return authErrorResponse(authResult.error!, authResult.status!);
+    }
+
+    const authorizedUser = authResult.user!;
+    const churchId = authorizedUser.churchId; // SECURE: Derived from auth, not request body
+    const userId = authorizedUser.userId; // SECURE: Derived from auth, not request body
+
     const hubtelClientId = Deno.env.get("HUBTEL_CLIENT_ID");
     const hubtelClientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET");
 
@@ -29,25 +27,25 @@ serve(async (req) => {
       throw new Error("Hubtel API credentials not configured");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
-    const { churchId, userId, credits, amount, returnUrl, customerPhone, customerName } = await req.json();
+    const { credits, amount, returnUrl, customerPhone, customerName } = await req.json();
 
     console.log("Initiating SMS credit payment:", { churchId, credits, amount });
 
-    if (!churchId || !userId || !credits || !amount) {
-      throw new Error("Missing required fields: churchId, userId, credits, amount");
+    if (!credits || !amount) {
+      throw new Error("Missing required fields: credits, amount");
     }
 
     // Generate unique reference
     const clientReference = `sms-${churchId.slice(0, 8)}-${Date.now()}`;
 
-    // Create pending purchase record
+    // Create pending purchase record with SECURE derived values
     const { data: purchase, error: purchaseError } = await supabase
       .from("sms_credit_purchases")
       .insert({
-        church_id: churchId,
-        admin_user_id: userId,
+        church_id: churchId, // SECURE: Uses derived churchId
+        admin_user_id: userId, // SECURE: Uses authenticated userId
         credits_purchased: credits,
         amount_paid: amount,
         currency: "GHS",
@@ -59,7 +57,14 @@ serve(async (req) => {
 
     if (purchaseError) throw purchaseError;
 
+    // Get Hubtel auth header
+    const getHubtelAuthHeader = () => {
+      const credentials = btoa(`${hubtelClientId}:${hubtelClientSecret}`);
+      return `Basic ${credentials}`;
+    };
+
     // Create Hubtel checkout order
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const callbackUrl = `${supabaseUrl}/functions/v1/hubtel-payment-callback`;
     
     const checkoutPayload = {
@@ -88,7 +93,6 @@ serve(async (req) => {
       }
     );
 
-    // Get raw response text first to handle empty responses
     const responseText = await checkoutResponse.text();
     console.log("Hubtel raw response:", responseText, "Status:", checkoutResponse.status);
 
