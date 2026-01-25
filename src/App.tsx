@@ -16,6 +16,9 @@ import MemberLogin from "./pages/MemberLogin";
 import CreateMemberPin from "./pages/CreateMemberPin";
 import MemberPortal from "./pages/MemberPortal";
 import SelfCheckin from "./pages/SelfCheckin";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Support from "./pages/Support";
 
 // Dashboard imports
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
@@ -72,6 +75,9 @@ const App = () => (
             <Route path="/signup/church" element={<ChurchSignup />} />
             <Route path="/join" element={<JoinBranch />} />
             <Route path="/setup-church" element={<SetupChurch />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/support" element={<Support />} />
             
             {/* Member Routes */}
             <Route path="/member-login" element={<MemberLogin />} />
