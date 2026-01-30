@@ -474,3 +474,103 @@ export function useAvailableFollowupPlans(memberId: string | undefined) {
     enabled: !!memberId,
   });
 }
+
+// =====================================================
+// CONTENT INTERACTION HOOKS
+// =====================================================
+
+// Track content interaction (view, like, share, bookmark)
+export function useContentInteraction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      contentId,
+      memberId,
+      type,
+      toggle = false,
+    }: {
+      contentId: string;
+      memberId: string;
+      type: "view" | "like" | "share" | "bookmark";
+      toggle?: boolean;
+    }) => {
+      // Get member's church_id first
+      const { data: member, error: memberError } = await supabase
+        .from("members")
+        .select("church_id")
+        .eq("id", memberId)
+        .single();
+
+      if (memberError) throw memberError;
+
+      if (toggle) {
+        // Check if interaction exists
+        const { data: existing } = await supabase
+          .from("content_interactions")
+          .select("id")
+          .eq("content_id", contentId)
+          .eq("member_id", memberId)
+          .eq("interaction_type", type)
+          .maybeSingle();
+
+        if (existing) {
+          // Remove interaction (unlike/unbookmark)
+          const { error } = await supabase
+            .from("content_interactions")
+            .delete()
+            .eq("id", existing.id);
+
+          if (error) throw error;
+          return { action: "removed" };
+        }
+      }
+
+      // Add interaction
+      const { data, error } = await supabase
+        .from("content_interactions")
+        .upsert({
+          content_id: contentId,
+          member_id: memberId,
+          church_id: member.church_id,
+          interaction_type: type,
+        }, {
+          onConflict: "content_id,member_id,interaction_type",
+          ignoreDuplicates: type === "view", // Don't error on duplicate views
+        })
+        .select()
+        .single();
+
+      if (error && error.code !== "23505") throw error;
+      return { action: "added", data };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["my-content-interactions", variables.memberId, variables.contentId] 
+      });
+    },
+    onError: () => {
+      // Silent fail for tracking - don't disrupt UX
+    },
+  });
+}
+
+// Get member's interactions with a specific content
+export function useMyContentInteractions(memberId: string | undefined, contentId: string | undefined) {
+  return useQuery({
+    queryKey: ["my-content-interactions", memberId, contentId],
+    queryFn: async () => {
+      if (!memberId || !contentId) return [];
+
+      const { data, error } = await supabase
+        .from("content_interactions")
+        .select("interaction_type")
+        .eq("member_id", memberId)
+        .eq("content_id", contentId);
+
+      if (error) throw error;
+      return data?.map((i) => i.interaction_type) || [];
+    },
+    enabled: !!memberId && !!contentId,
+  });
+}
