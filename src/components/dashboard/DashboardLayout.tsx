@@ -23,6 +23,7 @@ const routeTitles: Record<string, string> = {
   "/app/branches": "Locations",
   "/app/services": "Services",
   "/app/checkin": "Scan to Connect",
+  "/app/tithes": "Tithe Management",
   "/app/analytics": "Engagement Insights",
   "/app/analytics/attendance": "Engagement Analytics",
   "/app/analytics/demographics": "Demographics",
