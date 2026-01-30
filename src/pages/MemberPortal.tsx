@@ -1,33 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Church, 
-  LogOut, 
-  QrCode, 
-  Copy,
-  Check,
-  User,
-  Clock,
-  Calendar,
-  Download,
-  FileText,
-  Music,
-  Loader2,
-  ArrowUpRight
-} from "lucide-react";
+import { Church, LogOut, User, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
-import { StreakDashboard } from "@/components/member/StreakDashboard";
-import { RecentServicesStreak } from "@/components/member/RecentServicesStreak";
-import { MemberTitheStats } from "@/components/member/MemberTitheStats";
-import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
-import { downloadFileFromUrl } from "@/lib/file-download";
-import { MemberEngagementSection } from "@/components/engagement/MemberEngagementSection";
+import { useMemberServiceDownloads } from "@/hooks/useServiceUploads";
+import { useMemberEngagementSettings } from "@/hooks/useEngagementSettings";
+import { MemberMenuGrid, MenuSection } from "@/components/member/MemberMenuGrid";
+import { MemberCheckinSection } from "@/components/member/MemberCheckinSection";
+import { MemberStreakSection } from "@/components/member/MemberStreakSection";
+import { MemberTithesSection } from "@/components/member/MemberTithesSection";
+import { MemberDownloadsSection } from "@/components/member/MemberDownloadsSection";
+import { MemberProfileSection } from "@/components/member/MemberProfileSection";
+import { MemberEngagementSectionWrapper } from "@/components/member/MemberEngagementSectionWrapper";
 
 interface MemberData {
   id: string;
@@ -74,19 +59,25 @@ export default function MemberPortal() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [churchServices, setChurchServices] = useState<ChurchService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [activeSection, setActiveSection] = useState<MenuSection>("home");
   const navigate = useNavigate();
   
-  // Fetch downloads for this member
   const { data: memberDownloads, isLoading: downloadsLoading } = useMemberServiceDownloads(member?.id);
+  const { data: engagementSettings } = useMemberEngagementSettings(member?.id);
+
+  const hasEngagement = Boolean(
+    engagementSettings?.enableTodayAtChurch ||
+    engagementSettings?.enablePrayerWall ||
+    engagementSettings?.enablePersonalizedFeed ||
+    engagementSettings?.enableSermonFollowups
+  );
+
+  const hasDownloads = Boolean(memberDownloads && memberDownloads.length > 0);
 
   useEffect(() => {
     fetchMemberData();
   }, []);
 
-  // Real-time subscription for attendance updates
   useEffect(() => {
     if (!member?.id) return;
 
@@ -102,7 +93,6 @@ export default function MemberPortal() {
         },
         async (payload) => {
           console.log('New attendance detected:', payload);
-          // Fetch the full attendance record with service details
           const { data: newRecord } = await supabase
             .from("attendance")
             .select("id, checked_in_at, services(name, service_date, start_time, branches(name))")
@@ -134,7 +124,6 @@ export default function MemberPortal() {
         return;
       }
 
-      // Fetch member data with church_id and branch_id
       const { data: memberData, error: memberError } = await supabase
         .from("members")
         .select("id, full_name, member_code, qr_code_token, phone, email, church_id, branch_id, branches(name), churches(name)")
@@ -149,22 +138,19 @@ export default function MemberPortal() {
 
       setMember(memberData as MemberData);
 
-      // Fetch services for the member's BRANCH only (for accurate streak calculation)
-      // Members are expected to attend services at their own branch
       const { data: allServices } = await supabase
         .from("services")
         .select("id, name, service_date, branch_id, branches(name)")
         .eq("church_id", memberData.church_id)
-        .eq("branch_id", memberData.branch_id) // Filter by member's branch
+        .eq("branch_id", memberData.branch_id)
         .eq("is_active", true)
-        .lte("service_date", new Date().toISOString().split('T')[0]) // Only past/today services
+        .lte("service_date", new Date().toISOString().split('T')[0])
         .order("service_date", { ascending: false })
-        .limit(20); // Get recent 20 services for streak display
+        .limit(20);
 
       const services = allServices || [];
       setChurchServices(services);
 
-      // Fetch attendance stats and history with service details
       const { data: attendanceData, error: attendanceError } = await supabase
         .from("attendance")
         .select(`
@@ -181,8 +167,6 @@ export default function MemberPortal() {
         .eq("member_id", memberData.id)
         .order("checked_in_at", { ascending: false });
       
-      console.log("Attendance data:", attendanceData, "Error:", attendanceError);
-
       if (attendanceData) {
         const stats = calculateStreakStats(attendanceData, services);
         setStats(stats);
@@ -196,12 +180,10 @@ export default function MemberPortal() {
   };
 
   const calculateStreakStats = (attendanceData: any[], allServices: ChurchService[]): AttendanceStats => {
-    // Get attended service IDs as a Set for quick lookup
     const attendedServiceIds = new Set(
       attendanceData.map(a => a.service_id).filter(Boolean)
     );
 
-    // Get unique attended service dates for display stats
     const attendedDates = [...new Set(
       attendanceData.map(a => a.services?.service_date).filter(Boolean)
     )].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -220,23 +202,19 @@ export default function MemberPortal() {
       };
     }
 
-    // Sort all services from most recent to oldest
     const sortedServices = [...allServices].sort(
       (a, b) => new Date(b.service_date).getTime() - new Date(a.service_date).getTime()
     );
 
-    // Calculate current streak: count consecutive services attended from most recent
     let currentStreak = 0;
     for (const service of sortedServices) {
       if (attendedServiceIds.has(service.id)) {
         currentStreak++;
       } else {
-        // First missed service breaks the streak
         break;
       }
     }
 
-    // Calculate longest streak: find the longest run of consecutive attended services
     let longestStreak = 0;
     let tempStreak = 0;
     for (const service of sortedServices) {
@@ -248,7 +226,6 @@ export default function MemberPortal() {
       }
     }
 
-    // This month count
     const thisMonth = new Date().getMonth();
     const thisYear = new Date().getFullYear();
     const thisMonthCount = attendedDates.filter(d => {
@@ -265,76 +242,13 @@ export default function MemberPortal() {
     };
   };
 
-  const handleCopyCode = () => {
-    if (member) {
-      navigator.clipboard.writeText(member.member_code);
-      setCopied(true);
-      toast.success("Member code copied!");
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
 
-  const handleOpen = async (upload: MemberDownload) => {
-    // Open a placeholder window immediately to avoid popup blockers on mobile
-    const win = window.open("about:blank", "_blank", "noopener,noreferrer");
-
-    try {
-      const url = await getDownloadUrl(upload.storage_path);
-      if (!url) {
-        win?.close();
-        toast.error("This file is no longer available.");
-        return;
-      }
-
-      if (win) win.location.href = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      win?.close();
-      console.error("Open error:", error);
-      toast.error("Failed to open file");
-    }
-  };
-
-  const handleDownload = async (upload: MemberDownload) => {
-    setDownloading(upload.id);
-    setDownloadProgress((prev) => ({ ...prev, [upload.id]: 0 }));
-
-    try {
-      const url = await getDownloadUrl(upload.storage_path);
-      if (!url) {
-        toast.error("This file is no longer available.");
-        return;
-      }
-
-      await downloadFileFromUrl(url, upload.file_name, (pct) =>
-        setDownloadProgress((prev) => ({ ...prev, [upload.id]: pct })),
-      );
-
-      toast.success("Download started");
-    } catch (error) {
-      console.error("Download error:", error);
-      toast.error("Failed to download file");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  const getTimeRemaining = (expiresAt: string) => {
-    const expiry = new Date(expiresAt);
-    const now = new Date();
-    if (expiry <= now) return null;
-    return formatDistanceToNow(expiry, { addSuffix: false });
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handleNavigate = (section: MenuSection) => {
+    setActiveSection(section);
   };
 
   if (isLoading) {
@@ -348,6 +262,92 @@ export default function MemberPortal() {
   if (!member) {
     return null;
   }
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "checkin":
+        return (
+          <MemberCheckinSection 
+            member={member} 
+            onBack={() => setActiveSection("home")} 
+          />
+        );
+      case "streak":
+        return (
+          <MemberStreakSection
+            stats={stats}
+            attendanceHistory={attendanceHistory}
+            churchServices={churchServices}
+            memberName={member.full_name}
+            churchName={member.churches?.name}
+            onBack={() => setActiveSection("home")}
+          />
+        );
+      case "tithes":
+        return (
+          <MemberTithesSection 
+            memberId={member.id} 
+            onBack={() => setActiveSection("home")} 
+          />
+        );
+      case "downloads":
+        return (
+          <MemberDownloadsSection 
+            downloads={memberDownloads || []} 
+            onBack={() => setActiveSection("home")} 
+          />
+        );
+      case "engagement":
+        return (
+          <MemberEngagementSectionWrapper
+            memberId={member.id}
+            churchId={member.church_id}
+            branchId={member.branch_id}
+            memberName={member.full_name}
+            currentStreak={stats?.currentStreak || 0}
+            lastAttendance={stats?.lastAttendance || null}
+            attendanceCount={stats?.totalAttendance || 0}
+            onBack={() => setActiveSection("home")}
+          />
+        );
+      case "profile":
+        return (
+          <MemberProfileSection 
+            member={member} 
+            onBack={() => setActiveSection("home")} 
+          />
+        );
+      default:
+        return (
+          <div className="space-y-6">
+            {/* Quick Stats Banner */}
+            <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-4 text-primary-foreground">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm opacity-90">Current Streak</p>
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-6 h-6" />
+                    <span className="text-3xl font-bold">{stats?.currentStreak || 0}</span>
+                    <span className="text-sm opacity-90">services</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm opacity-90">This Month</p>
+                  <p className="text-2xl font-bold">{stats?.thisMonthCount || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Grid */}
+            <MemberMenuGrid
+              onNavigate={handleNavigate}
+              hasDownloads={hasDownloads}
+              hasEngagement={hasEngagement}
+            />
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -372,192 +372,24 @@ export default function MemberPortal() {
         </div>
       </header>
 
-      <main className="container py-8 space-y-8">
-        {/* Welcome Section */}
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-4">
-            <User className="w-4 h-4" />
-            <span className="text-sm font-medium">Member Portal</span>
+      <main className="container py-6 max-w-lg mx-auto">
+        {/* Welcome Section - Only on home */}
+        {activeSection === "home" && (
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-3">
+              <User className="w-4 h-4" />
+              <span className="text-sm font-medium">Member Portal</span>
+            </div>
+            <h1 className="text-2xl font-bold mb-1">
+              Welcome, {member.full_name.split(" ")[0]}!
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {member.churches?.name} • {member.branches?.name}
+            </p>
           </div>
-          <h1 className="text-3xl font-bold mb-2">Welcome, {member.full_name.split(" ")[0]}!</h1>
-        <p className="text-muted-foreground">{member.churches?.name} • {member.branches?.name}</p>
-        </div>
-
-        {/* Quick Check-in Card */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <QrCode className="w-5 h-5" />
-                Your QR Code
-              </CardTitle>
-              <CardDescription>
-                Show this to staff for quick check-in
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="bg-white p-4 rounded-xl mb-4">
-                <QRCodeSVG value={member.qr_code_token} size={160} />
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Staff can scan this code to check you in
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Your Member Code
-              </CardTitle>
-              <CardDescription>
-                Use for self check-in at services
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2">Phone Number</p>
-                <p className="text-2xl font-mono font-bold tracking-wider text-primary">
-                  {member.phone || "Not set"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Enter this for self check-in
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-secondary/50 rounded-lg px-4 py-3 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Member ID</p>
-                  <p className="font-mono font-semibold">{member.member_code}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyCode}
-                  className="shrink-0"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Gamified Streak Dashboard */}
-        <StreakDashboard 
-          stats={stats} 
-          attendanceDates={attendanceHistory.map(a => a.services?.service_date).filter(Boolean) as string[]}
-          services={churchServices}
-          attendedServiceIds={new Set(attendanceHistory.map(a => (a as any).service_id).filter(Boolean))}
-          memberName={member.full_name}
-          churchName={member.churches?.name}
-        />
-
-        {/* Recent Services Streak Indicator */}
-        <RecentServicesStreak
-          services={churchServices}
-          attendedServiceIds={new Set(attendanceHistory.map(a => (a as any).service_id).filter(Boolean))}
-          currentStreak={stats?.currentStreak || 0}
-        />
-
-        {/* Tithe Statistics */}
-        <MemberTitheStats memberId={member.id} />
-
-        {/* Service Downloads */}
-        {memberDownloads && memberDownloads.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="w-5 h-5" />
-                Service Downloads
-              </CardTitle>
-              <CardDescription>
-                Download materials from services you attended (available for 48 hours)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {memberDownloads.map((upload) => {
-                const timeRemaining = getTimeRemaining(upload.expires_at);
-                if (!timeRemaining) return null;
-
-                return (
-                  <div key={upload.id} className="space-y-2">
-                    {upload.service && (
-                      <div className="text-sm text-muted-foreground">
-                        {upload.service.name} • {format(new Date(upload.service.service_date), "MMM d, yyyy")}
-                      </div>
-                    )}
-                    <div className="rounded-lg bg-secondary/50">
-                      <div className="flex items-center gap-3 p-3">
-                        {upload.upload_type === "program" ? (
-                          <FileText className="w-5 h-5 text-primary shrink-0" />
-                        ) : (
-                          <Music className="w-5 h-5 text-primary shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">
-                            {upload.upload_type === "program" ? "Church Program" : "Sermon Audio"}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{formatFileSize(upload.file_size)}</span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {timeRemaining} left
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleOpen(upload)}
-                            disabled={downloading === upload.id}
-                          >
-                            <ArrowUpRight className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(upload)}
-                            disabled={downloading === upload.id}
-                          >
-                            {downloading === upload.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {downloading === upload.id && (
-                        <div className="px-3 pb-3 space-y-2">
-                          <Progress value={downloadProgress[upload.id] ?? 0} />
-                          <p className="text-[11px] text-muted-foreground text-right">
-                            {downloadProgress[upload.id] ?? 0}%
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
         )}
 
-        {/* Member Engagement Section - Added below existing content */}
-        <MemberEngagementSection
-          memberId={member.id}
-          churchId={(member as any).church_id}
-          branchId={(member as any).branch_id}
-          memberName={member.full_name}
-          currentStreak={stats?.currentStreak || 0}
-          lastAttendance={stats?.lastAttendance || null}
-          attendanceCount={stats?.totalAttendance || 0}
-        />
-
+        {renderSection()}
       </main>
     </div>
   );
