@@ -1,10 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTitheAnalytics, useTitheSettings } from "@/hooks/useTitheData";
 import { useBranches } from "@/hooks/useChurchData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DollarSign, Users, TrendingUp, Percent, Calendar } from "lucide-react";
+import { KPICard } from "@/components/dashboard/DashboardCards";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   BarChart, 
   Bar, 
@@ -22,12 +23,25 @@ import {
 const COLORS = ['hsl(var(--kpi-purple))', 'hsl(var(--kpi-blue))', 'hsl(var(--kpi-green))', 'hsl(var(--kpi-amber))', 'hsl(var(--kpi-pink))'];
 
 export function TitheOverviewTab() {
+  const currentYear = new Date().getFullYear();
   const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [yearFilter, setYearFilter] = useState<number>(currentYear);
+  
   const { data: branches } = useBranches();
   const { data: settings } = useTitheSettings();
   const { data: analytics, isLoading } = useTitheAnalytics({
     branchId: branchFilter === "all" ? undefined : branchFilter,
+    periodYear: yearFilter,
   });
+
+  // Generate year options (current year and 5 years back)
+  const yearOptions = useMemo(() => {
+    const years = [];
+    for (let i = 0; i < 6; i++) {
+      years.push(currentYear - i);
+    }
+    return years;
+  }, [currentYear]);
 
   const formatCurrency = (amount: number) => {
     const currency = settings?.default_currency || "GHS";
@@ -51,14 +65,10 @@ export function TitheOverviewTab() {
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-24" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-32" />
-              </CardContent>
-            </Card>
+            <div key={i} className="rounded-2xl border p-5 bg-card">
+              <Skeleton className="h-4 w-24 mb-3" />
+              <Skeleton className="h-8 w-32" />
+            </div>
           ))}
         </div>
       </div>
@@ -82,79 +92,64 @@ export function TitheOverviewTab() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select value={yearFilter.toString()} onValueChange={(val) => setYearFilter(parseInt(val))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Select Year" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Dashboard Style */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-kpi-purple">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total This Month
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-kpi-purple" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.totalThisMonth || 0)}
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Total This Month"
+          value={settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.totalThisMonth || 0)}
+          icon={DollarSign}
+          variant="purple"
+          tooltip="Total tithe collected in the current month"
+        />
 
-        <Card className="border-l-4 border-l-kpi-blue">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total This Year
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-kpi-blue" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.totalThisYear || 0)}
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title={`Total in ${yearFilter}`}
+          value={settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.totalThisYear || 0)}
+          icon={Calendar}
+          variant="blue"
+          tooltip={`Total tithe collected for the year ${yearFilter}`}
+        />
 
-        <Card className="border-l-4 border-l-kpi-green">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Payment Rate
-            </CardTitle>
-            <Percent className="h-4 w-4 text-kpi-green" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {analytics?.paymentRateThisMonth?.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {analytics?.uniquePaidMembersThisMonth} of {analytics?.totalMembers} members paid
-            </p>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Payment Rate"
+          value={`${analytics?.paymentRateThisMonth?.toFixed(1) || 0}%`}
+          icon={Percent}
+          variant="green"
+          description={`${analytics?.uniquePaidMembersThisMonth || 0} of ${analytics?.totalMembers || 0} members paid`}
+          tooltip="Percentage of members who have paid this month"
+        />
 
-        <Card className="border-l-4 border-l-kpi-amber">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Average Payment
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-kpi-amber" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.averagePaymentThisMonth || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Per paying member this month
-            </p>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Average Payment"
+          value={settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.averagePaymentThisMonth || 0)}
+          icon={TrendingUp}
+          variant="amber"
+          description="Per paying member this month"
+          tooltip="Average tithe amount per paying member"
+        />
       </div>
 
       {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Monthly Trend Chart */}
+        {/* Monthly Trend Chart - January to December */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Monthly Tithe Trend</CardTitle>
+            <CardTitle className="text-lg">Monthly Tithe Trend ({yearFilter})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -188,7 +183,7 @@ export function TitheOverviewTab() {
         {/* Payment Method Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Payment Methods</CardTitle>
+            <CardTitle className="text-lg">Payment Methods ({yearFilter})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
