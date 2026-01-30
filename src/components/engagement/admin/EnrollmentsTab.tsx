@@ -66,49 +66,6 @@ export function EnrollmentsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Stats Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <Users className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{totalCount}</p>
-                <p className="text-sm text-muted-foreground">Total Enrollments</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <BookOpen className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{inProgressCount}</p>
-                <p className="text-sm text-muted-foreground">In Progress</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{completedCount}</p>
-                <p className="text-sm text-muted-foreground">Completed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>Enrollments by Sermon</CardTitle>
