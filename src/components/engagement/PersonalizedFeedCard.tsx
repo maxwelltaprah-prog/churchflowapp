@@ -89,11 +89,12 @@ export function PersonalizedFeedCard({
     }
 
     // Add encouragement based on attendance patterns
+    // Only show "we miss you" if NO active streak (streak = 0 means they've missed services)
     if (lastAttendance) {
       const lastDate = new Date(lastAttendance);
       const daysSince = differenceInDays(new Date(), lastDate);
       
-      if (daysSince > 14) {
+      if (daysSince > 14 && currentStreak === 0) {
         items.push({
           id: "return-welcome",
           type: "encouragement",
@@ -112,6 +113,16 @@ export function PersonalizedFeedCard({
           description: "We're blessed to have you worship with us.",
         });
       }
+    } else if (currentStreak === 0) {
+      // No last attendance and no streak - new or inactive member
+      items.push({
+        id: "welcome-new",
+        type: "encouragement",
+        icon: Heart,
+        iconColor: "text-kpi-rose",
+        title: `Welcome, ${firstName}!`,
+        description: "We'd love to see you at our next service.",
+      });
     }
 
     // Add today's content if available
