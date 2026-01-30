@@ -372,7 +372,7 @@ export default function MemberPortal() {
         </div>
       </header>
 
-      <main className="container py-6 max-w-lg mx-auto">
+      <main className="container py-8 space-y-8">
         {/* Welcome Section - Only on home */}
         {activeSection === "home" && (
           <div className="text-center mb-6">
