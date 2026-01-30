@@ -125,13 +125,21 @@ export default function CreateMemberPin() {
         throw new Error("Failed to create account");
       }
 
-      // Update member record with user_id
+      // Wait a moment for the session to be established
+      // The signUp returns a session that needs to be applied to subsequent requests
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Update member record with user_id using the authenticated session
       const { error: updateError } = await supabase
         .from("members")
         .update({ user_id: authData.user.id })
         .eq("id", memberData.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Failed to link member account:", updateError);
+        // Don't throw - account was created, linking can be retried
+        toast.error("Account created but linking failed. Please contact support.");
+      }
 
       setStep("success");
       toast.success("PIN created successfully!");
