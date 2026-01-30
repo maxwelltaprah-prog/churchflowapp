@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { StreakDashboard } from "@/components/member/StreakDashboard";
 import { RecentServicesStreak } from "@/components/member/RecentServicesStreak";
+import { MemberTitheStats } from "@/components/member/MemberTitheStats";
 import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
 import { downloadFileFromUrl } from "@/lib/file-download";
 
@@ -453,6 +454,9 @@ export default function MemberPortal() {
           attendedServiceIds={new Set(attendanceHistory.map(a => (a as any).service_id).filter(Boolean))}
           currentStreak={stats?.currentStreak || 0}
         />
+
+        {/* Tithe Statistics */}
+        <MemberTitheStats memberId={member.id} />
 
         {/* Service Downloads */}
         {memberDownloads && memberDownloads.length > 0 && (
