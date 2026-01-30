@@ -4,6 +4,7 @@ import { SermonFollowupCard } from "./SermonFollowupCard";
 import { PersonalizedFeedCard } from "./PersonalizedFeedCard";
 import { useMemberEngagementSettings } from "@/hooks/useEngagementSettings";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sparkles, Heart, BookOpen, MessageCircle } from "lucide-react";
 
 interface MemberEngagementSectionProps {
   memberId: string;
@@ -28,12 +29,10 @@ export function MemberEngagementSection({
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-[300px]" />
-          <Skeleton className="h-[300px]" />
-        </div>
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-[200px]" />
+        <Skeleton className="h-[200px]" />
       </div>
     );
   }
@@ -46,48 +45,70 @@ export function MemberEngagementSection({
     settings?.enableSermonFollowups;
 
   if (!anyFeatureEnabled) {
-    return null;
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p className="font-medium">No engagement features enabled</p>
+        <p className="text-sm">Check back soon for updates from your church</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold flex items-center gap-2">
-        ✨ Your Engagement
-      </h2>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left Column */}
-        <div className="space-y-6">
-          {settings?.enableTodayAtChurch && (
-            <TodayAtChurchCard memberId={memberId} />
-          )}
+      {/* Updates Section - For You / Today at Church */}
+      {(settings?.enablePersonalizedFeed || settings?.enableTodayAtChurch) && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-muted-foreground">Updates</h2>
+          </div>
           
-          {settings?.enablePrayerWall && (
-            <PrayerWallCard
-              memberId={memberId}
-              churchId={churchId}
-              branchId={branchId}
-            />
-          )}
-        </div>
+          <div className="space-y-4">
+            {settings?.enablePersonalizedFeed && (
+              <PersonalizedFeedCard
+                memberId={memberId}
+                memberName={memberName}
+                currentStreak={currentStreak}
+                lastAttendance={lastAttendance}
+                attendanceCount={attendanceCount}
+              />
+            )}
+            
+            {settings?.enableTodayAtChurch && (
+              <TodayAtChurchCard memberId={memberId} />
+            )}
+          </div>
+        </section>
+      )}
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {settings?.enablePersonalizedFeed && (
-            <PersonalizedFeedCard
-              memberId={memberId}
-              memberName={memberName}
-              currentStreak={currentStreak}
-              lastAttendance={lastAttendance}
-              attendanceCount={attendanceCount}
-            />
-          )}
+      {/* Prayer Section */}
+      {settings?.enablePrayerWall && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <Heart className="w-4 h-4 text-kpi-rose" />
+            <h2 className="font-semibold text-muted-foreground">Prayer</h2>
+          </div>
           
-          {settings?.enableSermonFollowups && (
-            <SermonFollowupCard memberId={memberId} />
-          )}
-        </div>
-      </div>
+          <PrayerWallCard
+            memberId={memberId}
+            churchId={churchId}
+            branchId={branchId}
+          />
+        </section>
+      )}
+
+      {/* Learning Section - Sermon Follow-ups */}
+      {settings?.enableSermonFollowups && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <BookOpen className="w-4 h-4 text-kpi-blue" />
+            <h2 className="font-semibold text-muted-foreground">Learning</h2>
+          </div>
+          
+          <SermonFollowupCard memberId={memberId} />
+        </section>
+      )}
     </div>
   );
 }
