@@ -3,7 +3,7 @@ import { useBranches } from "@/hooks/useChurchData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useCallback } from "react";
-import { DollarSign, Users, TrendingUp, Percent, Calendar } from "lucide-react";
+import { Users, TrendingUp, Percent, Calendar, Coins } from "lucide-react";
 import { KPICard } from "@/components/dashboard/DashboardCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -15,6 +15,17 @@ import {
   Tooltip, 
   ResponsiveContainer,
 } from "recharts";
+
+// Currency symbols mapping
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GHS: "₵",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  NGN: "₦",
+  KES: "KSh",
+  ZAR: "R",
+};
 
 export function TitheOverviewTab() {
   const currentYear = new Date().getFullYear();
@@ -36,6 +47,8 @@ export function TitheOverviewTab() {
     }
     return years;
   }, [currentYear]);
+
+  const currencySymbol = CURRENCY_SYMBOLS[settings?.default_currency || "GHS"] || "₵";
 
   const formatCurrency = useCallback((amount: number) => {
     const currency = settings?.default_currency || "GHS";
@@ -121,11 +134,11 @@ export function TitheOverviewTab() {
       {/* KPI Cards - Dashboard Style */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Total This Month"
+          title={analytics?.displayMonthName ? `Total in ${analytics.displayMonthName}` : "Total This Month"}
           value={settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.totalThisMonth || 0)}
-          icon={DollarSign}
+          icon={Coins}
           variant="purple"
-          tooltip="Total tithe collected in the current month"
+          tooltip={`Total tithe collected in ${analytics?.displayMonthName || 'this month'} ${yearFilter}`}
         />
 
         <KPICard
@@ -142,7 +155,7 @@ export function TitheOverviewTab() {
           icon={Percent}
           variant="green"
           description={`${analytics?.uniquePaidMembersThisMonth || 0} of ${analytics?.totalMembers || 0} members paid`}
-          tooltip="Percentage of members who have paid this month"
+          tooltip={`Percentage of members who paid in ${analytics?.displayMonthName || 'this month'}`}
         />
 
         <KPICard
@@ -150,7 +163,7 @@ export function TitheOverviewTab() {
           value={settings?.privacy_mode ? "••••••" : formatCurrency(analytics?.averagePaymentThisMonth || 0)}
           icon={TrendingUp}
           variant="amber"
-          description="Per paying member this month"
+          description={`Per paying member in ${analytics?.displayMonthName || 'this month'}`}
           tooltip="Average tithe amount per paying member"
         />
       </div>

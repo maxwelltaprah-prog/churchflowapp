@@ -298,8 +298,9 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
       if (!profile?.church_id) return null;
 
       const now = new Date();
-      const currentMonth = now.getMonth() + 1;
+      const currentMonth = filters.periodMonth || now.getMonth() + 1;
       const selectedYear = filters.periodYear || now.getFullYear();
+      const isCurrentYear = selectedYear === now.getFullYear();
 
       // Get all payments for this church (excluding reversed)
       let query = supabase
@@ -328,9 +329,12 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
 
       const { count: totalMembers } = await membersQuery;
 
-      // Calculate metrics
+      // For "this month" - use current month if viewing current year, otherwise use January
+      const displayMonth = isCurrentYear ? now.getMonth() + 1 : 1;
+      
+      // Calculate metrics for the display month of the selected year
       const thisMonthPayments = allPayments?.filter(
-        (p) => p.period_month === currentMonth && p.period_year === now.getFullYear()
+        (p) => p.period_month === displayMonth && p.period_year === selectedYear
       ) || [];
 
       const selectedYearPayments = allPayments?.filter(
@@ -400,6 +404,8 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
         averagePaymentThisMonth,
         monthlyTrend,
         methodBreakdown,
+        displayMonth, // Include which month is being displayed
+        displayMonthName: monthNames[displayMonth - 1],
         topContributorIds: Object.entries(memberTotals)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 10)
