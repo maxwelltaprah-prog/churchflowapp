@@ -345,9 +345,6 @@ export default function MemberPortal() {
             churchId={member.church_id}
             branchId={member.branch_id}
             memberName={member.full_name}
-            currentStreak={stats?.currentStreak || 0}
-            lastAttendance={stats?.lastAttendance || null}
-            attendanceCount={stats?.totalAttendance || 0}
             onBack={() => setActiveSection("home")}
           />
         );

@@ -7,9 +7,6 @@ interface MemberEngagementSectionWrapperProps {
   churchId: string;
   branchId: string | null;
   memberName: string;
-  currentStreak: number;
-  lastAttendance: string | null;
-  attendanceCount: number;
   onBack: () => void;
 }
 
@@ -18,9 +15,6 @@ export function MemberEngagementSectionWrapper({
   churchId,
   branchId,
   memberName,
-  currentStreak,
-  lastAttendance,
-  attendanceCount,
   onBack 
 }: MemberEngagementSectionWrapperProps) {
   return (
@@ -35,9 +29,6 @@ export function MemberEngagementSectionWrapper({
         churchId={churchId}
         branchId={branchId}
         memberName={memberName}
-        currentStreak={currentStreak}
-        lastAttendance={lastAttendance}
-        attendanceCount={attendanceCount}
       />
     </div>
   );

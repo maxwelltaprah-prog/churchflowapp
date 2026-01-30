@@ -11,9 +11,6 @@ interface MemberEngagementSectionProps {
   churchId: string;
   branchId: string | null;
   memberName: string;
-  currentStreak: number;
-  lastAttendance: string | null;
-  attendanceCount: number;
 }
 
 export function MemberEngagementSection({
@@ -21,9 +18,6 @@ export function MemberEngagementSection({
   churchId,
   branchId,
   memberName,
-  currentStreak,
-  lastAttendance,
-  attendanceCount,
 }: MemberEngagementSectionProps) {
   const { data: settings, isLoading } = useMemberEngagementSettings(memberId);
 
@@ -69,9 +63,6 @@ export function MemberEngagementSection({
               <PersonalizedFeedCard
                 memberId={memberId}
                 memberName={memberName}
-                currentStreak={currentStreak}
-                lastAttendance={lastAttendance}
-                attendanceCount={attendanceCount}
               />
             )}
             
