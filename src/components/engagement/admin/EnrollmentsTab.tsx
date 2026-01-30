@@ -33,15 +33,11 @@ export function EnrollmentsTab() {
   // Group enrollments by plan
   const enrollmentsByPlan = enrollments?.reduce((acc, enrollment) => {
     if (!acc[enrollment.plan_id]) {
-      acc[enrollment.plan_id] = {
-        planTitle: enrollment.plan_title,
-        planDuration: enrollment.plan_duration,
-        enrollments: [],
-      };
+      acc[enrollment.plan_id] = [];
     }
-    acc[enrollment.plan_id].enrollments.push(enrollment);
+    acc[enrollment.plan_id].push(enrollment);
     return acc;
-  }, {} as Record<string, { planTitle: string; planDuration: number; enrollments: typeof enrollments }>) || {};
+  }, {} as Record<string, typeof enrollments>) || {};
 
   if (isLoading) {
     return (
@@ -65,7 +61,8 @@ export function EnrollmentsTab() {
   const inProgressCount = enrollments?.filter(e => e.status === "in_progress").length || 0;
   const totalCount = enrollments?.length || 0;
 
-  const planIds = Object.keys(enrollmentsByPlan);
+  // Use all plans, not just those with enrollments
+  const allPlans = plans || [];
 
   return (
     <div className="space-y-6">
@@ -120,24 +117,23 @@ export function EnrollmentsTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {planIds.length === 0 ? (
+          {allPlans.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">No enrollments yet</p>
-              <p className="text-sm">Members who enroll in follow-up plans will appear here</p>
+              <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p className="font-medium">No follow-up plans created</p>
+              <p className="text-sm">Create a follow-up plan first to track enrollments</p>
             </div>
           ) : (
-            <Accordion type="multiple" defaultValue={planIds} className="space-y-4">
-              {planIds.map((planId) => {
-                const planData = enrollmentsByPlan[planId];
-                const planEnrollments = planData.enrollments;
+            <Accordion type="multiple" defaultValue={allPlans.map(p => p.id)} className="space-y-4">
+              {allPlans.map((plan) => {
+                const planEnrollments = enrollmentsByPlan[plan.id] || [];
                 const planCompleted = planEnrollments.filter(e => e.status === "completed").length;
                 const planInProgress = planEnrollments.filter(e => e.status === "in_progress").length;
 
                 return (
                   <AccordionItem
-                    key={planId}
-                    value={planId}
+                    key={plan.id}
+                    value={plan.id}
                     className="border rounded-lg px-4"
                   >
                     <AccordionTrigger className="hover:no-underline py-4">
@@ -147,9 +143,10 @@ export function EnrollmentsTab() {
                             <BookOpen className="w-4 h-4 text-primary" />
                           </div>
                           <div className="text-left">
-                            <div className="font-semibold">{planData.planTitle}</div>
+                            <div className="font-semibold">{plan.title}</div>
                             <div className="text-sm text-muted-foreground">
-                              {planData.planDuration} day plan
+                              {plan.duration_days} day plan
+                              {plan.service?.name && ` • ${plan.service.name}`}
                             </div>
                           </div>
                         </div>
@@ -171,50 +168,57 @@ export function EnrollmentsTab() {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-2 pb-4">
-                      <div className="space-y-3">
-                        {planEnrollments.map((enrollment) => {
-                          const config = statusConfig[enrollment.status as keyof typeof statusConfig] || statusConfig.enrolled;
-                          const StatusIcon = config.icon;
-                          const progress = enrollment.plan_duration > 0
-                            ? Math.round((enrollment.completed_days / enrollment.plan_duration) * 100)
-                            : 0;
+                      {planEnrollments.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">No members enrolled in this plan yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {planEnrollments.map((enrollment) => {
+                            const config = statusConfig[enrollment.status as keyof typeof statusConfig] || statusConfig.enrolled;
+                            const StatusIcon = config.icon;
+                            const progress = enrollment.plan_duration > 0
+                              ? Math.round((enrollment.completed_days / enrollment.plan_duration) * 100)
+                              : 0;
 
-                          return (
-                            <div
-                              key={enrollment.id}
-                              className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors"
-                            >
-                              <Avatar className="h-9 w-9">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {getInitials(enrollment.member_name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div>
-                                    <div className="font-medium truncate">{enrollment.member_name}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      Enrolled {format(new Date(enrollment.enrolled_at), "MMM d, yyyy")}
-                                      {enrollment.member_phone && ` • ${enrollment.member_phone}`}
+                            return (
+                              <div
+                                key={enrollment.id}
+                                className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors"
+                              >
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {getInitials(enrollment.member_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                      <div className="font-medium truncate">{enrollment.member_name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Enrolled {format(new Date(enrollment.enrolled_at), "MMM d, yyyy")}
+                                        {enrollment.member_phone && ` • ${enrollment.member_phone}`}
+                                      </div>
                                     </div>
+                                    <Badge variant="secondary" className={config.color}>
+                                      <StatusIcon className="w-3 h-3 mr-1" />
+                                      {config.label}
+                                    </Badge>
                                   </div>
-                                  <Badge variant="secondary" className={config.color}>
-                                    <StatusIcon className="w-3 h-3 mr-1" />
-                                    {config.label}
-                                  </Badge>
-                                </div>
-                                <div className="mt-2 space-y-1">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span>{enrollment.completed_days}/{enrollment.plan_duration} days completed</span>
-                                    <span className="text-muted-foreground">{progress}%</span>
+                                  <div className="mt-2 space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span>{enrollment.completed_days}/{enrollment.plan_duration} days completed</span>
+                                      <span className="text-muted-foreground">{progress}%</span>
+                                    </div>
+                                    <Progress value={progress} className="h-1.5" />
                                   </div>
-                                  <Progress value={progress} className="h-1.5" />
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 );
