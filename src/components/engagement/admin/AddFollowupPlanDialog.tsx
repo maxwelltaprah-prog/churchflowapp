@@ -172,12 +172,12 @@ export function AddFollowupPlanDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Link to Service (optional)</Label>
-              <Select value={serviceId} onValueChange={setServiceId}>
+              <Select value={serviceId || "none"} onValueChange={(v) => setServiceId(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a service" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {services?.map((service) => (
                     <SelectItem key={service.id} value={service.id}>
                       {service.name} ({format(new Date(service.service_date), "MMM d")})
