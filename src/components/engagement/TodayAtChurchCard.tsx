@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sun, BookOpen, Megaphone, Heart, Sparkles, Calendar, Share2, Bookmark } from "lucide-react";
-import { useTodayContent, DailyContent, useContentInteraction, useMyContentInteractions } from "@/hooks/useEngagementData";
+import { useTodayContent, DailyContent, useContentInteraction, useMyContentInteractions, useContentAttachments } from "@/hooks/useEngagementData";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AttachmentDownload } from "./AttachmentDownload";
 
 interface TodayAtChurchCardProps {
   memberId: string;
@@ -46,6 +47,7 @@ const contentTypeConfig: Record<
 export function TodayAtChurchCard({ memberId }: TodayAtChurchCardProps) {
   const { data: content, isLoading } = useTodayContent(memberId);
   const { data: myInteractions } = useMyContentInteractions(memberId, content?.id);
+  const { data: attachments = [] } = useContentAttachments(content?.id);
   const { mutate: trackInteraction } = useContentInteraction();
 
   // Track view when content is displayed
@@ -144,6 +146,11 @@ export function TodayAtChurchCard({ memberId }: TodayAtChurchCardProps) {
                 alt={content.title}
                 className="w-full h-32 object-cover rounded-lg mt-3"
               />
+            )}
+            
+            {/* Downloadable Attachments */}
+            {attachments.length > 0 && (
+              <AttachmentDownload attachments={attachments} compact />
             )}
             
             {/* Interaction buttons */}

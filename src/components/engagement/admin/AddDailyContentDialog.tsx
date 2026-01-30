@@ -21,14 +21,17 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   useCreateDailyContent,
   useUpdateDailyContent,
+  useEngagementAttachments,
 } from "@/hooks/useAdminEngagementData";
 import { DailyContent } from "@/hooks/useEngagementData";
+import { AttachmentUpload, Attachment } from "@/components/engagement/AttachmentUpload";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AddDailyContentDialogProps {
   open: boolean;
@@ -50,6 +53,13 @@ export function AddDailyContentDialog({
 
   const createContent = useCreateDailyContent();
   const updateContent = useUpdateDailyContent();
+  const queryClient = useQueryClient();
+
+  // Get attachments for the currently editing content
+  const { data: contentAttachments } = useEngagementAttachments(
+    "daily_content",
+    editingContent?.id
+  );
 
   const isEditing = !!editingContent;
 
@@ -208,6 +218,29 @@ export function AddDailyContentDialog({
               onCheckedChange={setIsPublished}
             />
           </div>
+
+          {/* Attachments section - only show for saved content */}
+          {isEditing && editingContent && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label className="flex items-center gap-1">
+                <Paperclip className="w-4 h-4" />
+                Attachments (72h access)
+              </Label>
+              <AttachmentUpload
+                attachmentType="daily_content"
+                referenceId={editingContent.id}
+                existingAttachments={(contentAttachments || []) as Attachment[]}
+                onUploadComplete={() => {
+                  queryClient.invalidateQueries({ 
+                    queryKey: ["engagement-attachments", "daily_content", editingContent.id] 
+                  });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Add images, PDFs, or audio files. Files expire 72 hours after upload.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
