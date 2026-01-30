@@ -407,6 +407,55 @@ export type Database = {
         }
         Relationships: []
       }
+      content_interactions: {
+        Row: {
+          church_id: string
+          content_id: string
+          created_at: string
+          id: string
+          interaction_type: string
+          member_id: string
+        }
+        Insert: {
+          church_id: string
+          content_id: string
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          member_id: string
+        }
+        Update: {
+          church_id?: string
+          content_id?: string
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_interactions_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_interactions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "daily_church_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_interactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_church_content: {
         Row: {
           branch_id: string | null

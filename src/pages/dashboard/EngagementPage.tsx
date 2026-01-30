@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sun, Heart, BookOpen, Settings } from "lucide-react";
+import { Sun, Heart, BookOpen, Settings, Users, TrendingUp } from "lucide-react";
 import { DailyContentTab } from "@/components/engagement/admin/DailyContentTab";
 import { PrayerRequestsTab } from "@/components/engagement/admin/PrayerRequestsTab";
 import { FollowupPlansTab } from "@/components/engagement/admin/FollowupPlansTab";
 import { EngagementSettingsTab } from "@/components/engagement/admin/EngagementSettingsTab";
+import { EnrollmentsTab } from "@/components/engagement/admin/EnrollmentsTab";
+import { ContentEngagementTab } from "@/components/engagement/admin/ContentEngagementTab";
 
 export default function EngagementPage() {
   const [activeTab, setActiveTab] = useState("daily-content");
@@ -18,10 +20,14 @@ export default function EngagementPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-secondary/50 p-1">
+        <TabsList className="bg-secondary/50 p-1 flex-wrap h-auto">
           <TabsTrigger value="daily-content" className="gap-2">
             <Sun className="w-4 h-4" />
             Today at Church
+          </TabsTrigger>
+          <TabsTrigger value="content-engagement" className="gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Content Engagement
           </TabsTrigger>
           <TabsTrigger value="prayer-requests" className="gap-2">
             <Heart className="w-4 h-4" />
@@ -30,6 +36,10 @@ export default function EngagementPage() {
           <TabsTrigger value="followups" className="gap-2">
             <BookOpen className="w-4 h-4" />
             Sermon Follow-ups
+          </TabsTrigger>
+          <TabsTrigger value="enrollments" className="gap-2">
+            <Users className="w-4 h-4" />
+            Enrollments
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="w-4 h-4" />
@@ -41,12 +51,20 @@ export default function EngagementPage() {
           <DailyContentTab />
         </TabsContent>
 
+        <TabsContent value="content-engagement">
+          <ContentEngagementTab />
+        </TabsContent>
+
         <TabsContent value="prayer-requests">
           <PrayerRequestsTab />
         </TabsContent>
 
         <TabsContent value="followups">
           <FollowupPlansTab />
+        </TabsContent>
+
+        <TabsContent value="enrollments">
+          <EnrollmentsTab />
         </TabsContent>
 
         <TabsContent value="settings">

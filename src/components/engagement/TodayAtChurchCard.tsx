@@ -1,9 +1,13 @@
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sun, BookOpen, Megaphone, Heart, Sparkles, Calendar } from "lucide-react";
-import { useTodayContent, DailyContent } from "@/hooks/useEngagementData";
+import { Sun, BookOpen, Megaphone, Heart, Sparkles, Calendar, Share2, Bookmark } from "lucide-react";
+import { useTodayContent, DailyContent, useContentInteraction, useMyContentInteractions } from "@/hooks/useEngagementData";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface TodayAtChurchCardProps {
   memberId: string;
@@ -41,6 +45,19 @@ const contentTypeConfig: Record<
 
 export function TodayAtChurchCard({ memberId }: TodayAtChurchCardProps) {
   const { data: content, isLoading } = useTodayContent(memberId);
+  const { data: myInteractions } = useMyContentInteractions(memberId, content?.id);
+  const { mutate: trackInteraction } = useContentInteraction();
+
+  // Track view when content is displayed
+  useEffect(() => {
+    if (content && memberId) {
+      trackInteraction({ 
+        contentId: content.id, 
+        memberId, 
+        type: "view" 
+      });
+    }
+  }, [content?.id, memberId]);
 
   if (isLoading) {
     return <Skeleton className="h-32 w-full rounded-xl" />;
@@ -52,6 +69,53 @@ export function TodayAtChurchCard({ memberId }: TodayAtChurchCardProps) {
 
   const config = contentTypeConfig[content.content_type];
   const Icon = config.icon;
+
+  const hasLiked = myInteractions?.includes("like");
+  const hasBookmarked = myInteractions?.includes("bookmark");
+
+  const handleLike = () => {
+    trackInteraction({ 
+      contentId: content.id, 
+      memberId, 
+      type: "like",
+      toggle: true
+    });
+  };
+
+  const handleBookmark = () => {
+    trackInteraction({ 
+      contentId: content.id, 
+      memberId, 
+      type: "bookmark",
+      toggle: true
+    });
+  };
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: content.title,
+          text: content.content.substring(0, 200) + "...",
+        });
+        trackInteraction({ 
+          contentId: content.id, 
+          memberId, 
+          type: "share" 
+        });
+      } else {
+        await navigator.clipboard.writeText(content.content);
+        toast.success("Content copied to clipboard");
+        trackInteraction({ 
+          contentId: content.id, 
+          memberId, 
+          type: "share" 
+        });
+      }
+    } catch (error) {
+      // User cancelled share
+    }
+  };
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
@@ -81,6 +145,43 @@ export function TodayAtChurchCard({ memberId }: TodayAtChurchCardProps) {
                 className="w-full h-32 object-cover rounded-lg mt-3"
               />
             )}
+            
+            {/* Interaction buttons */}
+            <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={cn(
+                  "gap-1.5 h-8",
+                  hasLiked && "text-rose-500 hover:text-rose-600"
+                )}
+                onClick={handleLike}
+              >
+                <Heart className={cn("w-4 h-4", hasLiked && "fill-current")} />
+                <span className="text-xs">Like</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1.5 h-8"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="text-xs">Share</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={cn(
+                  "gap-1.5 h-8",
+                  hasBookmarked && "text-amber-500 hover:text-amber-600"
+                )}
+                onClick={handleBookmark}
+              >
+                <Bookmark className={cn("w-4 h-4", hasBookmarked && "fill-current")} />
+                <span className="text-xs">Save</span>
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
