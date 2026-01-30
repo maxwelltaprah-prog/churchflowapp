@@ -135,6 +135,17 @@ export default function MemberPortal() {
 
   const hasDownloads = Boolean(memberDownloads && memberDownloads.length > 0);
 
+  // Apply light theme for member portal
+  useEffect(() => {
+    document.body.classList.add('light-body');
+    document.documentElement.classList.add('light');
+    
+    return () => {
+      document.body.classList.remove('light-body');
+      document.documentElement.classList.remove('light');
+    };
+  }, []);
+
   useEffect(() => {
     fetchMemberData();
   }, []);
