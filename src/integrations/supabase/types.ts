@@ -516,6 +516,59 @@ export type Database = {
           },
         ]
       }
+      engagement_attachments: {
+        Row: {
+          attachment_type: string
+          church_id: string
+          expires_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          is_expired: boolean
+          reference_id: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          attachment_type: string
+          church_id: string
+          expires_at?: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          is_expired?: boolean
+          reference_id: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          attachment_type?: string
+          church_id?: string
+          expires_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          is_expired?: boolean
+          reference_id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_attachments_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           branch_id: string | null

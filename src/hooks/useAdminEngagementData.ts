@@ -681,9 +681,54 @@ export function useAdminContentStats() {
         shares: stats.shares,
         bookmarks: stats.bookmarks,
         uniqueMembers: stats.uniqueMembers.size,
-        topContent,
-      } as ContentStats;
+      topContent,
+    } as ContentStats;
+  },
+  enabled: !!profile?.church_id,
+});
+}
+
+// =====================================================
+// ATTACHMENT HOOKS
+// =====================================================
+
+export interface EngagementAttachment {
+  id: string;
+  church_id: string;
+  attachment_type: string;
+  reference_id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  uploaded_at: string;
+  expires_at: string;
+  is_expired: boolean;
+}
+
+// Fetch attachments for a specific reference
+export function useEngagementAttachments(
+  attachmentType: "sermon_followup" | "daily_content",
+  referenceId: string | undefined
+) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ["engagement-attachments", attachmentType, referenceId],
+    queryFn: async () => {
+      if (!profile?.church_id || !referenceId) return [];
+
+      const { data, error } = await supabase
+        .from("engagement_attachments")
+        .select("*")
+        .eq("church_id", profile.church_id)
+        .eq("attachment_type", attachmentType)
+        .eq("reference_id", referenceId)
+        .order("uploaded_at", { ascending: false });
+
+      if (error) throw error;
+      return data as EngagementAttachment[];
     },
-    enabled: !!profile?.church_id,
+    enabled: !!profile?.church_id && !!referenceId,
   });
 }

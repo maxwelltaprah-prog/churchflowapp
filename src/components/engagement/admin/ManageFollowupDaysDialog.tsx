@@ -13,13 +13,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Trash2, Save, GripVertical } from "lucide-react";
+import { Plus, Trash2, Save, GripVertical, Paperclip } from "lucide-react";
 import {
   useAdminFollowupPlanDays,
   useUpsertFollowupDay,
   useDeleteFollowupDay,
+  useEngagementAttachments,
 } from "@/hooks/useAdminEngagementData";
 import { SermonFollowupPlan, SermonFollowupDay } from "@/hooks/useEngagementData";
+import { AttachmentUpload, Attachment } from "@/components/engagement/AttachmentUpload";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ManageFollowupDaysDialogProps {
   open: boolean;
@@ -45,10 +48,17 @@ export function ManageFollowupDaysDialog({
   plan,
 }: ManageFollowupDaysDialogProps) {
   const [editingDay, setEditingDay] = useState<DayFormData | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: days, isLoading } = useAdminFollowupPlanDays(plan?.id);
   const upsertDay = useUpsertFollowupDay();
   const deleteDay = useDeleteFollowupDay();
+  
+  // Get attachments for the currently editing day
+  const { data: currentDayAttachments } = useEngagementAttachments(
+    "sermon_followup",
+    editingDay?.id
+  );
 
   if (!plan) return null;
 
@@ -194,6 +204,29 @@ export function ManageFollowupDaysDialog({
                     }
                   />
                 </div>
+
+                {/* Attachments section - only show for saved days */}
+                {editingDay.id && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="flex items-center gap-1">
+                      <Paperclip className="w-4 h-4" />
+                      Attachments (72h access)
+                    </Label>
+                    <AttachmentUpload
+                      attachmentType="sermon_followup"
+                      referenceId={editingDay.id}
+                      existingAttachments={(currentDayAttachments || []) as Attachment[]}
+                      onUploadComplete={() => {
+                        queryClient.invalidateQueries({ 
+                          queryKey: ["engagement-attachments", "sermon_followup", editingDay.id] 
+                        });
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Add images, PDFs, or audio files. Files expire 72 hours after upload.
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleSaveDay}

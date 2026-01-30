@@ -574,3 +574,68 @@ export function useMyContentInteractions(memberId: string | undefined, contentId
     enabled: !!memberId && !!contentId,
   });
 }
+
+// =====================================================
+// MEMBER ATTACHMENT HOOKS
+// =====================================================
+
+export interface MemberAttachment {
+  id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  expires_at: string;
+  is_expired: boolean;
+}
+
+// Fetch attachments for a sermon followup day (member-facing)
+export function useDayAttachments(dayId: string | undefined) {
+  return useQuery({
+    queryKey: ["day-attachments", dayId],
+    queryFn: async () => {
+      if (!dayId) return [];
+
+      const { data, error } = await supabase
+        .from("engagement_attachments")
+        .select("id, file_name, file_type, file_size, expires_at, is_expired")
+        .eq("attachment_type", "sermon_followup")
+        .eq("reference_id", dayId)
+        .eq("is_expired", false);
+
+      if (error) throw error;
+      
+      // Filter out expired ones client-side too
+      return (data || []).filter(
+        (a) => new Date(a.expires_at) > new Date()
+      ) as MemberAttachment[];
+    },
+    enabled: !!dayId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Fetch attachments for daily content (member-facing)
+export function useContentAttachments(contentId: string | undefined) {
+  return useQuery({
+    queryKey: ["content-attachments", contentId],
+    queryFn: async () => {
+      if (!contentId) return [];
+
+      const { data, error } = await supabase
+        .from("engagement_attachments")
+        .select("id, file_name, file_type, file_size, expires_at, is_expired")
+        .eq("attachment_type", "daily_content")
+        .eq("reference_id", contentId)
+        .eq("is_expired", false);
+
+      if (error) throw error;
+      
+      // Filter out expired ones client-side too
+      return (data || []).filter(
+        (a) => new Date(a.expires_at) > new Date()
+      ) as MemberAttachment[];
+    },
+    enabled: !!contentId,
+    staleTime: 5 * 60 * 1000,
+  });
+}

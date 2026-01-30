@@ -23,9 +23,11 @@ import {
   useFollowupPlanDetails,
   useMemberProgress,
   useCompleteFollowupDay,
+  useDayAttachments,
   MemberFollowupEnrollment,
   SermonFollowupDay,
 } from "@/hooks/useEngagementData";
+import { AttachmentDownload } from "./AttachmentDownload";
 
 interface FollowupPlanDrawerProps {
   enrollment: MemberFollowupEnrollment;
@@ -115,6 +117,7 @@ function DayAccordionItem({
   isCompletePending,
 }: DayAccordionItemProps) {
   const [reflection, setReflection] = useState("");
+  const { data: attachments = [] } = useDayAttachments(day.id);
 
   const handleComplete = () => {
     onComplete({
@@ -192,7 +195,10 @@ function DayAccordionItem({
           </div>
         )}
 
-        {/* Complete Button / Reflection Input */}
+        {/* Downloadable Attachments */}
+        {attachments.length > 0 && (
+          <AttachmentDownload attachments={attachments} />
+        )}
         {!isCompleted && (
           <div className="space-y-3 pt-2">
             {day.reflection_prompt && (
