@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTitheAnalytics, useTitheSettings, useMemberTitheStatus } from "@/hooks/useTitheData";
 import { useBranches } from "@/hooks/useChurchData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Users, Calendar, BarChart3 } from "lucide-react";
+import { TrendingUp, Users, Calendar, BarChart3 } from "lucide-react";
 import { 
   AreaChart, 
   Area, 
@@ -16,7 +16,6 @@ import {
   BarChart,
   Bar,
   Cell,
-  Legend
 } from "recharts";
 
 const COLORS = {
@@ -28,15 +27,29 @@ const COLORS = {
 };
 
 export function TitheAnalyticsTab() {
+  const currentYear = new Date().getFullYear();
   const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [yearFilter, setYearFilter] = useState<number>(currentYear);
+  
   const { data: branches } = useBranches();
   const { data: settings } = useTitheSettings();
   const { data: analytics, isLoading } = useTitheAnalytics({
     branchId: branchFilter === "all" ? undefined : branchFilter,
+    periodYear: yearFilter,
   });
   const { data: memberStatus } = useMemberTitheStatus({
     branchId: branchFilter === "all" ? undefined : branchFilter,
+    periodYear: yearFilter,
   });
+
+  // Generate year options (current year and 5 years back)
+  const yearOptions = useMemo(() => {
+    const years = [];
+    for (let i = 0; i < 6; i++) {
+      years.push(currentYear - i);
+    }
+    return years;
+  }, [currentYear]);
 
   const formatCurrency = (amount: number) => {
     const currency = settings?.default_currency || "GHS";
@@ -124,6 +137,19 @@ export function TitheAnalyticsTab() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select value={yearFilter.toString()} onValueChange={(val) => setYearFilter(parseInt(val))}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Select Year" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Collection Trend */}
@@ -131,7 +157,7 @@ export function TitheAnalyticsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-kpi-purple" />
-            Monthly Collection Trend
+            Monthly Collection Trend ({yearFilter})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -177,7 +203,7 @@ export function TitheAnalyticsTab() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-kpi-blue" />
-              Participation Rate by Month
+              Participation Rate by Month ({yearFilter})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -277,7 +303,7 @@ export function TitheAnalyticsTab() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              Method Breakdown (All Time)
+              Method Breakdown ({yearFilter})
             </CardTitle>
           </CardHeader>
           <CardContent>

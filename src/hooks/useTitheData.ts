@@ -299,7 +299,7 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
 
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
+      const selectedYear = filters.periodYear || now.getFullYear();
 
       // Get all payments for this church (excluding reversed)
       let query = supabase
@@ -330,11 +330,11 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
 
       // Calculate metrics
       const thisMonthPayments = allPayments?.filter(
-        (p) => p.period_month === currentMonth && p.period_year === currentYear
+        (p) => p.period_month === currentMonth && p.period_year === now.getFullYear()
       ) || [];
 
-      const thisYearPayments = allPayments?.filter(
-        (p) => p.period_year === currentYear
+      const selectedYearPayments = allPayments?.filter(
+        (p) => p.period_year === selectedYear
       ) || [];
 
       const totalThisMonth = thisMonthPayments.reduce(
@@ -342,7 +342,7 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
         0
       );
 
-      const totalThisYear = thisYearPayments.reduce(
+      const totalThisYear = selectedYearPayments.reduce(
         (sum, p) => sum + Number(p.amount),
         0
       );
@@ -361,33 +361,32 @@ export function useTitheAnalytics(filters: TitheFilters = {}) {
           ? totalThisMonth / uniquePaidMembersThisMonth
           : 0;
 
-      // Monthly trend (last 12 months)
+      // Monthly trend - January to December for the selected year
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthlyTrend: { month: string; amount: number; count: number }[] = [];
-      for (let i = 11; i >= 0; i--) {
-        const date = new Date(currentYear, currentMonth - 1 - i, 1);
-        const month = date.getMonth() + 1;
-        const year = date.getFullYear();
+      
+      for (let month = 1; month <= 12; month++) {
         const monthPayments = allPayments?.filter(
-          (p) => p.period_month === month && p.period_year === year
+          (p) => p.period_month === month && p.period_year === selectedYear
         ) || [];
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
         monthlyTrend.push({
-          month: `${monthNames[month - 1]} ${year}`,
+          month: `${monthNames[month - 1]} ${selectedYear}`,
           amount: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0),
           count: new Set(monthPayments.map((p) => p.member_id)).size,
         });
       }
 
-      // Payment method breakdown
+      // Payment method breakdown for the selected year
       const methodBreakdown: Record<string, number> = {};
-      allPayments?.forEach((p) => {
+      selectedYearPayments?.forEach((p) => {
         methodBreakdown[p.payment_method] =
           (methodBreakdown[p.payment_method] || 0) + Number(p.amount);
       });
 
-      // Top contributors this year
+      // Top contributors for the selected year
       const memberTotals: Record<string, number> = {};
-      thisYearPayments.forEach((p) => {
+      selectedYearPayments.forEach((p) => {
         memberTotals[p.member_id] =
           (memberTotals[p.member_id] || 0) + Number(p.amount);
       });
