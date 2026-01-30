@@ -17,7 +17,8 @@ import {
   Heart,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Star
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -56,6 +57,7 @@ const mainNavItems = [
   { title: "Scan to Connect", url: "/app/checkin", icon: QrCode, color: "kpi-orange" },
   { title: "Tithes", url: "/app/tithes", icon: Heart, color: "kpi-rose", adminOnly: true },
   { title: "Engagement Insights", url: "/app/analytics", icon: BarChart3, color: "kpi-purple" },
+  { title: "Member Engagement", url: "/app/engagement", icon: Star, color: "kpi-amber", adminOnly: true },
   { title: "Care Messages", url: "/app/sms", icon: Heart, color: "kpi-rose", adminOnly: true },
   { title: "Spiritual Journey", url: "/app/spiritual-journey", icon: Sparkles, color: "kpi-amber", adminOnly: true },
   { title: "Roles & Access", url: "/app/admins", icon: ShieldCheck, color: "kpi-teal", adminOnly: true },

@@ -50,6 +50,7 @@ import SendSMSPage from "./pages/dashboard/SendSMSPage";
 import BillingPage from "./pages/dashboard/BillingPage";
 import BillingCallbackPage from "./pages/dashboard/BillingCallbackPage";
 import TithesPage from "./pages/dashboard/TithesPage";
+import EngagementPage from "./pages/dashboard/EngagementPage";
 
 // Visitor Management imports
 import VisitorsPage from "./pages/dashboard/VisitorsPage";
@@ -119,6 +120,7 @@ const App = () => (
               <Route path="sms/send" element={<SendSMSPage />} />
               <Route path="tithes" element={<TithesPage />} />
               <Route path="spiritual-journey" element={<SpiritualJourneyPage />} />
+              <Route path="engagement" element={<EngagementPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="billing/callback" element={<BillingCallbackPage />} />
