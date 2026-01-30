@@ -146,11 +146,13 @@ export default function MemberPortal() {
 
       setMember(memberData as MemberData);
 
-      // Fetch all services for the member's church (sorted by date descending)
+      // Fetch services for the member's BRANCH only (for accurate streak calculation)
+      // Members are expected to attend services at their own branch
       const { data: allServices } = await supabase
         .from("services")
-        .select("id, name, service_date, branches(name)")
+        .select("id, name, service_date, branch_id, branches(name)")
         .eq("church_id", memberData.church_id)
+        .eq("branch_id", memberData.branch_id) // Filter by member's branch
         .eq("is_active", true)
         .lte("service_date", new Date().toISOString().split('T')[0]) // Only past/today services
         .order("service_date", { ascending: false })
