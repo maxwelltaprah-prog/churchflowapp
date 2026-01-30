@@ -407,6 +407,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_church_content: {
+        Row: {
+          branch_id: string | null
+          church_id: string
+          content: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean
+          media_url: string | null
+          publish_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          church_id: string
+          content: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          media_url?: string | null
+          publish_date?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          church_id?: string
+          content?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          media_url?: string | null
+          publish_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_church_content_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_church_content_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           branch_id: string | null
@@ -454,6 +514,90 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_followup_enrollments: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string
+          id: string
+          member_id: string
+          plan_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          member_id: string
+          plan_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          member_id?: string
+          plan_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_followup_enrollments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_followup_enrollments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "sermon_followup_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_followup_progress: {
+        Row: {
+          completed_at: string
+          day_id: string
+          enrollment_id: string
+          id: string
+          reflection_response: string | null
+        }
+        Insert: {
+          completed_at?: string
+          day_id: string
+          enrollment_id: string
+          id?: string
+          reflection_response?: string | null
+        }
+        Update: {
+          completed_at?: string
+          day_id?: string
+          enrollment_id?: string
+          id?: string
+          reflection_response?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_followup_progress_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "sermon_followup_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_followup_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "member_followup_enrollments"
             referencedColumns: ["id"]
           },
         ]
@@ -689,6 +833,112 @@ export type Database = {
         }
         Relationships: []
       }
+      prayer_interactions: {
+        Row: {
+          created_at: string
+          id: string
+          interaction_type: string
+          member_id: string
+          prayer_request_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          member_id: string
+          prayer_request_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          member_id?: string
+          prayer_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prayer_interactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prayer_interactions_prayer_request_id_fkey"
+            columns: ["prayer_request_id"]
+            isOneToOne: false
+            referencedRelation: "prayer_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prayer_requests: {
+        Row: {
+          answered_at: string | null
+          branch_id: string | null
+          church_id: string
+          created_at: string
+          id: string
+          is_anonymous: boolean
+          is_answered: boolean
+          is_public: boolean
+          member_id: string | null
+          request_text: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answered_at?: string | null
+          branch_id?: string | null
+          church_id: string
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean
+          is_answered?: boolean
+          is_public?: boolean
+          member_id?: string | null
+          request_text: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answered_at?: string | null
+          branch_id?: string | null
+          church_id?: string
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean
+          is_answered?: boolean
+          is_public?: boolean
+          member_id?: string | null
+          request_text?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prayer_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prayer_requests_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prayer_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -786,6 +1036,113 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sermon_followup_days: {
+        Row: {
+          action_item: string | null
+          content: string
+          created_at: string
+          day_number: number
+          id: string
+          media_url: string | null
+          plan_id: string
+          reflection_prompt: string | null
+          scripture_reference: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_item?: string | null
+          content: string
+          created_at?: string
+          day_number: number
+          id?: string
+          media_url?: string | null
+          plan_id: string
+          reflection_prompt?: string | null
+          scripture_reference?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_item?: string | null
+          content?: string
+          created_at?: string
+          day_number?: number
+          id?: string
+          media_url?: string | null
+          plan_id?: string
+          reflection_prompt?: string | null
+          scripture_reference?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_followup_days_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "sermon_followup_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sermon_followup_plans: {
+        Row: {
+          auto_enroll_attendees: boolean
+          church_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_days: number
+          id: string
+          is_active: boolean
+          service_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_enroll_attendees?: boolean
+          church_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean
+          service_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_enroll_attendees?: boolean
+          church_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_days?: number
+          id?: string
+          is_active?: boolean
+          service_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_followup_plans_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sermon_followup_plans_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]

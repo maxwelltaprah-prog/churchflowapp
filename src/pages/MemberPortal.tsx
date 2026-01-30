@@ -27,6 +27,7 @@ import { RecentServicesStreak } from "@/components/member/RecentServicesStreak";
 import { MemberTitheStats } from "@/components/member/MemberTitheStats";
 import { useMemberServiceDownloads, getDownloadUrl, MemberDownload } from "@/hooks/useServiceUploads";
 import { downloadFileFromUrl } from "@/lib/file-download";
+import { MemberEngagementSection } from "@/components/engagement/MemberEngagementSection";
 
 interface MemberData {
   id: string;
@@ -35,6 +36,8 @@ interface MemberData {
   qr_code_token: string;
   phone: string | null;
   email: string | null;
+  church_id: string;
+  branch_id: string;
   branches: { name: string } | null;
   churches: { name: string } | null;
 }
@@ -543,6 +546,17 @@ export default function MemberPortal() {
             </CardContent>
           </Card>
         )}
+
+        {/* Member Engagement Section - Added below existing content */}
+        <MemberEngagementSection
+          memberId={member.id}
+          churchId={(member as any).church_id}
+          branchId={(member as any).branch_id}
+          memberName={member.full_name}
+          currentStreak={stats?.currentStreak || 0}
+          lastAttendance={stats?.lastAttendance || null}
+          attendanceCount={stats?.totalAttendance || 0}
+        />
 
       </main>
     </div>
