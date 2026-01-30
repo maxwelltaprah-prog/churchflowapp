@@ -1360,6 +1360,126 @@ export type Database = {
           },
         ]
       }
+      tithe_payments: {
+        Row: {
+          amount: number
+          branch_id: string
+          church_id: string
+          created_at: string
+          currency: string
+          id: string
+          member_id: string
+          payment_date: string
+          payment_method: Database["public"]["Enums"]["tithe_payment_method"]
+          period_month: number
+          period_year: number
+          recorded_by_user_id: string | null
+          reference_note: string | null
+          status: Database["public"]["Enums"]["tithe_payment_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          church_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          member_id: string
+          payment_date?: string
+          payment_method?: Database["public"]["Enums"]["tithe_payment_method"]
+          period_month: number
+          period_year: number
+          recorded_by_user_id?: string | null
+          reference_note?: string | null
+          status?: Database["public"]["Enums"]["tithe_payment_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          church_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          member_id?: string
+          payment_date?: string
+          payment_method?: Database["public"]["Enums"]["tithe_payment_method"]
+          period_month?: number
+          period_year?: number
+          recorded_by_user_id?: string | null
+          reference_note?: string | null
+          status?: Database["public"]["Enums"]["tithe_payment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tithe_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tithe_payments_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tithe_payments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tithe_settings: {
+        Row: {
+          church_id: string
+          created_at: string
+          default_currency: string
+          enable_pledge_targets: boolean
+          enable_reminders: boolean
+          id: string
+          privacy_mode: boolean
+          tithe_rate_percent: number
+          updated_at: string
+        }
+        Insert: {
+          church_id: string
+          created_at?: string
+          default_currency?: string
+          enable_pledge_targets?: boolean
+          enable_reminders?: boolean
+          id?: string
+          privacy_mode?: boolean
+          tithe_rate_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          church_id?: string
+          created_at?: string
+          default_currency?: string
+          enable_pledge_targets?: boolean
+          enable_reminders?: boolean
+          id?: string
+          privacy_mode?: boolean
+          tithe_rate_percent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tithe_settings_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: true
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           branch_id: string | null
@@ -1749,6 +1869,8 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "expired_locked"
+      tithe_payment_method: "cash" | "momo" | "bank" | "card" | "other"
+      tithe_payment_status: "paid" | "reversed" | "pending"
       visitor_status: "new" | "in_follow_up" | "converted"
     }
     CompositeTypes: {
@@ -1916,6 +2038,8 @@ export const Constants = {
         "canceled",
         "expired_locked",
       ],
+      tithe_payment_method: ["cash", "momo", "bank", "card", "other"],
+      tithe_payment_status: ["paid", "reversed", "pending"],
       visitor_status: ["new", "in_follow_up", "converted"],
     },
   },
