@@ -1,18 +1,43 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Church, LogOut, User, Flame } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Church, 
+  LogOut, 
+  User, 
+  Flame,
+  QrCode,
+  Wallet,
+  Download,
+  Sparkles,
+  ChevronRight,
+  Trophy,
+  Calendar,
+  ArrowLeft
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMemberServiceDownloads } from "@/hooks/useServiceUploads";
 import { useMemberEngagementSettings } from "@/hooks/useEngagementSettings";
-import { MemberMenuGrid, MenuSection } from "@/components/member/MemberMenuGrid";
 import { MemberCheckinSection } from "@/components/member/MemberCheckinSection";
 import { MemberStreakSection } from "@/components/member/MemberStreakSection";
 import { MemberTithesSection } from "@/components/member/MemberTithesSection";
 import { MemberDownloadsSection } from "@/components/member/MemberDownloadsSection";
 import { MemberProfileSection } from "@/components/member/MemberProfileSection";
 import { MemberEngagementSectionWrapper } from "@/components/member/MemberEngagementSectionWrapper";
+import { format } from "date-fns";
+
+type MenuSection = 
+  | "home" 
+  | "checkin" 
+  | "tithes" 
+  | "downloads" 
+  | "engagement" 
+  | "streak"
+  | "profile";
 
 interface MemberData {
   id: string;
@@ -53,6 +78,42 @@ interface AttendanceRecord {
   } | null;
 }
 
+// Feed Action Card Component
+interface FeedActionProps {
+  icon: typeof QrCode;
+  title: string;
+  description: string;
+  iconBg: string;
+  iconColor: string;
+  onClick: () => void;
+  badge?: string;
+}
+
+function FeedActionCard({ icon: Icon, title, description, iconBg, iconColor, onClick, badge }: FeedActionProps) {
+  return (
+    <button 
+      onClick={onClick}
+      className="w-full p-4 rounded-xl bg-card border border-border hover:border-primary/30 hover:shadow-md transition-all text-left group"
+    >
+      <div className="flex items-center gap-4">
+        <div className={`p-3 rounded-xl ${iconBg}`}>
+          <Icon className={`w-6 h-6 ${iconColor}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">{title}</h3>
+            {badge && (
+              <Badge variant="secondary" className="text-xs">{badge}</Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+      </div>
+    </button>
+  );
+}
+
 export default function MemberPortal() {
   const [member, setMember] = useState<MemberData | null>(null);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
@@ -62,7 +123,7 @@ export default function MemberPortal() {
   const [activeSection, setActiveSection] = useState<MenuSection>("home");
   const navigate = useNavigate();
   
-  const { data: memberDownloads, isLoading: downloadsLoading } = useMemberServiceDownloads(member?.id);
+  const { data: memberDownloads } = useMemberServiceDownloads(member?.id);
   const { data: engagementSettings } = useMemberEngagementSettings(member?.id);
 
   const hasEngagement = Boolean(
@@ -92,7 +153,6 @@ export default function MemberPortal() {
           filter: `member_id=eq.${member.id}`
         },
         async (payload) => {
-          console.log('New attendance detected:', payload);
           const { data: newRecord } = await supabase
             .from("attendance")
             .select("id, checked_in_at, services(name, service_date, start_time, branches(name))")
@@ -151,7 +211,7 @@ export default function MemberPortal() {
       const services = allServices || [];
       setChurchServices(services);
 
-      const { data: attendanceData, error: attendanceError } = await supabase
+      const { data: attendanceData } = await supabase
         .from("attendance")
         .select(`
           id, 
@@ -247,10 +307,6 @@ export default function MemberPortal() {
     navigate("/");
   };
 
-  const handleNavigate = (section: MenuSection) => {
-    setActiveSection(section);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -266,12 +322,7 @@ export default function MemberPortal() {
   const renderSection = () => {
     switch (activeSection) {
       case "checkin":
-        return (
-          <MemberCheckinSection 
-            member={member} 
-            onBack={() => setActiveSection("home")} 
-          />
-        );
+        return <MemberCheckinSection member={member} onBack={() => setActiveSection("home")} />;
       case "streak":
         return (
           <MemberStreakSection
@@ -284,19 +335,9 @@ export default function MemberPortal() {
           />
         );
       case "tithes":
-        return (
-          <MemberTithesSection 
-            memberId={member.id} 
-            onBack={() => setActiveSection("home")} 
-          />
-        );
+        return <MemberTithesSection memberId={member.id} onBack={() => setActiveSection("home")} />;
       case "downloads":
-        return (
-          <MemberDownloadsSection 
-            downloads={memberDownloads || []} 
-            onBack={() => setActiveSection("home")} 
-          />
-        );
+        return <MemberDownloadsSection downloads={memberDownloads || []} onBack={() => setActiveSection("home")} />;
       case "engagement":
         return (
           <MemberEngagementSectionWrapper
@@ -311,39 +352,145 @@ export default function MemberPortal() {
           />
         );
       case "profile":
-        return (
-          <MemberProfileSection 
-            member={member} 
-            onBack={() => setActiveSection("home")} 
-          />
-        );
+        return <MemberProfileSection member={member} onBack={() => setActiveSection("home")} />;
       default:
         return (
           <div className="space-y-6">
-            {/* Quick Stats Banner */}
-            <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-4 text-primary-foreground">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">Current Streak</p>
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-6 h-6" />
-                    <span className="text-3xl font-bold">{stats?.currentStreak || 0}</span>
-                    <span className="text-sm opacity-90">services</span>
+            {/* Hero Streak Card */}
+            <Card className="overflow-hidden border-0 shadow-lg">
+              <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 text-primary-foreground">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90 mb-1">Your Streak</p>
+                    <div className="flex items-center gap-3">
+                      <Flame className="w-10 h-10" />
+                      <div>
+                        <span className="text-5xl font-bold">{stats?.currentStreak || 0}</span>
+                        <span className="text-lg ml-2 opacity-90">services</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Trophy className="w-4 h-4 opacity-80" />
+                      <span className="text-sm opacity-90">Best: {stats?.longestStreak || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      <Calendar className="w-4 h-4 opacity-80" />
+                      <span className="text-sm opacity-90">This month: {stats?.thisMonthCount || 0}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm opacity-90">This Month</p>
-                  <p className="text-2xl font-bold">{stats?.thisMonthCount || 0}</p>
-                </div>
+                {stats?.lastAttendance && (
+                  <p className="text-xs mt-4 opacity-75">
+                    Last attended: {format(new Date(stats.lastAttendance), "EEEE, MMM d, yyyy")}
+                  </p>
+                )}
               </div>
+              <CardContent className="p-4 bg-card">
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-between"
+                  onClick={() => setActiveSection("streak")}
+                >
+                  <span>View full streak details</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Feed Actions */}
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-muted-foreground px-1">Quick Actions</h2>
+              
+              <FeedActionCard
+                icon={QrCode}
+                title="Check In"
+                description="Show your QR code or member ID"
+                iconBg="bg-emerald-500/10"
+                iconColor="text-emerald-500"
+                onClick={() => setActiveSection("checkin")}
+              />
+
+              <FeedActionCard
+                icon={Wallet}
+                title="My Giving"
+                description="View your tithe and offering history"
+                iconBg="bg-amber-500/10"
+                iconColor="text-amber-500"
+                onClick={() => setActiveSection("tithes")}
+              />
+
+              {hasEngagement && (
+                <FeedActionCard
+                  icon={Sparkles}
+                  title="Engagement"
+                  description="Prayer wall, daily content & more"
+                  iconBg="bg-violet-500/10"
+                  iconColor="text-violet-500"
+                  onClick={() => setActiveSection("engagement")}
+                />
+              )}
+
+              {hasDownloads && (
+                <FeedActionCard
+                  icon={Download}
+                  title="Downloads"
+                  description="Service materials available"
+                  iconBg="bg-blue-500/10"
+                  iconColor="text-blue-500"
+                  onClick={() => setActiveSection("downloads")}
+                  badge={`${memberDownloads?.length || 0} files`}
+                />
+              )}
+
+              <FeedActionCard
+                icon={User}
+                title="My Profile"
+                description="View your member information"
+                iconBg="bg-slate-500/10"
+                iconColor="text-slate-500"
+                onClick={() => setActiveSection("profile")}
+              />
             </div>
 
-            {/* Menu Grid */}
-            <MemberMenuGrid
-              onNavigate={handleNavigate}
-              hasDownloads={hasDownloads}
-              hasEngagement={hasEngagement}
-            />
+            {/* Recent Activity */}
+            {attendanceHistory.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Recent Activity</CardTitle>
+                  <CardDescription>Your latest check-ins</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-3">
+                      {attendanceHistory.slice(0, 5).map((record) => (
+                        <div 
+                          key={record.id} 
+                          className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30"
+                        >
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Church className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {record.services?.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {record.services?.service_date && 
+                                format(new Date(record.services.service_date), "EEEE, MMM d, yyyy")}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            ✓ Attended
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
     }
@@ -372,18 +519,18 @@ export default function MemberPortal() {
         </div>
       </header>
 
-      <main className="container py-8 space-y-8">
+      <main className="container py-6 max-w-2xl mx-auto">
         {/* Welcome Section - Only on home */}
         {activeSection === "home" && (
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-3">
-              <User className="w-4 h-4" />
-              <span className="text-sm font-medium">Member Portal</span>
+          <div className="mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent mb-3">
+              <User className="w-3.5 h-3.5" />
+              <span className="text-xs font-medium">Member Portal</span>
             </div>
-            <h1 className="text-2xl font-bold mb-1">
-              Welcome, {member.full_name.split(" ")[0]}!
+            <h1 className="text-2xl font-bold">
+              Welcome back, {member.full_name.split(" ")[0]}! 👋
             </h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm mt-1">
               {member.churches?.name} • {member.branches?.name}
             </p>
           </div>
