@@ -2,7 +2,7 @@ import { useTitheAnalytics, useTitheSettings } from "@/hooks/useTitheData";
 import { useBranches } from "@/hooks/useChurchData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { DollarSign, Users, TrendingUp, Percent, Calendar } from "lucide-react";
 import { KPICard } from "@/components/dashboard/DashboardCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,13 +14,7 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
 } from "recharts";
-
-const COLORS = ['hsl(var(--kpi-purple))', 'hsl(var(--kpi-blue))', 'hsl(var(--kpi-green))', 'hsl(var(--kpi-amber))', 'hsl(var(--kpi-pink))'];
 
 export function TitheOverviewTab() {
   const currentYear = new Date().getFullYear();
@@ -43,7 +37,7 @@ export function TitheOverviewTab() {
     return years;
   }, [currentYear]);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     const currency = settings?.default_currency || "GHS";
     return new Intl.NumberFormat("en-GH", {
       style: "currency",
@@ -51,14 +45,31 @@ export function TitheOverviewTab() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
+  }, [settings?.default_currency]);
 
-  const methodBreakdownData = analytics?.methodBreakdown
-    ? Object.entries(analytics.methodBreakdown).map(([method, amount]) => ({
-        name: method.charAt(0).toUpperCase() + method.slice(1),
-        value: amount,
-      }))
-    : [];
+  // Smart Y-axis formatter that handles various ranges
+  const formatYAxis = useCallback((value: number) => {
+    if (value === 0) return "0";
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+    return value.toLocaleString();
+  }, []);
+
+  // Calculate max value for better Y-axis scaling
+  const maxAmount = useMemo(() => {
+    if (!analytics?.monthlyTrend) return 0;
+    return Math.max(...analytics.monthlyTrend.map(m => m.amount), 0);
+  }, [analytics?.monthlyTrend]);
+
+  // Generate nice Y-axis ticks
+  const yAxisTicks = useMemo(() => {
+    if (maxAmount === 0) return [0];
+    const step = Math.pow(10, Math.floor(Math.log10(maxAmount)));
+    const roundedMax = Math.ceil(maxAmount / step) * step;
+    const tickCount = 5;
+    const tickStep = roundedMax / (tickCount - 1);
+    return Array.from({ length: tickCount }, (_, i) => Math.round(i * tickStep));
+  }, [maxAmount]);
 
   if (isLoading) {
     return (
@@ -144,79 +155,50 @@ export function TitheOverviewTab() {
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Monthly Trend Chart - January to December */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Monthly Tithe Trend ({yearFilter})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.monthlyTrend || []}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => value.split(' ')[0]}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), "Amount"]}
-                    labelFormatter={(label) => label}
-                  />
-                  <Bar 
-                    dataKey="amount" 
-                    fill="hsl(var(--kpi-purple))" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payment Method Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Payment Methods ({yearFilter})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {methodBreakdownData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={methodBreakdownData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {methodBreakdownData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No payment data available
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Monthly Trend Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Monthly Tithe Collection ({yearFilter})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics?.monthlyTrend || []} margin={{ left: 10, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(value) => value.split(' ')[0]}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={formatYAxis}
+                  ticks={yAxisTicks}
+                  axisLine={false}
+                  tickLine={false}
+                  width={50}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                  labelFormatter={(label) => label}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  fill="hsl(var(--kpi-purple))" 
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Paying vs Non-paying Members */}
       <Card>
