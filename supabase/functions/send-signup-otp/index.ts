@@ -85,6 +85,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Hash the OTP before storing
     const hashedOtp = await hashOTP(otp, email);
+    console.log("DEBUG send OTP - email:", email.toLowerCase(), "otp prefix:", otp.substring(0, 2) + "****", "hash prefix:", hashedOtp.substring(0, 12));
 
     // Delete any existing OTP for this email
     await supabase
