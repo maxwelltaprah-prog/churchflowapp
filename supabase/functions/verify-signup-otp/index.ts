@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyOTP, addTimingJitter } from "../_shared/security.ts";
+import { verifyOTP, hashOTP, addTimingJitter } from "../_shared/security.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { getClientIdentifier, checkServerRateLimit, recordAttempt, clearServerRateLimit, rateLimitResponse } from "../_shared/rate-limiting.ts";
 import { secureJsonResponse, secureErrorResponse } from "../_shared/security-headers.ts";
@@ -83,12 +83,17 @@ serve(async (req: Request): Promise<Response> => {
       return secureJsonResponse({ error: "Verification code has expired", valid: false }, corsHeaders, 400);
     }
 
-    // Verify the OTP hash
-    console.log("Verifying OTP - email:", email.toLowerCase(), "hash length:", otpRecord.otp_code.length, "otp record created:", otpRecord.created_at);
+    // Verify the OTP hash - debug logging
+    const computedHash = await hashOTP(otp, email);
+    console.log("DEBUG OTP verify - email:", email.toLowerCase(), 
+      "stored hash prefix:", otpRecord.otp_code.substring(0, 12),
+      "computed hash prefix:", computedHash.substring(0, 12),
+      "match:", computedHash === otpRecord.otp_code,
+      "otp input:", otp.substring(0, 2) + "****");
     const isValidOTP = await verifyOTP(otp, otpRecord.otp_code, email);
     
     if (!isValidOTP) {
-      console.log("OTP verification failed for email:", email.toLowerCase());
+      console.log("OTP verification failed - hashes do NOT match");
       const remaining = emailRateLimit.remaining ?? 0;
       return secureJsonResponse({ 
         error: "Invalid verification code", 
