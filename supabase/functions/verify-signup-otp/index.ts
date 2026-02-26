@@ -84,9 +84,11 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Verify the OTP hash
+    console.log("Verifying OTP - email:", email.toLowerCase(), "hash length:", otpRecord.otp_code.length, "otp record created:", otpRecord.created_at);
     const isValidOTP = await verifyOTP(otp, otpRecord.otp_code, email);
     
     if (!isValidOTP) {
+      console.log("OTP verification failed for email:", email.toLowerCase());
       const remaining = emailRateLimit.remaining ?? 0;
       return secureJsonResponse({ 
         error: "Invalid verification code", 
