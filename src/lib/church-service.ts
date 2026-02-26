@@ -65,7 +65,7 @@ export async function createChurchWithAdmin({ churchName, adminName, email, pass
   const churchId = crypto.randomUUID();
   const branchId = crypto.randomUUID();
 
-  // 2. Create the church (avoid RETURNING to prevent RLS SELECT checks before profile is linked)
+  // 2. Create the church (user can insert because they have no existing church_admin role)
   const { error: churchError } = await supabase.from("churches").insert({
     id: churchId,
     name: churchName,
@@ -74,7 +74,16 @@ export async function createChurchWithAdmin({ churchName, adminName, email, pass
 
   if (churchError) throw churchError;
 
-  // 3. Create the main branch (avoid RETURNING for the same reason)
+  // 3. Assign church_admin role BEFORE creating branch (branch INSERT RLS requires is_church_admin)
+  const { error: roleError } = await supabase.from("user_roles").insert({
+    user_id: userId,
+    church_id: churchId,
+    role: "church_admin",
+  });
+
+  if (roleError) throw roleError;
+
+  // 4. Create the main branch (now allowed because user has church_admin role)
   const joinCode = generateJoinCode(slug, "Main");
   const { error: branchError } = await supabase.from("branches").insert({
     id: branchId,
@@ -86,7 +95,7 @@ export async function createChurchWithAdmin({ churchName, adminName, email, pass
 
   if (branchError) throw branchError;
 
-  // 4. Upsert the user's profile with church info (profile row may not exist yet)
+  // 5. Upsert the user's profile with church info
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert(
@@ -101,15 +110,6 @@ export async function createChurchWithAdmin({ churchName, adminName, email, pass
     );
 
   if (profileError) throw profileError;
-
-  // 5. Assign church_admin role
-  const { error: roleError } = await supabase.from("user_roles").insert({
-    user_id: userId,
-    church_id: churchId,
-    role: "church_admin",
-  });
-
-  if (roleError) throw roleError;
 
   return {
     church: { id: churchId, name: churchName, slug },
