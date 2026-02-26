@@ -60,49 +60,34 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if a valid OTP was created recently (within last 30 seconds) to prevent race conditions
-    // from duplicate function invocations overwriting each other
-    const { data: existingOtp } = await supabase
-      .from("signup_otps")
-      .select("id, created_at, expires_at")
-      .eq("email", email.toLowerCase())
-      .maybeSingle();
-
-    if (existingOtp) {
-      const createdAt = new Date(existingOtp.created_at).getTime();
-      const now = Date.now();
-      const expiresAt = new Date(existingOtp.expires_at).getTime();
-      // If OTP was created less than 30 seconds ago and not expired, skip regeneration
-      if (now - createdAt < 30000 && expiresAt > now) {
-        console.log("Recent valid OTP exists, skipping regeneration to prevent race condition");
-        return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
-      }
-    }
-
     // Generate cryptographically secure 6-digit OTP
     const otp = generateSecureOTP(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Hash the OTP before storing
     const hashedOtp = await hashOTP(otp, email);
-    console.log("DEBUG send OTP - email:", email.toLowerCase(), "otp prefix:", otp.substring(0, 2) + "****", "hash prefix:", hashedOtp.substring(0, 12));
 
-    // Delete any existing OTP for this email
+    // Delete any existing OTP for this email first
     await supabase
       .from("signup_otps")
       .delete()
       .eq("email", email.toLowerCase());
 
-    // Insert new hashed OTP
+    // Insert new hashed OTP - unique constraint on email prevents race condition duplicates
     const { error: insertError } = await supabase
       .from("signup_otps")
       .insert({
         email: email.toLowerCase(),
-        otp_code: hashedOtp, // Store hashed, not plain text
+        otp_code: hashedOtp,
         expires_at: expiresAt.toISOString(),
       });
 
     if (insertError) {
+      // If unique constraint violation, another isolate already inserted - skip silently
+      if (insertError.code === '23505') {
+        console.log("OTP already inserted by another isolate, skipping email send");
+        return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
+      }
       console.error("Error storing OTP:", insertError);
       return secureErrorResponse("Failed to generate OTP", corsHeaders, 500);
     }
