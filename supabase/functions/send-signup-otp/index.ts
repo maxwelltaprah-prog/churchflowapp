@@ -56,17 +56,35 @@ serve(async (req: Request): Promise<Response> => {
     recordAttempt(ipIdentifier, "otp");
     recordAttempt(emailIdentifier, "otp");
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if a valid OTP was created recently (within last 30 seconds) to prevent race conditions
+    // from duplicate function invocations overwriting each other
+    const { data: existingOtp } = await supabase
+      .from("signup_otps")
+      .select("id, created_at, expires_at")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    if (existingOtp) {
+      const createdAt = new Date(existingOtp.created_at).getTime();
+      const now = Date.now();
+      const expiresAt = new Date(existingOtp.expires_at).getTime();
+      // If OTP was created less than 30 seconds ago and not expired, skip regeneration
+      if (now - createdAt < 30000 && expiresAt > now) {
+        console.log("Recent valid OTP exists, skipping regeneration to prevent race condition");
+        return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
+      }
+    }
+
     // Generate cryptographically secure 6-digit OTP
     const otp = generateSecureOTP(6);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Hash the OTP before storing
     const hashedOtp = await hashOTP(otp, email);
-
-    // Store OTP in database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Delete any existing OTP for this email
     await supabase
