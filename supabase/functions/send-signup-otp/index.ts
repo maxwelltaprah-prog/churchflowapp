@@ -67,29 +67,35 @@ serve(async (req: Request): Promise<Response> => {
     // Hash the OTP before storing
     const hashedOtp = await hashOTP(otp, email);
 
-    // Delete any existing OTP for this email first
-    await supabase
+    // Atomic upsert - if another isolate already inserted for this email,
+    // this will update the existing row instead of failing.
+    // The LAST writer wins, and only that isolate's email will have the matching OTP.
+    const { error: upsertError } = await supabase
       .from("signup_otps")
-      .delete()
-      .eq("email", email.toLowerCase());
-
-    // Insert new hashed OTP - unique constraint on email prevents race condition duplicates
-    const { error: insertError } = await supabase
-      .from("signup_otps")
-      .insert({
+      .upsert({
         email: email.toLowerCase(),
         otp_code: hashedOtp,
         expires_at: expiresAt.toISOString(),
-      });
+        verified: false,
+      }, { onConflict: 'email' });
 
-    if (insertError) {
-      // If unique constraint violation, another isolate already inserted - skip silently
-      if (insertError.code === '23505') {
-        console.log("OTP already inserted by another isolate, skipping email send");
-        return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
-      }
-      console.error("Error storing OTP:", insertError);
+    if (upsertError) {
+      console.error("Error storing OTP:", upsertError);
       return secureErrorResponse("Failed to generate OTP", corsHeaders, 500);
+    }
+
+    // Verify OUR hash is the one stored (another isolate may have overwritten it)
+    const { data: storedRecord } = await supabase
+      .from("signup_otps")
+      .select("otp_code")
+      .eq("email", email.toLowerCase())
+      .single();
+
+    if (!storedRecord || storedRecord.otp_code !== hashedOtp) {
+      // Another isolate overwrote our hash - skip sending email
+      // That isolate will send its own email with the matching OTP
+      console.log("OTP was overwritten by another isolate, skipping email send");
+      return secureJsonResponse({ success: true, message: "Verification code sent successfully" }, corsHeaders);
     }
 
     // Send OTP email using configured sender or fallback
